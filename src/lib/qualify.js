@@ -1,63 +1,76 @@
 import {
-  referralDiscountTable,
-  discountModel,
+  levels,
+  returnPerReferralUsd,
+  premiumMultiplier,
 } from "../config/tiers.js";
 
 /*
- * Step function: dados N indicados ativos, retorna a maior linha da
- * tabela cuja `activeReferrals <= N`. Desconto vale só para o próximo
- * mês — basta chamar de novo no próximo ciclo.
+ * Conta apenas indicações qualificadas — fecharam e pagaram, sem
+ * cancelamento/reembolso/fraude.
  */
+export function countQualifiedReferrals(referrals = []) {
+  return referrals.filter(
+    (r) => r.status === "qualified" && !r.refunded && !r.fraud,
+  ).length;
+}
 
-export function countActiveReferrals(referrals = []) {
-  return referrals.filter((r) => r.active).length;
+function pickLevel(qualifiedCount) {
+  const sorted = [...levels].sort(
+    (a, b) => a.minQualifiedReferrals - b.minQualifiedReferrals,
+  );
+  let current = sorted[0];
+  for (const level of sorted) {
+    if (qualifiedCount >= level.minQualifiedReferrals) current = level;
+  }
+  return { current, sorted };
+}
+
+function estimateReturn(qualifiedCount, premium) {
+  const factor = premium ? premiumMultiplier : 1;
+  return {
+    starter: qualifiedCount * returnPerReferralUsd.starter * factor,
+    medio: qualifiedCount * returnPerReferralUsd.medio * factor,
+    growth: qualifiedCount * returnPerReferralUsd.growth * factor,
+    multiplier: factor,
+  };
 }
 
 export function qualify(referrals = []) {
-  const activeCount = countActiveReferrals(referrals);
-  const sorted = [...referralDiscountTable].sort(
-    (a, b) => a.activeReferrals - b.activeReferrals,
-  );
+  const qualifiedCount = countQualifiedReferrals(referrals);
+  const { current, sorted } = pickLevel(qualifiedCount);
 
-  let current = sorted[0];
-  for (const row of sorted) {
-    if (activeCount >= row.activeReferrals) current = row;
-  }
-
-  const currentIndex = sorted.findIndex(
-    (r) => r.activeReferrals === current.activeReferrals,
-  );
+  const currentIndex = sorted.findIndex((l) => l.id === current.id);
   const next = sorted[currentIndex + 1] ?? null;
 
   const progressToNext = next
     ? Math.min(
         1,
-        (activeCount - current.activeReferrals) /
-          (next.activeReferrals - current.activeReferrals),
+        (qualifiedCount - current.minQualifiedReferrals) /
+          (next.minQualifiedReferrals - current.minQualifiedReferrals),
       )
     : 1;
 
+  const referralsToNext = next
+    ? Math.max(0, next.minQualifiedReferrals - qualifiedCount)
+    : 0;
+
   return {
-    activeCount,
-    current,
+    qualifiedCount,
+    level: current,
     next,
+    referralsToNext,
     progressToNext,
-    discountUsd: current.discountUsd,
-    currency: discountModel.currency,
-    appliesTo: nextBillingMonthLabel(),
-    rows: sorted.map((row) => ({
-      ...row,
+    discountOnceUsd: current.discountOnceUsd,
+    discountMonthlyUsd: current.discountMonthlyUsd,
+    estimatedReturn: estimateReturn(qualifiedCount, current.premium),
+    rows: sorted.map((level) => ({
+      ...level,
       state:
-        row.activeReferrals === current.activeReferrals
+        level.id === current.id
           ? "current"
-          : activeCount >= row.activeReferrals
+          : qualifiedCount >= level.minQualifiedReferrals
             ? "qualified"
             : "locked",
     })),
   };
-}
-
-function nextBillingMonthLabel(now = new Date()) {
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  return next.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }

@@ -129,6 +129,52 @@ body {
   color: var(--n-color-primary);
 }
 
+.tier__benefits {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  font-size: var(--n-font-size-sm);
+}
+
+.tier[data-premium="true"] {
+  background: linear-gradient(180deg, #fff 0%, rgba(79, 70, 229, 0.04) 100%);
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
+  padding: var(--space-4);
+  border: var(--n-border);
+  border-radius: var(--n-border-radius);
+  background: var(--n-color-target);
+}
+
+.benefits-grid__label {
+  color: var(--n-text-color-disabled);
+  font-size: var(--n-font-size-sm);
+  margin-bottom: var(--space-1);
+}
+
+.benefits-grid__value {
+  font-size: var(--n-font-size-xl);
+  font-weight: 700;
+  color: var(--n-color-primary);
+}
+
+.benefits-grid__unit {
+  font-size: var(--n-font-size-sm);
+  font-weight: 500;
+  color: var(--n-text-color-disabled);
+  margin-left: 2px;
+}
+
+.badge--premium {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+  color: #fff;
+}
+
 /* Auto-qualify states */
 .tier[data-state="locked"]    { opacity: 0.6; }
 .tier[data-state="qualified"] {

@@ -3,57 +3,96 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Tiers & Descontos</title>
+    <title>Programa de Indicações</title>
     <link rel="stylesheet" href="./src/styles/tokens.css" />
     <link rel="stylesheet" href="./src/styles/components.css" />
   </head>
   <body>
     <header class="topbar">
-      <div class="hr-avatar" aria-hidden="true">T</div>
-      <div class="topbar__title">Tiers & Descontos</div>
+      <div class="hr-avatar" aria-hidden="true">I</div>
+      <div class="topbar__title">Programa de Indicações</div>
     </header>
 
     <main class="page">
       <section class="card">
-        <h2 class="card__title">Sua qualificação</h2>
+        <h2 class="card__title">Suas indicações</h2>
         <p class="card__subtitle">
-          O desconto é calculado a partir dos seus indicados <strong>ativos</strong>
-          na plataforma e é válido apenas para o próximo mês de cobrança.
-          Se um indicado deixar a plataforma, o tier é recalculado.
+          Apenas indicações <strong>qualificadas</strong> (fechou e pagou)
+          contam para o nível. Cancelamentos, reembolsos e fraudes são
+          removidos da contagem.
         </p>
 
         <div class="input-row">
-          <label for="active-input">Indicados ativos:</label>
-          <input id="active-input" type="number" min="0" step="1" value="3" />
-          <label for="inactive-input">Inativos:</label>
-          <input id="inactive-input" type="number" min="0" step="1" value="1" />
+          <label for="qualified-input">Qualificadas:</label>
+          <input id="qualified-input" type="number" min="0" step="1" value="5" />
+          <label for="pending-input">Pendentes:</label>
+          <input id="pending-input" type="number" min="0" step="1" value="0" />
+          <label for="refunded-input">Reembolsadas:</label>
+          <input id="refunded-input" type="number" min="0" step="1" value="0" />
         </div>
+      </section>
 
-        <div>
-          <strong>Desconto no próximo mês:</strong>
-          <span class="badge badge--current">
-            <span id="current-discount">$0</span>
+      <section class="card">
+        <h2 class="card__title">
+          Seu nível atual:
+          <span id="level-name">—</span>
+          <span id="premium-flag" class="badge badge--premium" hidden>
+            Multiplicador 1.2x ativo
           </span>
-        </div>
-        <div class="card__subtitle">
-          Você tem <strong id="active-count">0</strong> indicado(s) ativo(s).
-          Desconto aplicado em: <strong id="applies-to">—</strong>.
+        </h2>
+        <p class="card__subtitle">
+          Indicações qualificadas: <strong id="qualified-count">0</strong>
+        </p>
+
+        <div class="benefits-grid">
+          <div>
+            <div class="benefits-grid__label">Desconto único</div>
+            <div class="benefits-grid__value"><span id="discount-once">$0</span></div>
+          </div>
+          <div>
+            <div class="benefits-grid__label">Desconto mensal</div>
+            <div class="benefits-grid__value">
+              <span id="discount-monthly">$0</span><span class="benefits-grid__unit">/mês</span>
+            </div>
+          </div>
         </div>
 
         <div class="progress" aria-hidden="true">
           <div id="progress-bar" class="progress__bar" style="width: 0%"></div>
         </div>
-        <div id="next-tier" class="card__subtitle"></div>
+        <div id="next-msg" class="card__subtitle"></div>
       </section>
 
       <section class="card">
-        <h2 class="card__title">Tabela de descontos</h2>
+        <h2 class="card__title">Retorno estimado</h2>
         <p class="card__subtitle">
-          Auto-qualificação: o desconto é liberado automaticamente conforme a
-          quantidade de indicados ativos. Vale para qualquer plano e é
-          aplicado somente no próximo mês.
+          Projeção do retorno gerado pelas suas indicações qualificadas
+          (Starter $60, Médio $120, Growth $250 por indicação). No nível
+          Muito Avançado é aplicado multiplicador 1.2x.
         </p>
-        <div id="tier-list" class="tier-list"></div>
+        <div class="benefits-grid">
+          <div>
+            <div class="benefits-grid__label">Starter</div>
+            <div class="benefits-grid__value"><span id="return-starter">$0</span></div>
+          </div>
+          <div>
+            <div class="benefits-grid__label">Médio</div>
+            <div class="benefits-grid__value"><span id="return-medio">$0</span></div>
+          </div>
+          <div>
+            <div class="benefits-grid__label">Growth</div>
+            <div class="benefits-grid__value"><span id="return-growth">$0</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Todos os níveis</h2>
+        <p class="card__subtitle">
+          Auto-qualificação: o nível é liberado assim que o número mínimo
+          de indicações qualificadas é atingido.
+        </p>
+        <div id="level-list" class="tier-list"></div>
       </section>
     </main>
 

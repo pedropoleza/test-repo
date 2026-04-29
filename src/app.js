@@ -3,54 +3,88 @@ import { qualify } from "./lib/qualify.js";
 const fmtUsd = (n) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
-function makeReferrals(active, inactive) {
-  return [
-    ...Array.from({ length: active }, (_, i) => ({
-      id: `a${i}`,
-      active: true,
-    })),
-    ...Array.from({ length: inactive }, (_, i) => ({
-      id: `i${i}`,
-      active: false,
-    })),
-  ];
+function makeReferrals(qualified, pending, refunded) {
+  const out = [];
+  for (let i = 0; i < qualified; i++) out.push({ status: "qualified" });
+  for (let i = 0; i < pending; i++) out.push({ status: "pending" });
+  for (let i = 0; i < refunded; i++)
+    out.push({ status: "qualified", refunded: true });
+  return out;
+}
+
+function read(id) {
+  return Number(document.getElementById(id).value) || 0;
 }
 
 function render() {
-  const active = Number(document.getElementById("active-input").value) || 0;
-  const inactive = Number(document.getElementById("inactive-input").value) || 0;
-  const result = qualify(makeReferrals(active, inactive));
-
-  document.getElementById("current-discount").textContent = fmtUsd(
-    result.discountUsd,
+  const referrals = makeReferrals(
+    read("qualified-input"),
+    read("pending-input"),
+    read("refunded-input"),
   );
-  document.getElementById("applies-to").textContent = result.appliesTo;
-  document.getElementById("active-count").textContent = result.activeCount;
+  const result = qualify(referrals);
 
-  const nextEl = document.getElementById("next-tier");
+  document.getElementById("level-name").textContent = result.level.name;
+  document.getElementById("qualified-count").textContent = result.qualifiedCount;
+  document.getElementById("discount-once").textContent = fmtUsd(
+    result.discountOnceUsd,
+  );
+  document.getElementById("discount-monthly").textContent = fmtUsd(
+    result.discountMonthlyUsd,
+  );
+  document.getElementById("return-starter").textContent = fmtUsd(
+    result.estimatedReturn.starter,
+  );
+  document.getElementById("return-medio").textContent = fmtUsd(
+    result.estimatedReturn.medio,
+  );
+  document.getElementById("return-growth").textContent = fmtUsd(
+    result.estimatedReturn.growth,
+  );
+
+  const premiumEl = document.getElementById("premium-flag");
+  premiumEl.hidden = !result.level.premium;
+
+  const nextEl = document.getElementById("next-msg");
   if (result.next) {
-    const remaining = result.next.activeReferrals - result.activeCount;
-    nextEl.textContent =
-      `Faltam ${Math.max(0, remaining)} indicado(s) ativo(s) para subir o desconto a ${fmtUsd(result.next.discountUsd)}.`;
+    const monthlyJump =
+      result.next.discountMonthlyUsd - result.discountMonthlyUsd;
+    const onceJump = result.next.discountOnceUsd - result.discountOnceUsd;
+    const parts = [];
+    if (onceJump > 0) parts.push(`+${fmtUsd(onceJump)} desconto único`);
+    if (monthlyJump > 0) parts.push(`+${fmtUsd(monthlyJump)}/mês`);
+    const benefit = parts.length ? ` (${parts.join(", ")})` : "";
+    nextEl.textContent = `Faltam ${result.referralsToNext} indicação(ões) qualificada(s) para ${result.next.name}${benefit}.`;
   } else {
-    nextEl.textContent = "Você atingiu o desconto máximo da tabela atual.";
+    nextEl.textContent = "Você atingiu o nível máximo do programa.";
   }
 
   document.getElementById("progress-bar").style.width =
     `${Math.round(result.progressToNext * 100)}%`;
 
-  const list = document.getElementById("tier-list");
+  const list = document.getElementById("level-list");
   list.innerHTML = "";
   for (const row of result.rows) {
+    if (row.id === "none") continue;
     const node = document.createElement("div");
     node.className = "tier";
     node.dataset.state = row.state;
+    if (row.premium) node.dataset.premium = "true";
+    const monthly =
+      row.discountMonthlyUsd > 0
+        ? `${fmtUsd(row.discountMonthlyUsd)}/mês`
+        : "—";
     node.innerHTML = `
       <div class="tier__name">
-        ${row.activeReferrals} indicado(s)
+        ${row.name}
         <span class="badge badge--${row.state}">${labelFor(row.state)}</span>
+        ${row.premium ? '<span class="badge badge--premium">Premium</span>' : ""}
       </div>
-      <div class="tier__discount">${fmtUsd(row.discountUsd)}</div>
+      <div class="tier__threshold">a partir de ${row.minQualifiedReferrals} indicação(ões) qualificada(s)</div>
+      <div class="tier__benefits">
+        <div><strong>Único:</strong> ${fmtUsd(row.discountOnceUsd)}</div>
+        <div><strong>Mensal:</strong> ${monthly}</div>
+      </div>
     `;
     list.appendChild(node);
   }
@@ -62,7 +96,7 @@ function labelFor(state) {
   return "Bloqueado";
 }
 
-for (const id of ["active-input", "inactive-input"]) {
+for (const id of ["qualified-input", "pending-input", "refunded-input"]) {
   document.getElementById(id).addEventListener("input", render);
 }
 render();

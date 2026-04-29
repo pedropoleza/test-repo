@@ -1,14 +1,12 @@
-import { tiers, discountModel } from "../config/tiers.js";
+import {
+  referralDiscountTable,
+  discountModel,
+} from "../config/tiers.js";
 
 /*
- * Auto-qualify por número de indicados ATIVOS.
- *
- * Regras:
- *   - Apenas indicados ativos contam (ver `countActiveReferrals`).
- *   - O desconto resultante vale somente para o próximo mês de cobrança.
- *   - Se um indicado se torna inativo antes do faturamento do próximo
- *     mês, o tier deve ser recalculado — esta função é pura, então
- *     basta chamá-la novamente.
+ * Step function: dados N indicados ativos, retorna a maior linha da
+ * tabela cuja `activeReferrals <= N`. Desconto vale só para o próximo
+ * mês — basta chamar de novo no próximo ciclo.
  */
 
 export function countActiveReferrals(referrals = []) {
@@ -17,23 +15,25 @@ export function countActiveReferrals(referrals = []) {
 
 export function qualify(referrals = []) {
   const activeCount = countActiveReferrals(referrals);
-  const sorted = [...tiers].sort(
-    (a, b) => a.minActiveReferrals - b.minActiveReferrals,
+  const sorted = [...referralDiscountTable].sort(
+    (a, b) => a.activeReferrals - b.activeReferrals,
   );
 
   let current = sorted[0];
-  for (const tier of sorted) {
-    if (activeCount >= tier.minActiveReferrals) current = tier;
+  for (const row of sorted) {
+    if (activeCount >= row.activeReferrals) current = row;
   }
 
-  const currentIndex = sorted.findIndex((t) => t.id === current.id);
+  const currentIndex = sorted.findIndex(
+    (r) => r.activeReferrals === current.activeReferrals,
+  );
   const next = sorted[currentIndex + 1] ?? null;
 
   const progressToNext = next
     ? Math.min(
         1,
-        (activeCount - current.minActiveReferrals) /
-          (next.minActiveReferrals - current.minActiveReferrals),
+        (activeCount - current.activeReferrals) /
+          (next.activeReferrals - current.activeReferrals),
       )
     : 1;
 
@@ -42,15 +42,15 @@ export function qualify(referrals = []) {
     current,
     next,
     progressToNext,
-    discountPct: current.discountPct,
+    discountUsd: current.discountUsd,
+    currency: discountModel.currency,
     appliesTo: nextBillingMonthLabel(),
-    durationInMonths: discountModel.durationInMonths,
-    states: sorted.map((t) => ({
-      ...t,
+    rows: sorted.map((row) => ({
+      ...row,
       state:
-        t.id === current.id
+        row.activeReferrals === current.activeReferrals
           ? "current"
-          : activeCount >= t.minActiveReferrals
+          : activeCount >= row.activeReferrals
             ? "qualified"
             : "locked",
     })),

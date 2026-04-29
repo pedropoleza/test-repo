@@ -1,30 +1,34 @@
 /*
- * Tier + discount configuration.
+ * Tabela de descontos por indicados ativos.
  *
  * Decisões confirmadas pelo usuário:
- *   - Apenas 3 planos: Starter, Growth, Scale.
- *   - Qualificação depende de INDICADOS ATIVOS na plataforma —
- *     se um indicado deixa a plataforma, ele para de contar.
- *   - Desconto só é aplicado no PRÓXIMO MÊS (validade de 1 ciclo,
- *     não-acumulativo, não-retroativo).
+ *   - O desconto NÃO depende do plano. Qualquer plano participa.
+ *   - Valor é fixo em USD, não percentual.
+ *   - Step function: o cliente recebe o valor da maior linha cuja
+ *     contagem de indicados ativos seja <= ao seu total de ativos.
+ *   - Indicados inativos não contam.
+ *   - Desconto vale apenas para o próximo mês de cobrança e é
+ *     recalculado todo ciclo (não cumulativo, não retroativo).
  *
- * PENDENTE — confirmar com o usuário:
- *   - Percentuais de desconto e thresholds de indicados ativos por tier.
- *     Os valores abaixo são working defaults.
+ * Valores confirmados (via planilha do usuário):
+ *   1 indicação  →  USD 30
+ *   3 indicações →  USD 70
+ *   5 indicações →  USD 100
+ *
+ * TODO(user): completar as linhas restantes da planilha
+ * (2, 4, 6, 7+ etc.) quando confirmadas.
  */
 
 export const discountModel = {
-  type: "next-month-only",
+  currency: "USD",
   durationInMonths: 1,
   cumulative: false,
-  // O desconto exige que os indicados continuem ativos no momento
-  // do faturamento do próximo mês. Reavaliado todo ciclo.
   requiresActiveReferrals: true,
 };
 
-export const tiers = [
-  // TODO(user): confirmar thresholds e % conforme tabela final.
-  { id: "starter", name: "Starter", minActiveReferrals: 0, discountPct:  0 },
-  { id: "growth",  name: "Growth",  minActiveReferrals: 3, discountPct: 10 },
-  { id: "scale",   name: "Scale",   minActiveReferrals: 7, discountPct: 25 },
+export const referralDiscountTable = [
+  { activeReferrals: 0, discountUsd: 0 },
+  { activeReferrals: 1, discountUsd: 30 },
+  { activeReferrals: 3, discountUsd: 70 },
+  { activeReferrals: 5, discountUsd: 100 },
 ];

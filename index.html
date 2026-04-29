@@ -17,12 +17,16 @@
       <section class="card">
         <h2 class="card__title">Sua qualificação</h2>
         <p class="card__subtitle">
-          Atualize seu MRR para visualizar em tempo real qual tier você atinge.
+          O desconto é calculado a partir dos seus indicados <strong>ativos</strong>
+          na plataforma e é válido apenas para o próximo mês de cobrança.
+          Se um indicado deixar a plataforma, o tier é recalculado.
         </p>
 
         <div class="input-row">
-          <label for="mrr-input">MRR atual (BRL):</label>
-          <input id="mrr-input" type="number" min="0" step="100" value="1500" />
+          <label for="active-input">Indicados ativos:</label>
+          <input id="active-input" type="number" min="0" step="1" value="3" />
+          <label for="inactive-input">Inativos:</label>
+          <input id="inactive-input" type="number" min="0" step="1" value="1" />
         </div>
 
         <div>
@@ -30,8 +34,12 @@
           <span id="current-tier">—</span>
           <span class="badge badge--current">
             <span id="current-discount">0%</span>
-            por <span id="discount-duration">—</span>
+            no próximo mês
           </span>
+        </div>
+        <div class="card__subtitle">
+          Você tem <strong id="active-count">0</strong> indicado(s) ativo(s).
+          Desconto aplicado em: <strong id="applies-to">—</strong>.
         </div>
 
         <div class="progress" aria-hidden="true">
@@ -43,8 +51,9 @@
       <section class="card">
         <h2 class="card__title">Todos os tiers</h2>
         <p class="card__subtitle">
-          Auto-qualificação: você libera automaticamente o tier ao atingir o
-          MRR mínimo — sem necessidade de revisão manual.
+          Auto-qualificação: o tier é liberado automaticamente quando o número
+          mínimo de indicados ativos é atingido — sem revisão manual.
+          Os percentuais abaixo são aplicados somente no próximo mês.
         </p>
         <div id="tier-list" class="tier-list"></div>
       </section>

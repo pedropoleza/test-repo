@@ -1,28 +1,30 @@
 /*
  * Tier + discount configuration.
  *
- * PENDING USER INPUT — replace placeholder values once confirmed:
- *   1. `discountModel` — user said "Aguarde mais detalhes disso".
- *      Current placeholder: Stripe-style "repeating" coupon, 3 months, 50% cap.
- *   2. `tiers[].thresholdMRR` and `tiers[].discountPct` —
- *      user said "Aguarde". Numbers below are working defaults.
+ * Decisões confirmadas pelo usuário:
+ *   - Apenas 3 planos: Starter, Growth, Scale.
+ *   - Qualificação depende de INDICADOS ATIVOS na plataforma —
+ *     se um indicado deixa a plataforma, ele para de contar.
+ *   - Desconto só é aplicado no PRÓXIMO MÊS (validade de 1 ciclo,
+ *     não-acumulativo, não-retroativo).
  *
- * Everything that consumes this file reads from the exported objects only,
- * so swapping values here is a one-edit change.
+ * PENDENTE — confirmar com o usuário:
+ *   - Percentuais de desconto e thresholds de indicados ativos por tier.
+ *     Os valores abaixo são working defaults.
  */
 
 export const discountModel = {
-  // TODO(user): confirm — "A com repeating 3 meses, cap 50%" is the working assumption.
-  type: "repeating",
-  durationInMonths: 3,
-  capPct: 50,
+  type: "next-month-only",
+  durationInMonths: 1,
+  cumulative: false,
+  // O desconto exige que os indicados continuem ativos no momento
+  // do faturamento do próximo mês. Reavaliado todo ciclo.
+  requiresActiveReferrals: true,
 };
 
 export const tiers = [
-  // TODO(user): confirm tier names, MRR thresholds, and discount %.
-  { id: "starter",  name: "Starter",  thresholdMRR:    0, discountPct:  0 },
-  { id: "growth",   name: "Growth",   thresholdMRR:  500, discountPct: 10 },
-  { id: "scale",    name: "Scale",    thresholdMRR: 2000, discountPct: 25 },
-  { id: "elite",    name: "Elite",    thresholdMRR: 5000, discountPct: 40 },
-  { id: "partner",  name: "Partner",  thresholdMRR: 10000, discountPct: 50 },
+  // TODO(user): confirmar thresholds e % conforme tabela final.
+  { id: "starter", name: "Starter", minActiveReferrals: 0, discountPct:  0 },
+  { id: "growth",  name: "Growth",  minActiveReferrals: 3, discountPct: 10 },
+  { id: "scale",   name: "Scale",   minActiveReferrals: 7, discountPct: 25 },
 ];

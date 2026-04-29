@@ -15,24 +15,6 @@
 
     <main class="page">
       <section class="card">
-        <h2 class="card__title">Suas indicações</h2>
-        <p class="card__subtitle">
-          Apenas indicações <strong>qualificadas</strong> (fechou e pagou)
-          contam para o nível. Cancelamentos, reembolsos e fraudes são
-          removidos da contagem.
-        </p>
-
-        <div class="input-row">
-          <label for="qualified-input">Qualificadas:</label>
-          <input id="qualified-input" type="number" min="0" step="1" value="5" />
-          <label for="pending-input">Pendentes:</label>
-          <input id="pending-input" type="number" min="0" step="1" value="0" />
-          <label for="refunded-input">Reembolsadas:</label>
-          <input id="refunded-input" type="number" min="0" step="1" value="0" />
-        </div>
-      </section>
-
-      <section class="card">
         <h2 class="card__title">
           Seu nível atual:
           <span id="level-name">—</span>
@@ -41,7 +23,9 @@
           </span>
         </h2>
         <p class="card__subtitle">
-          Indicações qualificadas: <strong id="qualified-count">0</strong>
+          Indicações qualificadas: <strong id="qualified-count">0</strong>.
+          Cada indicação qualifica automaticamente após 30 dias da criação
+          da subaccount, desde que o cupom do indicador tenha sido emitido.
         </p>
 
         <div class="benefits-grid">
@@ -64,11 +48,31 @@
       </section>
 
       <section class="card">
+        <h2 class="card__title">Suas indicações</h2>
+        <p class="card__subtitle">
+          Atualizado automaticamente. Indicações invalidadas (cancelamento,
+          reembolso ou fraude) deixam de contar para o nível.
+        </p>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Indicado</th>
+              <th>Subaccount em</th>
+              <th>Cupom</th>
+              <th>Status</th>
+              <th>Detalhe</th>
+            </tr>
+          </thead>
+          <tbody id="referrals-tbody"></tbody>
+        </table>
+      </section>
+
+      <section class="card">
         <h2 class="card__title">Retorno estimado</h2>
         <p class="card__subtitle">
-          Projeção do retorno gerado pelas suas indicações qualificadas
-          (Starter $60, Médio $120, Growth $250 por indicação). No nível
-          Muito Avançado é aplicado multiplicador 1.2x.
+          Projeção pelas indicações qualificadas (Starter $60, Médio $120,
+          Growth $250 por indicação). Multiplicador 1.2x no nível
+          Muito Avançado.
         </p>
         <div class="benefits-grid">
           <div>
@@ -89,8 +93,8 @@
       <section class="card">
         <h2 class="card__title">Todos os níveis</h2>
         <p class="card__subtitle">
-          Auto-qualificação: o nível é liberado assim que o número mínimo
-          de indicações qualificadas é atingido.
+          Auto-qualificação: o nível avança assim que o número mínimo de
+          indicações qualificadas é atingido.
         </p>
         <div id="level-list" class="tier-list"></div>
       </section>

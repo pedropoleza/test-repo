@@ -1,28 +1,39 @@
 import { qualify } from "./lib/qualify.js";
+import { sampleReferrals } from "./data/sample-referrals.js";
 
 const fmtUsd = (n) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
-function makeReferrals(qualified, pending, refunded) {
-  const out = [];
-  for (let i = 0; i < qualified; i++) out.push({ status: "qualified" });
-  for (let i = 0; i < pending; i++) out.push({ status: "pending" });
-  for (let i = 0; i < refunded; i++)
-    out.push({ status: "qualified", refunded: true });
-  return out;
-}
+const fmtDate = (d) =>
+  new Date(d).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 
-function read(id) {
-  return Number(document.getElementById(id).value) || 0;
+const STATUS_LABEL = {
+  qualified: "Qualificada",
+  "awaiting-time": "Aguardando 30 dias",
+  "awaiting-coupon": "Aguardando cupom",
+  "awaiting-both": "Aguardando 30 dias + cupom",
+  "awaiting-subaccount": "Aguardando subaccount",
+  invalidated: "Cancelada / inválida",
+};
+
+function statusDetail(r) {
+  if (r.status === "qualified") return "—";
+  if (r.status === "invalidated") return "removida da contagem";
+  if (r.status === "awaiting-subaccount") return "subaccount não criada";
+  if (r.status === "awaiting-coupon") return "cupom pendente de emissão";
+  if (r.status === "awaiting-time" || r.status === "awaiting-both") {
+    const days = r.daysUntilQualified;
+    return `qualifica em ${days} dia${days === 1 ? "" : "s"}`;
+  }
+  return "";
 }
 
 function render() {
-  const referrals = makeReferrals(
-    read("qualified-input"),
-    read("pending-input"),
-    read("refunded-input"),
-  );
-  const result = qualify(referrals);
+  const result = qualify(sampleReferrals);
 
   document.getElementById("level-name").textContent = result.level.name;
   document.getElementById("qualified-count").textContent = result.qualifiedCount;
@@ -41,9 +52,7 @@ function render() {
   document.getElementById("return-growth").textContent = fmtUsd(
     result.estimatedReturn.growth,
   );
-
-  const premiumEl = document.getElementById("premium-flag");
-  premiumEl.hidden = !result.level.premium;
+  document.getElementById("premium-flag").hidden = !result.level.premium;
 
   const nextEl = document.getElementById("next-msg");
   if (result.next) {
@@ -61,6 +70,21 @@ function render() {
 
   document.getElementById("progress-bar").style.width =
     `${Math.round(result.progressToNext * 100)}%`;
+
+  const tbody = document.getElementById("referrals-tbody");
+  tbody.innerHTML = "";
+  for (const r of result.referrals) {
+    const tr = document.createElement("tr");
+    tr.dataset.status = r.status;
+    tr.innerHTML = `
+      <td>${r.name}</td>
+      <td>${fmtDate(r.subaccountAddedAt)}</td>
+      <td>${r.couponIssued ? "Emitido" : "Pendente"}</td>
+      <td><span class="badge badge--${r.status}">${STATUS_LABEL[r.status]}</span></td>
+      <td class="muted">${statusDetail(r)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
 
   const list = document.getElementById("level-list");
   list.innerHTML = "";
@@ -96,7 +120,4 @@ function labelFor(state) {
   return "Bloqueado";
 }
 
-for (const id of ["qualified-input", "pending-input", "refunded-input"]) {
-  document.getElementById(id).addEventListener("input", render);
-}
 render();

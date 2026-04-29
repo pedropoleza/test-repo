@@ -175,6 +175,40 @@ body {
   color: #fff;
 }
 
+.badge--qualified         { background: rgba(24, 160, 88, 0.12); color: var(--n-color-success); }
+.badge--awaiting-time,
+.badge--awaiting-coupon,
+.badge--awaiting-both,
+.badge--awaiting-subaccount { background: rgba(240, 160, 32, 0.14); color: #b45309; }
+.badge--invalidated       { background: rgba(208, 48, 80, 0.12); color: var(--n-color-error); }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--n-font-size);
+}
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: var(--space-3) var(--space-2);
+  border-bottom: var(--n-border);
+}
+.data-table th {
+  font-weight: 600;
+  color: var(--n-text-color-disabled);
+  font-size: var(--n-font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.data-table tr[data-status="invalidated"] td {
+  color: var(--n-text-color-disabled);
+  text-decoration: line-through;
+}
+.data-table .muted {
+  color: var(--n-text-color-disabled);
+  font-size: var(--n-font-size-sm);
+}
+
 /* Auto-qualify states */
 .tier[data-state="locked"]    { opacity: 0.6; }
 .tier[data-state="qualified"] {

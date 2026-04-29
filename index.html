@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR" data-jetski-tab-id="app" style="--v2-topbar-height: 88px;">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tiers & Descontos</title>
+    <link rel="stylesheet" href="./src/styles/tokens.css" />
+    <link rel="stylesheet" href="./src/styles/components.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="hr-avatar" aria-hidden="true">T</div>
+      <div class="topbar__title">Tiers & Descontos</div>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <h2 class="card__title">Sua qualificação</h2>
+        <p class="card__subtitle">
+          Atualize seu MRR para visualizar em tempo real qual tier você atinge.
+        </p>
+
+        <div class="input-row">
+          <label for="mrr-input">MRR atual (BRL):</label>
+          <input id="mrr-input" type="number" min="0" step="100" value="1500" />
+        </div>
+
+        <div>
+          <strong>Tier atual:</strong>
+          <span id="current-tier">—</span>
+          <span class="badge badge--current">
+            <span id="current-discount">0%</span>
+            por <span id="discount-duration">—</span>
+          </span>
+        </div>
+
+        <div class="progress" aria-hidden="true">
+          <div id="progress-bar" class="progress__bar" style="width: 0%"></div>
+        </div>
+        <div id="next-tier" class="card__subtitle"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="card__title">Todos os tiers</h2>
+        <p class="card__subtitle">
+          Auto-qualificação: você libera automaticamente o tier ao atingir o
+          MRR mínimo — sem necessidade de revisão manual.
+        </p>
+        <div id="tier-list" class="tier-list"></div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>

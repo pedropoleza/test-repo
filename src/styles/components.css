@@ -1,0 +1,190 @@
+/* GHL-style primitives, ported from the provided sample. */
+
+.hr-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hr-ellipsis--line-clamp {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hr-skeleton {
+  display: inline-block;
+  vertical-align: middle;
+  background-color: var(--n-color-start);
+  height: var(--n-merged-size);
+  border-radius: var(--n-border-radius);
+  animation: skeleton-loading 2s var(--n-bezier-skeleton) infinite;
+}
+
+@keyframes skeleton-loading {
+  0%   { background: var(--n-color-start); }
+  50%  { background: var(--n-color-end); }
+  100% { background: var(--n-color-start); }
+}
+
+.hr-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--n-merged-size);
+  height: var(--n-merged-size);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--n-merged-color);
+  border: var(--n-border);
+  color: var(--n-text-color);
+  font-size: var(--n-font-size-sm);
+}
+
+/* App layout */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--n-font-family);
+  font-size: var(--n-font-size);
+  line-height: var(--n-line-height);
+  color: var(--n-text-color);
+  background: #f6f7f9;
+}
+
+.topbar {
+  height: var(--v2-topbar-height);
+  background: var(--n-color);
+  border-bottom: var(--n-border);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-5);
+  gap: var(--space-3);
+}
+
+.topbar__title {
+  font-size: var(--n-font-size-xl);
+  font-weight: 600;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+}
+
+.card {
+  background: var(--n-color);
+  border: var(--n-border);
+  border-radius: var(--n-border-radius-lg);
+  box-shadow: var(--n-box-shadow-1);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+
+.card__title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--n-font-size-lg);
+  font-weight: 600;
+}
+
+.card__subtitle {
+  margin: 0 0 var(--space-4);
+  color: var(--n-text-color-disabled);
+}
+
+/* Tier list */
+.tier-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.tier {
+  border: var(--n-border);
+  border-radius: var(--n-border-radius);
+  padding: var(--space-4);
+  background: var(--n-color);
+  transition: border-color var(--n-duration) var(--n-bezier),
+              box-shadow var(--n-duration) var(--n-bezier),
+              transform var(--n-duration) var(--n-bezier);
+}
+
+.tier__name {
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.tier__threshold {
+  color: var(--n-text-color-disabled);
+  font-size: var(--n-font-size-sm);
+  margin-bottom: var(--space-3);
+}
+
+.tier__discount {
+  font-size: var(--n-font-size-xl);
+  font-weight: 700;
+  color: var(--n-color-primary);
+}
+
+/* Auto-qualify states */
+.tier[data-state="locked"]    { opacity: 0.6; }
+.tier[data-state="qualified"] {
+  border-color: var(--n-color-success);
+  box-shadow: 0 0 0 2px rgba(24, 160, 88, 0.15);
+}
+.tier[data-state="current"] {
+  border-color: var(--n-color-primary);
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.18);
+  transform: translateY(-2px);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: 999px;
+  font-size: var(--n-font-size-sm);
+  font-weight: 500;
+  margin-left: var(--space-2);
+}
+.badge--current   { background: rgba(79, 70, 229, 0.12);  color: var(--n-color-primary); }
+.badge--qualified { background: rgba(24, 160, 88, 0.12);  color: var(--n-color-success); }
+.badge--locked    { background: rgba(0, 0, 0, 0.06);       color: var(--n-text-color-disabled); }
+
+/* Progress */
+.progress {
+  height: 8px;
+  background: var(--n-color-target);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: var(--space-3) 0 var(--space-2);
+}
+.progress__bar {
+  height: 100%;
+  background: var(--n-color-primary);
+  transition: width var(--n-duration-slow) var(--n-bezier);
+}
+
+.input-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+.input-row label { font-weight: 500; }
+.input-row input {
+  flex: 1;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: var(--n-border);
+  border-radius: var(--n-border-radius);
+  font: inherit;
+  color: inherit;
+}
+.input-row input:focus {
+  outline: none;
+  border-color: var(--n-color-primary);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}

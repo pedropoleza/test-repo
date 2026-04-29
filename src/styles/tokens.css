@@ -1,0 +1,83 @@
+/*
+ * Design tokens extracted from the GHL (GoHighLevel) sample HTML/CSS.
+ * The source uses a Naive-UI–style theme with `hr-` prefixed components
+ * driven entirely by CSS custom properties. We surface those here as a
+ * single source of truth so app components inherit the GHL look-and-feel.
+ *
+ * Naming mirrors the source variables (`--n-*`, `--v2-*`) so that pasting
+ * a GHL snippet into the app works without rewrites.
+ */
+
+:root {
+  /* Layout chrome */
+  --v2-topbar-height: 88px;
+
+  /* Color — neutrals */
+  --n-color: #ffffff;
+  --n-color-modal: #ffffff;
+  --n-color-popover: #ffffff;
+  --n-color-target: rgba(0, 0, 0, 0.04);
+  --n-text-color: rgb(31, 34, 37);
+  --n-text-color-disabled: rgba(31, 34, 37, 0.4);
+
+  /* Color — brand (GHL violet/indigo family, neutral fallback until brand is confirmed) */
+  --n-color-primary: #4f46e5;
+  --n-color-primary-hover: #6366f1;
+  --n-color-primary-pressed: #4338ca;
+  --n-color-primary-suppl: #4f46e5;
+
+  /* Color — semantic */
+  --n-color-success: #18a058;
+  --n-color-warning: #f0a020;
+  --n-color-error: #d03050;
+  --n-color-info: #2080f0;
+
+  /* Borders & radii */
+  --n-border: 1px solid rgb(224, 224, 230);
+  --n-border-color: rgb(224, 224, 230);
+  --n-border-radius: 6px;
+  --n-border-radius-sm: 3px;
+  --n-border-radius-lg: 10px;
+
+  /* Sizing baselines used by hr-avatar, hr-skeleton, etc. */
+  --n-merged-size: 40px;
+  --n-merged-color: var(--n-color);
+
+  /* Typography */
+  --n-font-size: 14px;
+  --n-font-size-sm: 12px;
+  --n-font-size-lg: 16px;
+  --n-font-size-xl: 20px;
+  --n-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --n-line-height: 1.5;
+
+  /* Spacing scale (derived; GHL inlines pixel values, scale is consistent) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Motion — pulled directly from GHL skeleton-loading keyframe */
+  --n-bezier: cubic-bezier(0.4, 0, 0.2, 1);
+  --n-bezier-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --n-bezier-skeleton: cubic-bezier(0.36, 0, 0.64, 1);
+  --n-duration-fast: 150ms;
+  --n-duration: 200ms;
+  --n-duration-slow: 300ms;
+
+  /* Skeleton-specific */
+  --n-color-start: rgba(0, 0, 0, 0.06);
+  --n-color-end: rgba(0, 0, 0, 0.12);
+
+  /* Elevation */
+  --n-box-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04),
+    0 1px 6px -1px rgba(0, 0, 0, 0.06);
+  --n-box-shadow-2: 0 3px 6px -4px rgba(0, 0, 0, 0.12),
+    0 6px 16px rgba(0, 0, 0, 0.08);
+  --n-box-shadow-3: 0 6px 16px -8px rgba(0, 0, 0, 0.16),
+    0 9px 28px rgba(0, 0, 0, 0.12);
+}

@@ -2,22 +2,51 @@ import { qualify } from "./lib/qualify.js";
 import { sampleReferrals } from "./data/sample-referrals.js";
 import { levels } from "./config/tiers.js";
 
+/* ============== Helpers ============== */
+
 const fmtUsd = (n) =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
-/* ============== Tabs ============== */
+const $ = (id) => document.getElementById(id);
 
-function setupTabs() {
-  const tabs = document.querySelectorAll(".tab");
-  const panels = document.querySelectorAll(".panel");
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      tabs.forEach((t) => t.classList.toggle("is-active", t === tab));
-      panels.forEach((p) => {
-        p.hidden = p.dataset.panel !== tab.dataset.tab;
-      });
-    });
-  });
+/* ============== Toasts ============== */
+
+const ICON = { success: "✓", info: "i", warn: "!" };
+
+function toast({ title, sub, tone = "info", duration = 3200 } = {}) {
+  const root = $("toasts");
+  if (!root) return;
+  const el = document.createElement("div");
+  el.className = `toast toast--${tone}`;
+  el.innerHTML = `
+    <span class="toast__icon">${ICON[tone] || "•"}</span>
+    <div>
+      <div class="toast__title">${title || ""}</div>
+      ${sub ? `<div class="toast__sub">${sub}</div>` : ""}
+    </div>
+  `;
+  root.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("is-out");
+    setTimeout(() => el.remove(), 260);
+  }, duration);
+}
+
+/* ============== Confetti ============== */
+
+function fireConfetti() {
+  if (typeof confetti !== "function") return;
+  const defaults = {
+    spread: 80,
+    ticks: 80,
+    gravity: 0.9,
+    decay: 0.92,
+    startVelocity: 35,
+    colors: ["#155EEF", "#6366f1", "#22c55e", "#f59e0b", "#06b6d4"],
+  };
+  confetti({ ...defaults, particleCount: 60, origin: { y: 0.3, x: 0.45 } });
+  setTimeout(() => confetti({ ...defaults, particleCount: 40, origin: { y: 0.4, x: 0.55 } }), 180);
+  setTimeout(() => confetti({ ...defaults, particleCount: 50, origin: { y: 0.35, x: 0.50 } }), 360);
 }
 
 /* ============== Reveal-on-scroll ============== */
@@ -42,7 +71,41 @@ function setupReveal() {
   targets.forEach((el) => io.observe(el));
 }
 
-/* ============== Lottie hover-only ============== */
+/* ============== Tabs (sliding indicator) ============== */
+
+function setupTabs() {
+  const tabs = document.querySelectorAll(".tab");
+  const panels = document.querySelectorAll(".panel");
+  const indicator = $("tabs-indicator");
+
+  function moveIndicator(activeTab) {
+    if (!indicator || !activeTab) return;
+    const r = activeTab.getBoundingClientRect();
+    const parent = activeTab.parentElement.getBoundingClientRect();
+    indicator.style.transform = `translateX(${r.left - parent.left}px)`;
+    indicator.style.width = `${r.width}px`;
+  }
+
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      tabs.forEach((t) => t.classList.toggle("is-active", t === tab));
+      panels.forEach((p) => {
+        p.hidden = p.dataset.panel !== tab.dataset.tab;
+      });
+      moveIndicator(tab);
+    });
+  });
+
+  // Initial position (after fonts/layout settle)
+  requestAnimationFrame(() => {
+    moveIndicator(document.querySelector(".tab.is-active"));
+  });
+  window.addEventListener("resize", () => {
+    moveIndicator(document.querySelector(".tab.is-active"));
+  });
+}
+
+/* ============== Hover-only lotties ============== */
 
 function setupHoverLotties() {
   const ready = () => {
@@ -54,14 +117,10 @@ function setupHoverLotties() {
         p.removeAttribute("loop");
       });
       host.addEventListener("mouseenter", () => {
-        players.forEach((p) => {
-          try { p.setLooping?.(true); p.play?.(); } catch {}
-        });
+        players.forEach((p) => { try { p.setLooping?.(true); p.play?.(); } catch {} });
       });
       host.addEventListener("mouseleave", () => {
-        players.forEach((p) => {
-          try { p.stop?.(); } catch {}
-        });
+        players.forEach((p) => { try { p.stop?.(); } catch {} });
       });
     });
   };
@@ -69,10 +128,211 @@ function setupHoverLotties() {
   else customElements.whenDefined("lottie-player").then(ready);
 }
 
+/* ============== Animated counter ============== */
+
+function animateCount(el, to, { prefix = "", duration = 900 } = {}) {
+  if (!el) return;
+  const from = Number(el.dataset.value || 0);
+  if (from === to) {
+    el.textContent = `${prefix}${Math.round(to).toLocaleString("en-US")}`;
+    return;
+  }
+  el.dataset.value = String(to);
+  const start = performance.now();
+  const ease = (t) => 1 - Math.pow(1 - t, 3);
+  function frame(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const value = from + (to - from) * ease(t);
+    el.textContent = `${prefix}${Math.round(value).toLocaleString("en-US")}`;
+    if (t < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ============== Location + Coupon ============== */
+
+function getLocation() {
+  // TODO(integração GHL): substituir por dados do SSO/iframe.
+  return { name: "Sparkleads", id: "loc_placeholder" };
+}
+
+function deriveCoupon(name) {
+  const first = (name || "").trim().split(/\s+/)[0] || "";
+  const slug = first.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return slug ? `${slug}OFF` : "—";
+}
+
+function applyLocationAndCoupon() {
+  const loc = getLocation();
+  const code = deriveCoupon(loc.name);
+
+  const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
+  setText("location-name", loc.name);
+  setText("settings-location", loc.name);
+  setText("coupon-code", code);
+  setText("coupon-company", loc.name);
+  setText("settings-coupon", code);
+
+  // Drop skeleton classes once data is in
+  document
+    .querySelectorAll(".skeleton")
+    .forEach((el) => el.classList.remove("skeleton"));
+
+  const heroBtn = $("coupon-copy");
+  const setBtn = $("settings-coupon-copy");
+  if (heroBtn) heroBtn.dataset.code = code;
+  if (setBtn) setBtn.dataset.code = code;
+  $("share-code") && ($("share-code").textContent = code);
+  return { loc, code };
+}
+
+async function copyCode(code, btn, label) {
+  try {
+    await navigator.clipboard.writeText(code);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = code;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch {}
+    ta.remove();
+  }
+  toast({ title: "Cupom copiado!", sub: code, tone: "success" });
+  if (btn) {
+    btn.classList.add("is-copied");
+    if (label) {
+      const original = label.textContent;
+      label.textContent = "Copiado!";
+      setTimeout(() => { label.textContent = original; btn.classList.remove("is-copied"); }, 1400);
+    } else {
+      const original = btn.textContent;
+      btn.textContent = "copiado!";
+      setTimeout(() => { btn.textContent = original; btn.classList.remove("is-copied"); }, 1400);
+    }
+  }
+}
+
+/* ============== Share modal ============== */
+
+function shareLinkFor(code) {
+  // Replace with the public landing once it exists.
+  return `https://app.gohighlevel.com/?coupon=${encodeURIComponent(code)}`;
+}
+
+function shareTextFor(code) {
+  return `Use o cupom ${code} pra ganhar desconto na sua subaccount GoHighLevel.`;
+}
+
+function setupShare() {
+  const modal = $("share-modal");
+  const open = () => {
+    modal.hidden = false;
+    document.body.style.overflow = "hidden";
+  };
+  const close = () => {
+    modal.hidden = true;
+    document.body.style.overflow = "";
+    $("qr-area").hidden = true;
+  };
+
+  $("coupon-share")?.addEventListener("click", open);
+  $("empty-share")?.addEventListener("click", open);
+  modal.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", close));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.hidden) close();
+  });
+
+  $("share-whatsapp")?.addEventListener("click", () => {
+    const code = $("coupon-copy").dataset.code;
+    const url = `https://wa.me/?text=${encodeURIComponent(`${shareTextFor(code)} ${shareLinkFor(code)}`)}`;
+    window.open(url, "_blank", "noopener");
+  });
+  $("share-email")?.addEventListener("click", () => {
+    const code = $("coupon-copy").dataset.code;
+    const subject = encodeURIComponent("Cupom de desconto GoHighLevel");
+    const body = encodeURIComponent(`${shareTextFor(code)}\n\n${shareLinkFor(code)}`);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+  });
+  $("share-link")?.addEventListener("click", async (e) => {
+    const code = $("coupon-copy").dataset.code;
+    await copyCode(shareLinkFor(code), e.currentTarget);
+  });
+  $("share-qr")?.addEventListener("click", () => {
+    const code = $("coupon-copy").dataset.code;
+    const url = shareLinkFor(code);
+    const img = $("qr-img");
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(url)}`;
+    $("qr-area").hidden = false;
+  });
+}
+
+/* ============== Stripe Customer Portal ============== */
+
+function setupStripePortal() {
+  $("open-stripe-portal")?.addEventListener("click", () => {
+    // TODO: chamar /api/stripe/portal-session que cria a sessão e
+    // retorna a URL. Por enquanto, abrir docs como placeholder.
+    toast({
+      title: "Conectando ao Stripe…",
+      sub: "Backend ainda não plugado — ver setup pendente.",
+      tone: "info",
+    });
+  });
+}
+
+/* ============== Email notifications (preferences) ============== */
+
+const NOTIF_KEY = "indicacoes:notifs";
+function setupNotifPrefs() {
+  const stored = JSON.parse(localStorage.getItem(NOTIF_KEY) || "{}");
+  const ids = ["notif-qualified", "notif-levelup", "notif-cancelled"];
+  ids.forEach((id) => {
+    const cb = $(id);
+    if (!cb) return;
+    if (id in stored) cb.checked = !!stored[id];
+    cb.addEventListener("change", () => {
+      const next = { ...JSON.parse(localStorage.getItem(NOTIF_KEY) || "{}"), [id]: cb.checked };
+      localStorage.setItem(NOTIF_KEY, JSON.stringify(next));
+      toast({ title: "Preferência salva", tone: "success" });
+    });
+  });
+}
+
+/* ============== Prize per level ============== */
+
+const PRIZE_BY_LEVEL = {
+  none:             "🎯",
+  iniciante:        "🥉",
+  basico:           "🥈",
+  intermediario:    "🥇",
+  avancado:         "🏆",
+  "muito-avancado": "👑",
+};
+
+function renderPrize(level) {
+  const art = document.querySelector(".hero-level__art");
+  const prize = $("hero-prize");
+  if (art) art.dataset.level = level.id;
+  if (prize) prize.textContent = PRIZE_BY_LEVEL[level.id] || PRIZE_BY_LEVEL.none;
+}
+
+/* ============== Progress ring ============== */
+
+const RING_CIRCUMFERENCE = 2 * Math.PI * 46; // r=46 in viewBox 100
+
+function renderRing(progress01) {
+  const ring = $("ring-fg");
+  const pct = $("ring-pct");
+  if (!ring) return;
+  const offset = RING_CIRCUMFERENCE * (1 - Math.max(0, Math.min(1, progress01)));
+  ring.style.strokeDashoffset = String(offset);
+  if (pct) pct.textContent = `${Math.round(progress01 * 100)}%`;
+}
+
 /* ============== Ladder ============== */
 
 function buildLadder(result) {
-  const container = document.getElementById("ladder-nodes");
+  const container = $("ladder-nodes");
   container.innerHTML = "";
   const visibleLevels = levels.filter((l) => l.id !== "none");
 
@@ -102,10 +362,10 @@ function buildLadder(result) {
     baseSegment + (result.next ? segmentSize * result.progressToNext : 0),
   );
   requestAnimationFrame(() => {
-    document.getElementById("ladder-fill").style.width = `${Math.round(totalProgress * 100)}%`;
+    $("ladder-fill").style.width = `${Math.round(totalProgress * 100)}%`;
   });
 
-  document.getElementById("ladder-msg").innerHTML = result.next
+  $("ladder-msg").innerHTML = result.next
     ? `Faltam <strong>${result.referralsToNext}</strong> indicação(ões) qualificada(s) para <strong>${result.next.name}</strong>`
     : `Você atingiu o nível máximo do programa.`;
 }
@@ -113,7 +373,7 @@ function buildLadder(result) {
 /* ============== Tier list ============== */
 
 function buildTierList(result) {
-  const list = document.getElementById("level-list");
+  const list = $("level-list");
   list.innerHTML = "";
   for (const row of result.rows) {
     if (row.id === "none") continue;
@@ -145,131 +405,138 @@ function labelFor(state) {
   return "Bloqueado";
 }
 
-/* ============== Location + Coupon ==============
- * Location vem do contexto GHL (iframe SSO). Até a integração entrar,
- * usamos um placeholder. Trocar `getLocation()` para a chamada real.
- *
- * Cupom = primeiro nome da location + "OFF".
- *   "Sparkleads Marketing" -> "SPARKLEADSOFF".
- */
+/* ============== Achievements / Badges ============== */
 
-function getLocation() {
-  // TODO(integração GHL): substituir por dados do SSO/iframe.
-  return { name: "Sparkleads", id: "loc_placeholder" };
-}
+const BADGES = [
+  { id: "first",    icon: "🎯", name: "Primeiro indicado",   desc: "Sua primeira indicação qualificada", needs: (r) => r.qualifiedCount >= 1 },
+  { id: "trio",     icon: "🥈", name: "Trio formado",        desc: "Atingiu 3 indicações qualificadas",  needs: (r) => r.qualifiedCount >= 3 },
+  { id: "monthly",  icon: "💸", name: "Recorrente",          desc: "Desbloqueou desconto mensal",        needs: (r) => r.discountMonthlyUsd > 0 },
+  { id: "ten",      icon: "🏆", name: "10 indicações",       desc: "Chegou ao topo da tabela",           needs: (r) => r.qualifiedCount >= 10, tone: "amber" },
+  { id: "year",     icon: "🎖️", name: "1 ano no programa",   desc: "Membro ativo há 12 meses",           needs: () => false /* TODO: usar memberSince do GHL */ },
+  { id: "share",    icon: "📣", name: "Divulgador",          desc: "Compartilhou o cupom",               needs: () => !!localStorage.getItem("indicacoes:shared") },
+];
 
-function deriveCoupon(name) {
-  const first = (name || "").trim().split(/\s+/)[0] || "";
-  const slug = first
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-  return slug ? `${slug}OFF` : "—";
-}
-
-function applyLocationAndCoupon() {
-  const loc = getLocation();
-  const code = deriveCoupon(loc.name);
-
-  const set = (id, val) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = val;
-  };
-  set("location-name", loc.name);
-  set("settings-location", loc.name);
-  set("coupon-code", code);
-  set("coupon-company", loc.name);
-  set("settings-coupon", code);
-
-  const heroBtn = document.getElementById("coupon-copy");
-  const setBtn = document.getElementById("settings-coupon-copy");
-  if (heroBtn) heroBtn.dataset.code = code;
-  if (setBtn) setBtn.dataset.code = code;
-}
-
-async function copyCode(code, btn, label) {
-  try {
-    await navigator.clipboard.writeText(code);
-  } catch {
-    // Fallback for blocked clipboard
-    const ta = document.createElement("textarea");
-    ta.value = code;
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand("copy"); } catch {}
-    ta.remove();
-  }
-  if (btn) {
-    btn.classList.add("is-copied");
-    if (label) {
-      const original = label.textContent;
-      label.textContent = "Copiado!";
-      setTimeout(() => {
-        label.textContent = original;
-        btn.classList.remove("is-copied");
-      }, 1400);
-    } else {
-      const original = btn.textContent;
-      btn.textContent = "copiado!";
-      setTimeout(() => {
-        btn.textContent = original;
-        btn.classList.remove("is-copied");
-      }, 1400);
-    }
+function buildBadges(result) {
+  const root = $("badges");
+  root.innerHTML = "";
+  for (const b of BADGES) {
+    const unlocked = !!b.needs(result);
+    const node = document.createElement("div");
+    node.className = "badge-card";
+    node.dataset.locked = unlocked ? "false" : "true";
+    if (b.tone) node.dataset.tone = b.tone;
+    node.innerHTML = `
+      <div class="badge-card__icon">${b.icon}</div>
+      <div>
+        <div class="badge-card__name">${b.name}</div>
+        <div class="badge-card__desc">${b.desc}</div>
+      </div>
+      <span class="badge-card__pct">${unlocked ? "Liberado" : "Bloqueado"}</span>
+    `;
+    root.appendChild(node);
   }
 }
 
-function setupCoupon() {
-  applyLocationAndCoupon();
+/* ============== Render + Skeleton phase ============== */
 
-  document.getElementById("coupon-copy")?.addEventListener("click", (e) => {
-    const btn = e.currentTarget;
-    copyCode(btn.dataset.code, btn, document.getElementById("coupon-copy-label"));
-  });
-  document.getElementById("settings-coupon-copy")?.addEventListener("click", (e) => {
-    const btn = e.currentTarget;
-    copyCode(btn.dataset.code, btn);
-  });
+let lastLevelId = null;
+
+function renderEmpty(result) {
+  $("empty-state").hidden = result.qualifiedCount > 0;
 }
-
-/* ============== Prize per level ============== */
-
-const PRIZE_BY_LEVEL = {
-  none:             "🎯",
-  iniciante:        "🥉",
-  basico:           "🥈",
-  intermediario:    "🥇",
-  avancado:         "🏆",
-  "muito-avancado": "👑",
-};
-
-function renderPrize(level) {
-  const art = document.querySelector(".hero-level__art");
-  const prize = document.getElementById("hero-prize");
-  if (art) art.dataset.level = level.id;
-  if (prize) prize.textContent = PRIZE_BY_LEVEL[level.id] || PRIZE_BY_LEVEL.none;
-}
-
-
-/* ============== Render ============== */
 
 function render() {
   const result = qualify(sampleReferrals);
 
-  document.getElementById("hero-level").textContent = result.level.name;
-  document.getElementById("hero-qualified").textContent = result.qualifiedCount;
-  document.getElementById("hero-once").textContent = fmtUsd(result.discountOnceUsd);
-  document.getElementById("hero-monthly").textContent = fmtUsd(result.discountMonthlyUsd);
-  document.getElementById("hero-premium-chip").hidden = !result.level.premium;
+  $("hero-level").textContent = result.level.name;
+
+  // Animated count-up on hero numbers
+  animateCount($("hero-qualified"), result.qualifiedCount);
+
+  // Animated count-up for currency-prefixed values
+  const onceEl = $("hero-once");
+  const monthlyEl = $("hero-monthly");
+  const fromOnce = Number(onceEl.dataset.value || 0);
+  const fromMon  = Number(monthlyEl.dataset.value || 0);
+  const animUsd = (el, from, to) => {
+    el.dataset.value = String(to);
+    const start = performance.now();
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    function frame(now) {
+      const t = Math.min(1, (now - start) / 900);
+      const v = from + (to - from) * ease(t);
+      el.textContent = fmtUsd(v);
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  };
+  animUsd(onceEl, fromOnce, result.discountOnceUsd);
+  animUsd(monthlyEl, fromMon, result.discountMonthlyUsd);
+
+  $("hero-premium-chip").hidden = !result.level.premium;
 
   renderPrize(result.level);
+  renderRing(result.progressToNext);
   buildLadder(result);
   buildTierList(result);
+  buildBadges(result);
+  renderEmpty(result);
+
+  // Level-up detection
+  if (lastLevelId !== null && result.level.id !== lastLevelId && result.level.id !== "none") {
+    fireConfetti();
+    toast({
+      title: `Você desbloqueou ${result.level.name}!`,
+      sub: result.discountMonthlyUsd > 0
+        ? `Novo desconto: ${fmtUsd(result.discountMonthlyUsd)}/mês`
+        : `Desconto único de ${fmtUsd(result.discountOnceUsd)} liberado`,
+      tone: "success",
+      duration: 5000,
+    });
+  }
+  lastLevelId = result.level.id;
 }
+
+function bootstrap() {
+  // Start in "loading" state. Render an empty/baseline first so the
+  // counters have a from-value to animate from. Then load real data.
+  $("hero-once").dataset.value = "0";
+  $("hero-monthly").dataset.value = "0";
+  $("hero-qualified").dataset.value = "0";
+  $("hero-once").textContent = "$0";
+  $("hero-monthly").textContent = "$0";
+  $("hero-qualified").textContent = "0";
+
+  // Simulated GHL fetch latency.
+  setTimeout(() => {
+    applyLocationAndCoupon();
+    lastLevelId = "none"; // start from baseline so first render fires confetti
+    render();
+  }, 700);
+}
+
+/* ============== Boot ============== */
 
 setupTabs();
 setupReveal();
 setupHoverLotties();
-setupCoupon();
-render();
+setupNotifPrefs();
+setupShare();
+setupStripePortal();
+
+// Wire copy buttons (handlers persist; data-code is updated when data loads)
+$("coupon-copy")?.addEventListener("click", (e) => {
+  const btn = e.currentTarget;
+  if (btn.dataset.code) copyCode(btn.dataset.code, btn, $("coupon-copy-label"));
+});
+$("settings-coupon-copy")?.addEventListener("click", (e) => {
+  const btn = e.currentTarget;
+  if (btn.dataset.code) copyCode(btn.dataset.code, btn);
+});
+
+// Mark "share" badge as earned when modal opens
+$("coupon-share")?.addEventListener("click", () => {
+  localStorage.setItem("indicacoes:shared", "1");
+});
+
+bootstrap();

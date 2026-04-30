@@ -17,6 +17,10 @@
       src="https://unpkg.com/@lottiefiles/lottie-player@2.0.8/dist/lottie-player.js"
       defer
     ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"
+      defer
+    ></script>
   </head>
   <body>
     <header class="appbar">
@@ -26,6 +30,7 @@
       </div>
 
       <nav class="tabs" id="tabs">
+        <span class="tabs__indicator" id="tabs-indicator"></span>
         <button class="tab is-active" data-tab="hub">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
           Hub de Indicações
@@ -39,7 +44,7 @@
       <div class="appbar__right">
         <span class="location-pill" id="location-pill">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          <span id="location-name">—</span>
+          <span id="location-name" class="skeleton" style="width:120px"> </span>
         </span>
         <span class="live-pill">Sincronizado</span>
         <div class="avatar">PP</div>
@@ -51,6 +56,8 @@
       <span class="orb orb--b"></span>
       <span class="orb orb--c"></span>
     </div>
+
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 
     <main class="page">
       <!-- ============= Hub ============= -->
@@ -70,26 +77,37 @@
               <div>
                 <span class="hero-level__eyebrow">Seu nível atual</span>
                 <h2 class="hero-level__name">
-                  <span class="grad" id="hero-level">—</span>
+                  <span class="grad skeleton" id="hero-level" style="min-width:240px">&nbsp;</span>
                 </h2>
                 <div class="hero-level__meta">
-                  <span class="hero-level__chip">
+                  <span class="hero-level__chip" data-tip="Aplicado uma única vez na próxima fatura.">
                     <strong id="hero-once">$0</strong> desconto único
                   </span>
-                  <span class="hero-level__chip">
+                  <span class="hero-level__chip" data-tip="Aplicado mensalmente enquanto você mantiver o nível.">
                     <strong id="hero-monthly">$0</strong> /mês recorrente
                   </span>
-                  <span class="hero-level__chip">
+                  <span class="hero-level__chip" data-tip="Indicações que cumpriram 30 dias após a criação da subaccount.">
                     <strong id="hero-qualified">0</strong> indicações qualificadas
                   </span>
-                  <span class="hero-level__chip" id="hero-premium-chip" hidden>
+                  <span class="hero-level__chip" id="hero-premium-chip" data-tip="Aumenta o retorno estimado em 20% no nível máximo." hidden>
                     Multiplicador <strong>1.2x</strong> ativo
                   </span>
                 </div>
               </div>
               <div class="hero-level__art">
+                <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stop-color="#155EEF"/>
+                      <stop offset="100%" stop-color="#6366f1"/>
+                    </linearGradient>
+                  </defs>
+                  <circle class="ring__bg" cx="50" cy="50" r="46"/>
+                  <circle class="ring__fg" cx="50" cy="50" r="46" id="ring-fg"/>
+                </svg>
                 <span class="prize-glow" aria-hidden="true"></span>
                 <span class="prize" id="hero-prize" aria-hidden="true">🥉</span>
+                <span class="ring-pct" id="ring-pct" aria-hidden="true">0%</span>
               </div>
             </div>
 
@@ -108,21 +126,48 @@
             <span class="dashed-stream"></span>
             <div>
               <div class="coupon-card__label">Seu cupom de indicação</div>
-              <div class="coupon-card__code" id="coupon-code">—</div>
+              <div class="coupon-card__code" id="coupon-code"><span class="skeleton" style="display:inline-block;min-width:240px;height:36px">&nbsp;</span></div>
               <div class="coupon-card__hint">
                 Compartilhe com clientes para que recebam desconto e
                 contem para a sua qualificação. Location:
-                <strong id="coupon-company">—</strong>.
+                <strong id="coupon-company" class="skeleton" style="min-width:90px">&nbsp;</strong>.
               </div>
             </div>
-            <button class="coupon-card__cta" id="coupon-copy" type="button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-              <span id="coupon-copy-label">Copiar cupom</span>
-            </button>
+            <div class="coupon-card__actions">
+              <button class="coupon-card__cta" id="coupon-copy" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                <span id="coupon-copy-label">Copiar</span>
+              </button>
+              <button class="coupon-card__cta is-secondary" id="coupon-share" type="button" data-tip="WhatsApp · Email · Link · QR">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Compartilhar
+              </button>
+            </div>
           </div>
         </div>
 
+        <div id="empty-state" class="empty-state" hidden>
+          <div class="empty-state__art">🎉</div>
+          <div class="empty-state__title">Você ainda não tem indicações qualificadas</div>
+          <div class="empty-state__sub">
+            Compartilhe seu cupom para começar. A primeira indicação já libera <strong>$30 de desconto único</strong>.
+          </div>
+          <button class="btn btn--primary" id="empty-share">Compartilhar cupom</button>
+        </div>
+
         <div data-reveal data-reveal-delay="3">
+          <div class="card">
+            <div class="card__head">
+              <div>
+                <h3 class="card__title">Conquistas</h3>
+                <p class="card__sub">Desbloqueie badges conforme avança no programa</p>
+              </div>
+            </div>
+            <div id="badges" class="badges"></div>
+          </div>
+        </div>
+
+        <div data-reveal data-reveal-delay="4">
           <div class="card">
             <div class="card__head">
               <div>
@@ -188,8 +233,120 @@
             </div>
           </div>
         </div>
+
+        <div data-reveal data-reveal-delay="2">
+          <div class="card">
+            <div class="card__head">
+              <div>
+                <h3 class="card__title">Notificações por email</h3>
+                <p class="card__sub">Avisos sobre o programa enviados pra você</p>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <div class="label">Indicação qualificou</div>
+                <div class="desc">Quando uma indicação cumpre o ciclo de 30 dias e é qualificada.</div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="notif-qualified" checked />
+                <span class="toggle__track"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="label">Subiu de nível</div>
+                <div class="desc">Quando você desbloqueia um novo nível e benefícios.</div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="notif-levelup" checked />
+                <span class="toggle__track"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="label">Indicação cancelada</div>
+                <div class="desc">Quando uma indicação é removida da contagem.</div>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="notif-cancelled" />
+                <span class="toggle__track"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div data-reveal data-reveal-delay="3">
+          <div class="card">
+            <div class="card__head">
+              <div>
+                <h3 class="card__title">Sua assinatura</h3>
+                <p class="card__sub">Gerencie pagamento, métodos e faturas no portal Stripe</p>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <div class="label">Stripe Customer Portal</div>
+                <div class="desc">Atualizar cartão, baixar faturas, ver descontos aplicados.</div>
+              </div>
+              <button class="btn btn--primary" id="open-stripe-portal" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Abrir portal
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
+
+    <!-- Share modal -->
+    <div class="modal" id="share-modal" hidden>
+      <div class="modal__backdrop" data-close></div>
+      <div class="modal__panel" role="dialog" aria-modal="true" aria-labelledby="share-title">
+        <button class="modal__close" data-close aria-label="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <h3 class="modal__title" id="share-title">Compartilhar cupom</h3>
+        <p class="modal__sub">Mande pro cliente em 1 clique. O código abaixo já vem com sua location.</p>
+
+        <div class="share-code">
+          <span id="share-code">—</span>
+        </div>
+
+        <div class="share-grid">
+          <button class="share-btn" id="share-whatsapp" type="button">
+            <span class="share-btn__icon" style="background:#25d366;color:#fff">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M20.5 3.5A11 11 0 0012 0a11 11 0 00-9.5 16.5L0 24l7.7-2.4A11 11 0 0012 22a11 11 0 008.5-18.5zM12 20a9 9 0 01-4.6-1.3l-.3-.2-4.5 1.4 1.4-4.4-.2-.3A9 9 0 1112 20zm5-6.7c-.3-.1-1.6-.8-1.8-.9s-.4-.1-.6.1-.7.9-.9 1.1-.3.2-.6.1-1.2-.4-2.3-1.4c-.9-.7-1.4-1.6-1.6-1.9s0-.4.1-.6c.1-.1.3-.3.4-.5l.2-.4c.1-.1 0-.3 0-.4l-.7-1.7c-.2-.4-.4-.4-.6-.4h-.5c-.2 0-.4.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1.1 2.7 1.9 2.9 4.6 4c.6.3 1.1.4 1.5.5.6.2 1.2.2 1.7.1.5-.1 1.6-.7 1.8-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.3z"/></svg>
+            </span>
+            WhatsApp
+          </button>
+          <button class="share-btn" id="share-email" type="button">
+            <span class="share-btn__icon" style="background:#155EEF;color:#fff">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </span>
+            Email
+          </button>
+          <button class="share-btn" id="share-link" type="button">
+            <span class="share-btn__icon" style="background:#0f172a;color:#fff">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            </span>
+            Copiar link
+          </button>
+          <button class="share-btn" id="share-qr" type="button">
+            <span class="share-btn__icon" style="background:#f59e0b;color:#fff">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="14" y2="18"/><line x1="18" y1="14" x2="21" y2="14"/><line x1="14" y1="21" x2="21" y2="21"/><line x1="18" y1="18" x2="21" y2="18"/></svg>
+            </span>
+            QR Code
+          </button>
+        </div>
+
+        <div class="qr-area" id="qr-area" hidden>
+          <img id="qr-img" alt="QR code do cupom" />
+          <div class="qr-area__hint">Aponte a câmera ou faça download da imagem</div>
+        </div>
+      </div>
+    </div>
 
     <script type="module" src="./src/app.js"></script>
   </body>

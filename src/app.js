@@ -206,8 +206,22 @@ function animateCount(el, to, { prefix = "", duration = 900 } = {}) {
 /* ============== Location + Coupon ============== */
 
 function getLocation() {
-  // TODO(integração GHL): substituir por dados do SSO/iframe.
-  return { name: "Sparkleads", id: "loc_placeholder" };
+  // GHL injeta o contexto da sub-account na query string quando o
+  // usuário abre o app a partir dela. Aceitamos múltiplos nomes
+  // possíveis pra cobrir variações de placement (Custom Menu Link
+  // vs Custom Page Tab) e sub vs agency.
+  const p = new URLSearchParams(window.location.search);
+  const name =
+    p.get("locationName") ||
+    p.get("companyName") ||
+    p.get("name") ||
+    "Sparkleads";
+  const id =
+    p.get("locationId") ||
+    p.get("location_id") ||
+    p.get("id") ||
+    "loc_placeholder";
+  return { name, id };
 }
 
 function deriveCoupon(name) {

@@ -1,58 +1,169 @@
 <!doctype html>
-<html lang="pt-BR" data-jetski-tab-id="app" style="--v2-topbar-height: 88px;">
+<html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0f1a" />
     <title>Programa de Indicações</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    />
     <link rel="stylesheet" href="./src/styles/tokens.css" />
     <link rel="stylesheet" href="./src/styles/components.css" />
+    <script
+      src="https://unpkg.com/@lottiefiles/lottie-player@2.0.8/dist/lottie-player.js"
+      defer
+    ></script>
   </head>
   <body>
     <header class="topbar">
-      <div class="hr-avatar" aria-hidden="true">I</div>
+      <div class="topbar__brand">★</div>
       <div class="topbar__title">Programa de Indicações</div>
+      <div class="topbar__pill">Live · sincronizando</div>
     </header>
 
-    <main class="page">
-      <section class="card">
-        <h2 class="card__title">
-          Seu nível atual:
-          <span id="level-name">—</span>
-          <span id="premium-flag" class="badge badge--premium" hidden>
-            Multiplicador 1.2x ativo
+    <section class="hero">
+      <div class="hero__inner">
+        <div data-reveal data-reveal-delay="1">
+          <span class="hero__eyebrow">
+            <span class="dot"></span> Seu painel de recompensas
           </span>
-        </h2>
-        <p class="card__subtitle">
-          Indicações qualificadas: <strong id="qualified-count">0</strong>.
-          Cada indicação qualifica automaticamente após 30 dias da criação
-          da subaccount, desde que o cupom do indicador tenha sido emitido.
-        </p>
-
-        <div class="benefits-grid">
-          <div>
-            <div class="benefits-grid__label">Desconto único</div>
-            <div class="benefits-grid__value"><span id="discount-once">$0</span></div>
-          </div>
-          <div>
-            <div class="benefits-grid__label">Desconto mensal</div>
-            <div class="benefits-grid__value">
-              <span id="discount-monthly">$0</span><span class="benefits-grid__unit">/mês</span>
-            </div>
+          <h1>
+            Você está no nível
+            <span class="grad-text" id="hero-level">—</span>
+          </h1>
+          <p class="lede">
+            Cada indicação qualificada acelera seus benefícios:
+            desconto único, recorrência mensal e retorno estimado em
+            tempo real. Tudo automático, conforme suas indicações
+            cumprem o ciclo de qualificação.
+          </p>
+          <div class="hero__chips">
+            <span class="chip">
+              <span class="chip__num" id="hero-qualified">0</span>
+              indicações qualificadas
+            </span>
+            <span class="chip">
+              <span class="chip__num" id="hero-once">$0</span>
+              desconto único
+            </span>
+            <span class="chip">
+              <span class="chip__num" id="hero-monthly">$0</span>
+              /mês recorrente
+            </span>
           </div>
         </div>
 
-        <div class="progress" aria-hidden="true">
-          <div id="progress-bar" class="progress__bar" style="width: 0%"></div>
+        <div class="hero__art" data-reveal data-reveal-delay="2">
+          <span class="glow"></span>
+          <lottie-player
+            id="hero-lottie"
+            src="https://assets10.lottiefiles.com/packages/lf20_touohxv0.json"
+            background="transparent"
+            speed="1"
+            autoplay
+            loop
+          ></lottie-player>
+          <div class="hero__premium" hidden id="hero-premium">
+            <lottie-player
+              src="https://assets1.lottiefiles.com/packages/lf20_jbrw3hcz.json"
+              background="transparent"
+              speed="1"
+              autoplay
+              loop
+            ></lottie-player>
+          </div>
         </div>
-        <div id="next-msg" class="card__subtitle"></div>
+      </div>
+    </section>
+
+    <main class="page">
+      <!-- Stats grid -->
+      <div class="stats-grid">
+        <div class="stat-card" data-tone="brand" data-reveal data-reveal-delay="1">
+          <div class="stat-card__icon">
+            <lottie-player
+              src="https://assets3.lottiefiles.com/packages/lf20_x62chJ.json"
+              background="transparent"
+              speed="1"
+              autoplay
+              loop
+            ></lottie-player>
+          </div>
+          <div class="stat-card__label">Indicações qualificadas</div>
+          <div class="stat-card__value" data-count id="stat-qualified">0</div>
+          <div class="stat-card__hint" id="stat-qualified-hint">—</div>
+        </div>
+
+        <div class="stat-card" data-tone="emerald" data-reveal data-reveal-delay="2">
+          <div class="stat-card__icon">
+            <lottie-player
+              src="https://assets8.lottiefiles.com/packages/lf20_ystsffqy.json"
+              background="transparent"
+              speed="1"
+              autoplay
+              loop
+            ></lottie-player>
+          </div>
+          <div class="stat-card__label">Desconto mensal liberado</div>
+          <div class="stat-card__value" data-count data-prefix="$" id="stat-monthly">0</div>
+          <div class="stat-card__hint">recorrente enquanto mantiver o nível</div>
+        </div>
+
+        <div class="stat-card" data-tone="amber" data-reveal data-reveal-delay="3">
+          <div class="stat-card__icon">
+            <lottie-player
+              src="https://assets9.lottiefiles.com/packages/lf20_2cwDXD.json"
+              background="transparent"
+              speed="1"
+              autoplay
+              loop
+            ></lottie-player>
+          </div>
+          <div class="stat-card__label">Retorno estimado (Médio)</div>
+          <div class="stat-card__value" data-count data-prefix="$" id="stat-return">0</div>
+          <div class="stat-card__hint" id="stat-return-hint">
+            $120 por indicação qualificada
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress ladder -->
+      <section class="section" data-reveal>
+        <div class="section__header">
+          <h2 class="section__title">
+            Sua jornada
+            <small id="ladder-msg">Próximo nível em 0 indicações</small>
+          </h2>
+        </div>
+        <div class="ladder">
+          <div class="ladder__track">
+            <div class="ladder__fill" id="ladder-fill"></div>
+          </div>
+          <div class="ladder__nodes" id="ladder-nodes"></div>
+        </div>
       </section>
 
-      <section class="card">
-        <h2 class="card__title">Suas indicações</h2>
-        <p class="card__subtitle">
-          Atualizado automaticamente. Indicações invalidadas (cancelamento,
-          reembolso ou fraude) deixam de contar para o nível.
-        </p>
+      <!-- Referrals table -->
+      <section class="section" data-reveal>
+        <div class="section__header">
+          <h2 class="section__title">
+            Suas indicações
+            <small>Qualificação automática · 30 dias após criação da subaccount</small>
+          </h2>
+          <div class="section__art">
+            <lottie-player
+              src="https://assets9.lottiefiles.com/packages/lf20_kxsd2ytq.json"
+              background="transparent"
+              speed="1"
+              autoplay
+              loop
+            ></lottie-player>
+          </div>
+        </div>
         <table class="data-table">
           <thead>
             <tr>
@@ -67,35 +178,45 @@
         </table>
       </section>
 
-      <section class="card">
-        <h2 class="card__title">Retorno estimado</h2>
-        <p class="card__subtitle">
-          Projeção pelas indicações qualificadas (Starter $60, Médio $120,
-          Growth $250 por indicação). Multiplicador 1.2x no nível
-          Muito Avançado.
-        </p>
-        <div class="benefits-grid">
-          <div>
-            <div class="benefits-grid__label">Starter</div>
-            <div class="benefits-grid__value"><span id="return-starter">$0</span></div>
-          </div>
-          <div>
-            <div class="benefits-grid__label">Médio</div>
-            <div class="benefits-grid__value"><span id="return-medio">$0</span></div>
-          </div>
-          <div>
-            <div class="benefits-grid__label">Growth</div>
-            <div class="benefits-grid__value"><span id="return-growth">$0</span></div>
+      <!-- Returns -->
+      <section class="section" data-reveal>
+        <div class="section__header">
+          <h2 class="section__title">
+            Retorno estimado
+            <small>Multiplicador 1.2x ativo no nível Muito Avançado</small>
+          </h2>
+        </div>
+        <div class="returns">
+          <div class="bars" id="bars"></div>
+          <div class="returns__art">
+            <lottie-player
+              src="https://assets8.lottiefiles.com/packages/lf20_ystsffqy.json"
+              background="transparent"
+              speed="1"
+              autoplay
+              loop
+            ></lottie-player>
           </div>
         </div>
       </section>
 
-      <section class="card">
-        <h2 class="card__title">Todos os níveis</h2>
-        <p class="card__subtitle">
-          Auto-qualificação: o nível avança assim que o número mínimo de
-          indicações qualificadas é atingido.
-        </p>
+      <!-- Levels -->
+      <section class="section" data-reveal>
+        <div class="section__header">
+          <h2 class="section__title">
+            Tabela de níveis
+            <small>Auto-qualificação por indicações qualificadas</small>
+          </h2>
+          <div class="section__art">
+            <lottie-player
+              src="https://assets1.lottiefiles.com/packages/lf20_jbrw3hcz.json"
+              background="transparent"
+              speed="0.8"
+              autoplay
+              loop
+            ></lottie-player>
+          </div>
+        </div>
         <div id="level-list" class="tier-list"></div>
       </section>
     </main>

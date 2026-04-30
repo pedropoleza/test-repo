@@ -1,58 +1,72 @@
 /*
- * Design tokens extracted from the GHL (GoHighLevel) sample HTML/CSS.
- * The source uses a Naive-UI–style theme with `hr-` prefixed components
- * driven entirely by CSS custom properties. We surface those here as a
- * single source of truth so app components inherit the GHL look-and-feel.
- *
- * Naming mirrors the source variables (`--n-*`, `--v2-*`) so that pasting
- * a GHL snippet into the app works without rewrites.
+ * Design tokens. Base mantém a paleta GHL (Naive-UI), e a redesign
+ * adiciona um sistema próprio com hero escuro, gradiente "aurora" e
+ * realces premium para o programa de indicações.
  */
 
 :root {
-  /* Layout chrome */
-  --v2-topbar-height: 88px;
+  /* Layout */
+  --v2-topbar-height: 72px;
+  --content-max: 1120px;
 
-  /* Color — neutrals */
-  --n-color: #ffffff;
-  --n-color-modal: #ffffff;
-  --n-color-popover: #ffffff;
-  --n-color-target: rgba(0, 0, 0, 0.04);
-  --n-text-color: rgb(31, 34, 37);
-  --n-text-color-disabled: rgba(31, 34, 37, 0.4);
+  /* Brand — paleta dedicada do programa */
+  --brand-50:  #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-200: #c7d2fe;
+  --brand-300: #a5b4fc;
+  --brand-400: #818cf8;
+  --brand-500: #6366f1;
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+  --brand-800: #3730a3;
+  --brand-900: #312e81;
 
-  /* Color — brand (GHL violet/indigo family, neutral fallback until brand is confirmed) */
-  --n-color-primary: #4f46e5;
-  --n-color-primary-hover: #6366f1;
-  --n-color-primary-pressed: #4338ca;
-  --n-color-primary-suppl: #4f46e5;
+  --accent-amber: #f59e0b;
+  --accent-rose:  #f43f5e;
+  --accent-cyan:  #06b6d4;
+  --accent-emerald: #10b981;
 
-  /* Color — semantic */
-  --n-color-success: #18a058;
-  --n-color-warning: #f0a020;
-  --n-color-error: #d03050;
-  --n-color-info: #2080f0;
+  /* Neutrals */
+  --ink-900: #0b0f1a;
+  --ink-800: #131829;
+  --ink-700: #1f253b;
+  --ink-500: #475569;
+  --ink-400: #64748b;
+  --ink-300: #94a3b8;
+  --ink-200: #cbd5e1;
+  --ink-100: #e2e8f0;
+  --ink-50:  #f1f5f9;
+  --paper:   #f8fafc;
+  --white:   #ffffff;
 
-  /* Borders & radii */
-  --n-border: 1px solid rgb(224, 224, 230);
-  --n-border-color: rgb(224, 224, 230);
-  --n-border-radius: 6px;
-  --n-border-radius-sm: 3px;
-  --n-border-radius-lg: 10px;
-
-  /* Sizing baselines used by hr-avatar, hr-skeleton, etc. */
+  /* GHL/Naive base (mantido para compat com hr-* primitives) */
+  --n-color: var(--white);
+  --n-color-modal: var(--white);
+  --n-color-popover: var(--white);
+  --n-color-target: rgba(15, 23, 42, 0.04);
+  --n-text-color: var(--ink-900);
+  --n-text-color-disabled: var(--ink-400);
+  --n-color-primary: var(--brand-600);
+  --n-color-primary-hover: var(--brand-500);
+  --n-color-success: var(--accent-emerald);
+  --n-color-warning: var(--accent-amber);
+  --n-color-error: var(--accent-rose);
+  --n-color-info: var(--accent-cyan);
+  --n-border-color: var(--ink-100);
+  --n-border: 1px solid var(--ink-100);
+  --n-border-radius: 12px;
+  --n-border-radius-sm: 8px;
+  --n-border-radius-lg: 18px;
   --n-merged-size: 40px;
-  --n-merged-color: var(--n-color);
-
-  /* Typography */
+  --n-merged-color: var(--white);
   --n-font-size: 14px;
   --n-font-size-sm: 12px;
   --n-font-size-lg: 16px;
-  --n-font-size-xl: 20px;
-  --n-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  --n-font-size-xl: 22px;
+  --n-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
   --n-line-height: 1.5;
 
-  /* Spacing scale (derived; GHL inlines pixel values, scale is consistent) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -60,24 +74,38 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
 
-  /* Motion — pulled directly from GHL skeleton-loading keyframe */
-  --n-bezier: cubic-bezier(0.4, 0, 0.2, 1);
-  --n-bezier-ease-out: cubic-bezier(0, 0, 0.2, 1);
-  --n-bezier-skeleton: cubic-bezier(0.36, 0, 0.64, 1);
-  --n-duration-fast: 150ms;
-  --n-duration: 200ms;
-  --n-duration-slow: 300ms;
+  --n-bezier:           cubic-bezier(0.4, 0, 0.2, 1);
+  --n-bezier-ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+  --n-bezier-skeleton:  cubic-bezier(0.36, 0, 0.64, 1);
+  --n-bezier-bounce:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --n-duration-fast:    150ms;
+  --n-duration:         260ms;
+  --n-duration-slow:    520ms;
+  --n-duration-xslow:   1200ms;
 
-  /* Skeleton-specific */
-  --n-color-start: rgba(0, 0, 0, 0.06);
-  --n-color-end: rgba(0, 0, 0, 0.12);
+  --n-color-start: rgba(15, 23, 42, 0.06);
+  --n-color-end:   rgba(15, 23, 42, 0.12);
 
-  /* Elevation */
-  --n-box-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04),
-    0 1px 6px -1px rgba(0, 0, 0, 0.06);
-  --n-box-shadow-2: 0 3px 6px -4px rgba(0, 0, 0, 0.12),
-    0 6px 16px rgba(0, 0, 0, 0.08);
-  --n-box-shadow-3: 0 6px 16px -8px rgba(0, 0, 0, 0.16),
-    0 9px 28px rgba(0, 0, 0, 0.12);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05),
+               0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08),
+               0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 14px 28px -10px rgba(15, 23, 42, 0.18),
+               0 6px 12px -6px rgba(15, 23, 42, 0.10);
+  --shadow-glow: 0 0 0 1px rgba(99, 102, 241, 0.18),
+                 0 18px 40px -16px rgba(79, 70, 229, 0.45);
+
+  /* Gradient signatures used across the app */
+  --grad-aurora:
+    radial-gradient(1200px 600px at 10% -10%, rgba(99, 102, 241, 0.55), transparent 60%),
+    radial-gradient(900px 600px at 100% 0%, rgba(244, 63, 94, 0.35), transparent 55%),
+    radial-gradient(700px 500px at 80% 100%, rgba(6, 182, 212, 0.35), transparent 60%),
+    linear-gradient(180deg, #0b0f1a 0%, #1a1f3a 100%);
+  --grad-brand: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+  --grad-amber: linear-gradient(135deg, #fbbf24, #f59e0b);
+  --grad-rose:  linear-gradient(135deg, #fb7185, #f43f5e);
+  --grad-emerald: linear-gradient(135deg, #34d399, #059669);
 }

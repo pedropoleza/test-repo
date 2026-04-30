@@ -49,6 +49,60 @@ function fireConfetti() {
   setTimeout(() => confetti({ ...defaults, particleCount: 50, origin: { y: 0.35, x: 0.50 } }), 360);
 }
 
+/* ============== Tooltip portal (single instance, body-mounted) ============== */
+
+function setupTooltips() {
+  const tip = document.createElement("div");
+  tip.className = "tooltip";
+  tip.setAttribute("role", "tooltip");
+  document.body.appendChild(tip);
+
+  let active = null;
+
+  function position(el) {
+    const r = el.getBoundingClientRect();
+    const tipR = tip.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+
+    // Decide above/below based on available space.
+    const spaceAbove = r.top;
+    const below = spaceAbove < tipR.height + 16;
+
+    tip.classList.toggle("is-below", below);
+    tip.style.left = `${cx}px`;
+    tip.style.top = below ? `${r.bottom}px` : `${r.top}px`;
+  }
+
+  function show(el) {
+    const text = el.dataset.tip;
+    if (!text) return;
+    tip.textContent = text;
+    tip.classList.add("is-visible");
+    active = el;
+    requestAnimationFrame(() => position(el));
+  }
+  function hide() {
+    tip.classList.remove("is-visible");
+    active = null;
+  }
+
+  document.addEventListener("mouseover", (e) => {
+    const t = e.target.closest("[data-tip]");
+    if (t && t !== active) show(t);
+  });
+  document.addEventListener("mouseout", (e) => {
+    const t = e.target.closest("[data-tip]");
+    if (t && active === t && !t.contains(e.relatedTarget)) hide();
+  });
+  document.addEventListener("focusin", (e) => {
+    const t = e.target.closest("[data-tip]");
+    if (t) show(t);
+  });
+  document.addEventListener("focusout", () => hide());
+  window.addEventListener("scroll", () => active && position(active), true);
+  window.addEventListener("resize", () => active && position(active));
+}
+
 /* ============== Reveal-on-scroll ============== */
 
 function setupReveal() {
@@ -421,18 +475,12 @@ function buildBadges(result) {
   root.innerHTML = "";
   for (const b of BADGES) {
     const unlocked = !!b.needs(result);
-    const node = document.createElement("div");
-    node.className = "badge-card";
-    node.dataset.locked = unlocked ? "false" : "true";
+    const node = document.createElement("span");
+    node.className = "badge-pill";
+    node.dataset.unlocked = unlocked ? "true" : "false";
     if (b.tone) node.dataset.tone = b.tone;
-    node.innerHTML = `
-      <div class="badge-card__icon">${b.icon}</div>
-      <div>
-        <div class="badge-card__name">${b.name}</div>
-        <div class="badge-card__desc">${b.desc}</div>
-      </div>
-      <span class="badge-card__pct">${unlocked ? "Liberado" : "Bloqueado"}</span>
-    `;
+    node.dataset.tip = `${b.name} — ${b.desc}${unlocked ? "" : " (bloqueada)"}`;
+    node.textContent = b.icon;
     root.appendChild(node);
   }
 }
@@ -519,6 +567,7 @@ function bootstrap() {
 
 setupTabs();
 setupReveal();
+setupTooltips();
 setupHoverLotties();
 setupNotifPrefs();
 setupShare();

@@ -870,49 +870,52 @@ lottie-player { display: block; pointer-events: none; }
 .tab { position: relative; z-index: 1; }
 .tab.is-active { background: transparent; box-shadow: none; }
 
-/* ========== Tooltip (data-tip) ========== */
+/* ========== Tooltip (body portal — no clipping) ========== */
 
-[data-tip] { position: relative; }
-[data-tip]::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: calc(100% + 10px);
-  left: 50%;
-  transform: translateX(-50%) translateY(4px);
+.tooltip {
+  position: fixed;
+  z-index: 1000;
   background: var(--gray-900);
   color: #fff;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 7px 11px;
+  border-radius: 8px;
   font-size: var(--fs-xs);
   font-weight: 500;
-  white-space: nowrap;
-  max-width: 240px;
+  line-height: 1.4;
+  max-width: 280px;
+  white-space: normal;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 200ms var(--bezier-out), transform 200ms var(--bezier-out);
-  z-index: 50;
+  transform: translate(-50%, -100%) translateY(2px);
+  transition: opacity 180ms var(--bezier-out), transform 180ms var(--bezier-out);
   box-shadow: var(--shadow-md);
+  text-align: center;
 }
-[data-tip]::before {
+.tooltip.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -100%) translateY(-6px);
+}
+.tooltip::after {
   content: "";
   position: absolute;
-  bottom: calc(100% + 4px);
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
   border: 5px solid transparent;
   border-top-color: var(--gray-900);
-  opacity: 0;
-  transition: opacity 200ms var(--bezier-out);
-  z-index: 50;
-  pointer-events: none;
 }
-[data-tip]:hover::after,
-[data-tip]:focus-visible::after {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
+/* When forced to render below the trigger (no room above) */
+.tooltip.is-below {
+  transform: translate(-50%, 0) translateY(-2px);
 }
-[data-tip]:hover::before,
-[data-tip]:focus-visible::before { opacity: 1; }
+.tooltip.is-below.is-visible {
+  transform: translate(-50%, 0) translateY(6px);
+}
+.tooltip.is-below::after {
+  top: auto; bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--gray-900);
+}
 
 /* ========== Progress ring around the prize ========== */
 
@@ -1066,65 +1069,57 @@ lottie-player { display: block; pointer-events: none; }
   transform: translateY(-1px);
 }
 
-/* ========== Achievements / badges ========== */
+/* ========== Achievements (compact strip) ========== */
 
-.badges {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-.badge-card {
-  position: relative;
-  background: var(--white);
-  border: 1px solid var(--gray-200);
-  border-radius: var(--r-lg);
-  padding: 16px;
+.achievements-strip {
   display: flex;
   align-items: center;
-  gap: 12px;
-  transition: all var(--d) var(--bezier-out);
+  gap: 14px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-pill);
+  width: fit-content;
+  margin-left: auto;
+  backdrop-filter: blur(6px);
 }
-.badge-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.badge-card[data-locked="true"] { opacity: 0.55; filter: grayscale(0.65); }
-.badge-card[data-locked="false"] {
-  background: linear-gradient(180deg, #fff, var(--ghl-50));
-  border-color: var(--ghl-200);
-}
-.badge-card__icon {
-  width: 44px; height: 44px;
-  border-radius: 12px;
-  background: var(--ghl-50);
-  border: 1px solid var(--ghl-100);
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
-}
-.badge-card[data-locked="false"] .badge-card__icon {
-  background: linear-gradient(135deg, var(--ghl-500), var(--ghl-700));
-  border-color: transparent;
-  box-shadow: var(--shadow-blue);
-}
-.badge-card[data-locked="false"][data-tone="amber"] .badge-card__icon {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  box-shadow: 0 4px 12px -4px rgba(245, 158, 11, 0.5);
-}
-.badge-card__name { font-weight: 700; color: var(--gray-900); font-size: var(--fs-base); }
-.badge-card__desc { font-size: var(--fs-sm); color: var(--gray-500); margin-top: 2px; }
-.badge-card__pct {
-  position: absolute;
-  top: 10px; right: 10px;
-  font-size: 10px;
-  font-weight: 700;
+.achievements-strip__label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--gray-500);
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: var(--r-pill);
-  background: var(--gray-100);
-  color: var(--gray-500);
 }
-.badge-card[data-locked="false"] .badge-card__pct {
-  background: var(--success-bg);
-  color: var(--success);
+.achievements-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.badge-pill {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 15px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  transition: transform var(--d-fast) var(--bezier-out),
+              box-shadow var(--d-fast) var(--bezier-out);
+  cursor: default;
+  filter: grayscale(0.85);
+  opacity: 0.55;
+}
+.badge-pill:hover { transform: translateY(-1px) scale(1.08); }
+.badge-pill[data-unlocked="true"] {
+  filter: none;
+  opacity: 1;
+  background: linear-gradient(135deg, var(--ghl-50), #fff);
+  border-color: var(--ghl-200);
+  box-shadow: 0 2px 6px -2px rgba(21, 94, 239, 0.25);
+}
+.badge-pill[data-unlocked="true"][data-tone="amber"] {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-color: #fcd34d;
+  box-shadow: 0 2px 6px -2px rgba(245, 158, 11, 0.35);
 }
 
 /* ========== Modal ========== */

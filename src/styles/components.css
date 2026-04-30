@@ -95,6 +95,26 @@ lottie-player { display: block; pointer-events: none; }
   color: var(--gray-700);
   font-weight: 500;
 }
+.location-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 12px;
+  background: var(--ghl-50);
+  border: 1px solid var(--ghl-100);
+  border-radius: var(--r-md);
+  color: var(--ghl-700);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  max-width: 280px;
+}
+.location-pill svg {
+  width: 14px; height: 14px;
+  flex-shrink: 0;
+}
+.location-pill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .live-pill::before {
   content: "";
   width: 8px; height: 8px; border-radius: 50%;

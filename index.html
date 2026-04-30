@@ -37,6 +37,10 @@
       </nav>
 
       <div class="appbar__right">
+        <span class="location-pill" id="location-pill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span id="location-name">—</span>
+        </span>
         <span class="live-pill">Sincronizado</span>
         <div class="avatar">PP</div>
       </div>
@@ -100,7 +104,7 @@
               <div class="coupon-card__code" id="coupon-code">—</div>
               <div class="coupon-card__hint">
                 Compartilhe com clientes para que recebam desconto e
-                contem para a sua qualificação. Empresa:
+                contem para a sua qualificação. Location:
                 <strong id="coupon-company">—</strong>.
               </div>
             </div>
@@ -142,31 +146,21 @@
 
             <div class="setting-row">
               <div>
-                <div class="label">Programa ativo</div>
-                <div class="desc">Quando desligado, novas indicações deixam de qualificar e cupons param de ser emitidos.</div>
-              </div>
-              <label class="toggle">
-                <input type="checkbox" id="set-active" checked />
-                <span class="toggle__track"></span>
-              </label>
-            </div>
-
-            <div class="setting-row">
-              <div>
-                <div class="label">Nome da empresa</div>
+                <div class="label">Location</div>
                 <div class="desc">
-                  O cupom é gerado a partir do primeiro nome da empresa
-                  + sufixo OFF. Ex.: <em>Sparkleads Marketing</em> →
-                  <code>SPARKLEADSOFF</code>.
+                  Sub-account conectada ao GHL. O cupom é gerado a partir
+                  do primeiro nome dela + sufixo OFF.
                 </div>
               </div>
-              <input class="input" type="text" id="set-company" value="Sparkleads" />
+              <span class="coupon-preview">
+                <span id="settings-location">—</span>
+              </span>
             </div>
 
             <div class="setting-row">
               <div>
                 <div class="label">Cupom atual</div>
-                <div class="desc">Atualiza automaticamente conforme o nome da empresa.</div>
+                <div class="desc">Derivado automaticamente da location.</div>
               </div>
               <span class="coupon-preview">
                 <span id="settings-coupon">—</span>

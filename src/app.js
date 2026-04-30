@@ -145,29 +145,47 @@ function labelFor(state) {
   return "Bloqueado";
 }
 
-/* ============== Coupon ==============
- * Regra do cupom: primeiro nome do company name (uppercase, só A-Z0-9)
- * + sufixo "OFF". Ex.: "Sparkleads Marketing" -> "SPARKLEADSOFF".
+/* ============== Location + Coupon ==============
+ * Location vem do contexto GHL (iframe SSO). Até a integração entrar,
+ * usamos um placeholder. Trocar `getLocation()` para a chamada real.
+ *
+ * Cupom = primeiro nome da location + "OFF".
+ *   "Sparkleads Marketing" -> "SPARKLEADSOFF".
  */
 
-const COMPANY_KEY = "indicacoes:company";
+function getLocation() {
+  // TODO(integração GHL): substituir por dados do SSO/iframe.
+  return { name: "Sparkleads", id: "loc_placeholder" };
+}
 
-function deriveCoupon(company) {
-  const first = (company || "").trim().split(/\s+/)[0] || "";
-  const slug = first.toUpperCase().replace(/[^A-Z0-9]/g, "");
+function deriveCoupon(name) {
+  const first = (name || "").trim().split(/\s+/)[0] || "";
+  const slug = first
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
   return slug ? `${slug}OFF` : "—";
 }
 
-function applyCoupon(company) {
-  const code = deriveCoupon(company);
-  const heroCode = document.getElementById("coupon-code");
-  const heroCompany = document.getElementById("coupon-company");
-  const settingsCoupon = document.getElementById("settings-coupon");
-  if (heroCode) heroCode.textContent = code;
-  if (heroCompany) heroCompany.textContent = company || "—";
-  if (settingsCoupon) settingsCoupon.textContent = code;
-  document.getElementById("coupon-copy").dataset.code = code;
-  document.getElementById("settings-coupon-copy").dataset.code = code;
+function applyLocationAndCoupon() {
+  const loc = getLocation();
+  const code = deriveCoupon(loc.name);
+
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  set("location-name", loc.name);
+  set("settings-location", loc.name);
+  set("coupon-code", code);
+  set("coupon-company", loc.name);
+  set("settings-coupon", code);
+
+  const heroBtn = document.getElementById("coupon-copy");
+  const setBtn = document.getElementById("settings-coupon-copy");
+  if (heroBtn) heroBtn.dataset.code = code;
+  if (setBtn) setBtn.dataset.code = code;
 }
 
 async function copyCode(code, btn, label) {
@@ -203,16 +221,7 @@ async function copyCode(code, btn, label) {
 }
 
 function setupCoupon() {
-  const stored = localStorage.getItem(COMPANY_KEY) || "Sparkleads";
-  const input = document.getElementById("set-company");
-  if (input) input.value = stored;
-  applyCoupon(stored);
-
-  input?.addEventListener("input", (e) => {
-    const v = e.target.value;
-    localStorage.setItem(COMPANY_KEY, v);
-    applyCoupon(v);
-  });
+  applyLocationAndCoupon();
 
   document.getElementById("coupon-copy")?.addEventListener("click", (e) => {
     const btn = e.currentTarget;

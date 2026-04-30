@@ -145,6 +145,106 @@ function labelFor(state) {
   return "Bloqueado";
 }
 
+/* ============== Coupon ==============
+ * Regra do cupom: primeiro nome do company name (uppercase, só A-Z0-9)
+ * + sufixo "OFF". Ex.: "Sparkleads Marketing" -> "SPARKLEADSOFF".
+ */
+
+const COMPANY_KEY = "indicacoes:company";
+
+function deriveCoupon(company) {
+  const first = (company || "").trim().split(/\s+/)[0] || "";
+  const slug = first.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return slug ? `${slug}OFF` : "—";
+}
+
+function applyCoupon(company) {
+  const code = deriveCoupon(company);
+  const heroCode = document.getElementById("coupon-code");
+  const heroCompany = document.getElementById("coupon-company");
+  const settingsCoupon = document.getElementById("settings-coupon");
+  if (heroCode) heroCode.textContent = code;
+  if (heroCompany) heroCompany.textContent = company || "—";
+  if (settingsCoupon) settingsCoupon.textContent = code;
+  document.getElementById("coupon-copy").dataset.code = code;
+  document.getElementById("settings-coupon-copy").dataset.code = code;
+}
+
+async function copyCode(code, btn, label) {
+  try {
+    await navigator.clipboard.writeText(code);
+  } catch {
+    // Fallback for blocked clipboard
+    const ta = document.createElement("textarea");
+    ta.value = code;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch {}
+    ta.remove();
+  }
+  if (btn) {
+    btn.classList.add("is-copied");
+    if (label) {
+      const original = label.textContent;
+      label.textContent = "Copiado!";
+      setTimeout(() => {
+        label.textContent = original;
+        btn.classList.remove("is-copied");
+      }, 1400);
+    } else {
+      const original = btn.textContent;
+      btn.textContent = "copiado!";
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove("is-copied");
+      }, 1400);
+    }
+  }
+}
+
+function setupCoupon() {
+  const stored = localStorage.getItem(COMPANY_KEY) || "Sparkleads";
+  const input = document.getElementById("set-company");
+  if (input) input.value = stored;
+  applyCoupon(stored);
+
+  input?.addEventListener("input", (e) => {
+    const v = e.target.value;
+    localStorage.setItem(COMPANY_KEY, v);
+    applyCoupon(v);
+  });
+
+  document.getElementById("coupon-copy")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    copyCode(btn.dataset.code, btn, document.getElementById("coupon-copy-label"));
+  });
+  document.getElementById("settings-coupon-copy")?.addEventListener("click", (e) => {
+    const btn = e.currentTarget;
+    copyCode(btn.dataset.code, btn);
+  });
+}
+
+/* ============== Prize per level ============== */
+
+const PRIZE_BY_LEVEL = {
+  none:           { emoji: "🎯", tag: "Sem nível" },
+  iniciante:      { emoji: "🥉", tag: "Bronze" },
+  basico:         { emoji: "🥈", tag: "Prata" },
+  intermediario:  { emoji: "🥇", tag: "Ouro" },
+  avancado:       { emoji: "🏆", tag: "Troféu" },
+  "muito-avancado": { emoji: "👑", tag: "Coroa" },
+};
+
+function renderPrize(level) {
+  const art = document.querySelector(".hero-level__art");
+  const prize = document.getElementById("hero-prize");
+  const tag = document.getElementById("hero-prize-tag");
+  const data = PRIZE_BY_LEVEL[level.id] || PRIZE_BY_LEVEL.none;
+  if (art) art.dataset.level = level.id;
+  if (prize) prize.textContent = data.emoji;
+  if (tag) tag.textContent = data.tag;
+}
+
 /* ============== Render ============== */
 
 function render() {
@@ -156,6 +256,7 @@ function render() {
   document.getElementById("hero-monthly").textContent = fmtUsd(result.discountMonthlyUsd);
   document.getElementById("hero-premium-chip").hidden = !result.level.premium;
 
+  renderPrize(result.level);
   buildLadder(result);
   buildTierList(result);
 }
@@ -163,4 +264,5 @@ function render() {
 setupTabs();
 setupReveal();
 setupHoverLotties();
+setupCoupon();
 render();

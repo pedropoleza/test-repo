@@ -77,8 +77,9 @@
                   </span>
                 </div>
               </div>
-              <div class="hero-level__art" data-lottie-hover>
-                <lottie-player src="https://assets10.lottiefiles.com/packages/lf20_touohxv0.json" background="transparent" speed="1"></lottie-player>
+              <div class="hero-level__art">
+                <span class="prize" id="hero-prize" aria-hidden="true">🥉</span>
+                <div class="prize-tag" id="hero-prize-tag">—</div>
               </div>
             </div>
 
@@ -93,6 +94,24 @@
         </div>
 
         <div data-reveal data-reveal-delay="2">
+          <div class="coupon-card">
+            <div>
+              <div class="coupon-card__label">Seu cupom de indicação</div>
+              <div class="coupon-card__code" id="coupon-code">—</div>
+              <div class="coupon-card__hint">
+                Compartilhe com clientes para que recebam desconto e
+                contem para a sua qualificação. Empresa:
+                <strong id="coupon-company">—</strong>.
+              </div>
+            </div>
+            <button class="coupon-card__cta" id="coupon-copy" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              <span id="coupon-copy-label">Copiar cupom</span>
+            </button>
+          </div>
+        </div>
+
+        <div data-reveal data-reveal-delay="3">
           <div class="card">
             <div class="card__head">
               <div>
@@ -134,10 +153,25 @@
 
             <div class="setting-row">
               <div>
-                <div class="label">Dias para qualificação</div>
-                <div class="desc">Quanto tempo após a criação da subaccount uma indicação passa a contar.</div>
+                <div class="label">Nome da empresa</div>
+                <div class="desc">
+                  O cupom é gerado a partir do primeiro nome da empresa
+                  + sufixo OFF. Ex.: <em>Sparkleads Marketing</em> →
+                  <code>SPARKLEADSOFF</code>.
+                </div>
               </div>
-              <input class="input" type="number" id="set-days" min="1" max="180" value="30" />
+              <input class="input" type="text" id="set-company" value="Sparkleads" />
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <div class="label">Cupom atual</div>
+                <div class="desc">Atualiza automaticamente conforme o nome da empresa.</div>
+              </div>
+              <span class="coupon-preview">
+                <span id="settings-coupon">—</span>
+                <button type="button" id="settings-coupon-copy">copiar</button>
+              </span>
             </div>
 
             <div class="setting-row">

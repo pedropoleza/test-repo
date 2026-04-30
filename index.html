@@ -3,8 +3,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0b0f1a" />
-    <title>Programa de Indicações</title>
+    <meta name="theme-color" content="#155EEF" />
+    <title>Programa de Indicações · GHL</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,207 +19,326 @@
     ></script>
   </head>
   <body>
-    <header class="topbar">
-      <div class="topbar__brand">★</div>
-      <div class="topbar__title">Programa de Indicações</div>
-      <div class="topbar__pill">Live · sincronizando</div>
-    </header>
+    <div class="app">
+      <!-- ============= Sidebar ============= -->
+      <aside class="sidebar">
+        <div class="sidebar__brand">
+          <div class="logo">G</div>
+          <div>
+            <span class="name">Sparkleads</span>
+            <span class="meta">GoHighLevel · Sub-Account</span>
+          </div>
+        </div>
 
-    <section class="hero">
-      <div class="hero__inner">
-        <div data-reveal data-reveal-delay="1">
-          <span class="hero__eyebrow">
-            <span class="dot"></span> Seu painel de recompensas
+        <div class="sidebar__group">Workspace</div>
+        <a class="nav-item" href="#">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg>
           </span>
-          <h1>
-            Você está no nível
-            <span class="grad-text" id="hero-level">—</span>
-          </h1>
-          <p class="lede">
-            Cada indicação qualificada acelera seus benefícios:
-            desconto único, recorrência mensal e retorno estimado em
-            tempo real. Tudo automático, conforme suas indicações
-            cumprem o ciclo de qualificação.
-          </p>
-          <div class="hero__chips">
-            <span class="chip">
-              <span class="chip__num" id="hero-qualified">0</span>
-              indicações qualificadas
-            </span>
-            <span class="chip">
-              <span class="chip__num" id="hero-once">$0</span>
-              desconto único
-            </span>
-            <span class="chip">
-              <span class="chip__num" id="hero-monthly">$0</span>
-              /mês recorrente
-            </span>
+          Dashboard
+        </a>
+        <a class="nav-item" href="#">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          </span>
+          Clientes
+          <span class="badge-mini">128</span>
+        </a>
+        <a class="nav-item" href="#">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M3 3h18v18H3z"/><path d="M3 9h18M9 3v18"/></svg>
+          </span>
+          Pipelines
+        </a>
+        <a class="nav-item" href="#">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </span>
+          Automações
+        </a>
+
+        <div class="sidebar__group">Programa</div>
+        <a class="nav-item is-active" href="#">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M6 9V2h12v7"/><path d="M6 13h12v9H6z"/><path d="M6 17h12"/></svg>
+          </span>
+          Indicações
+          <span class="badge-mini">novo</span>
+        </a>
+        <a class="nav-item" href="#">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          </span>
+          Cupons
+        </a>
+        <a class="nav-item" href="#">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
+          </span>
+          Relatórios
+        </a>
+
+        <div class="sidebar__group">Ajustes</div>
+        <a class="nav-item" href="#">
+          <span class="ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+          </span>
+          Configurações
+        </a>
+
+        <div class="sidebar__bottom">
+          <div class="avatar">PP</div>
+          <div>
+            <div class="who">Pedro Poleza</div>
+            <div class="role">Owner · Sparkleads</div>
           </div>
         </div>
+      </aside>
 
-        <div class="hero__art" data-reveal data-reveal-delay="2">
-          <span class="glow"></span>
-          <lottie-player
-            id="hero-lottie"
-            src="https://assets10.lottiefiles.com/packages/lf20_touohxv0.json"
-            background="transparent"
-            speed="1"
-            autoplay
-            loop
-          ></lottie-player>
-          <div class="hero__premium" hidden id="hero-premium">
-            <lottie-player
-              src="https://assets1.lottiefiles.com/packages/lf20_jbrw3hcz.json"
-              background="transparent"
-              speed="1"
-              autoplay
-              loop
-            ></lottie-player>
+      <!-- ============= Main ============= -->
+      <div class="main">
+        <header class="topbar">
+          <div class="crumbs">
+            <span>Dashboard</span>
+            <span class="sep">/</span>
+            <strong>Programa de Indicações</strong>
+          </div>
+          <div class="search">
+            <input placeholder="Buscar indicação, cupom ou cliente…" />
+          </div>
+          <div class="topbar__right">
+            <span class="live-pill">Sincronizado · há instantes</span>
+            <button class="icon-btn" aria-label="Notificações" data-lottie-hover>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+              <span class="dot"></span>
+            </button>
+            <button class="icon-btn" aria-label="Ajuda">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="content">
+          <!-- Page heading -->
+          <div class="page-head" data-reveal>
+            <div>
+              <h1>Programa de Indicações</h1>
+              <p>
+                Acompanhe suas indicações qualificadas, descontos liberados,
+                cupons emitidos e o retorno estimado em tempo real. As
+                indicações são qualificadas automaticamente após 30 dias da
+                criação da subaccount.
+              </p>
+            </div>
+            <div class="page-head__actions">
+              <button class="btn btn--ghost">Exportar CSV</button>
+              <button class="btn btn--primary">Convidar cliente</button>
+            </div>
+          </div>
+
+          <!-- KPI strip -->
+          <div class="kpis">
+            <div class="kpi" data-reveal data-reveal-delay="1" data-lottie-hover>
+              <div class="kpi__top">
+                <span class="kpi__label">Indicações totais</span>
+                <span class="kpi__icon">
+                  <lottie-player src="https://assets3.lottiefiles.com/packages/lf20_x62chJ.json" background="transparent" speed="1.2" hover></lottie-player>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
+                </span>
+              </div>
+              <div class="kpi__value" data-count id="kpi-total">0</div>
+              <div class="kpi__delta">
+                ▲ <span id="kpi-total-delta">0</span><span class="muted">vs. mês anterior</span>
+              </div>
+              <div class="kpi__spark"><svg id="spark-total" viewBox="0 0 100 30" preserveAspectRatio="none"></svg></div>
+            </div>
+
+            <div class="kpi" data-tone="success" data-reveal data-reveal-delay="2" data-lottie-hover>
+              <div class="kpi__top">
+                <span class="kpi__label">Qualificadas</span>
+                <span class="kpi__icon">
+                  <lottie-player src="https://assets10.lottiefiles.com/packages/lf20_touohxv0.json" background="transparent" speed="1" hover></lottie-player>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+              </div>
+              <div class="kpi__value" data-count id="kpi-qualified">0</div>
+              <div class="kpi__delta" id="kpi-qualified-delta-wrap">
+                ▲ <span id="kpi-qualified-delta">0</span><span class="muted">novas neste ciclo</span>
+              </div>
+              <div class="kpi__spark"><svg id="spark-qualified" viewBox="0 0 100 30" preserveAspectRatio="none"></svg></div>
+            </div>
+
+            <div class="kpi" data-tone="info" data-reveal data-reveal-delay="3" data-lottie-hover>
+              <div class="kpi__top">
+                <span class="kpi__label">Desconto recorrente</span>
+                <span class="kpi__icon">
+                  <lottie-player src="https://assets8.lottiefiles.com/packages/lf20_ystsffqy.json" background="transparent" speed="1" hover></lottie-player>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                </span>
+              </div>
+              <div class="kpi__value" data-count data-prefix="$" id="kpi-monthly">0</div>
+              <div class="kpi__delta"><span class="muted">por mês enquanto mantiver o nível</span></div>
+              <div class="kpi__spark"><svg id="spark-monthly" viewBox="0 0 100 30" preserveAspectRatio="none"></svg></div>
+            </div>
+
+            <div class="kpi" data-tone="warn" data-reveal data-reveal-delay="4" data-lottie-hover>
+              <div class="kpi__top">
+                <span class="kpi__label">Retorno estimado (Médio)</span>
+                <span class="kpi__icon">
+                  <lottie-player src="https://assets9.lottiefiles.com/packages/lf20_2cwDXD.json" background="transparent" speed="1" hover></lottie-player>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                </span>
+              </div>
+              <div class="kpi__value" data-count data-prefix="$" id="kpi-return">0</div>
+              <div class="kpi__delta" id="kpi-return-extra"><span class="muted">Starter / Growth disponíveis abaixo</span></div>
+              <div class="kpi__spark"><svg id="spark-return" viewBox="0 0 100 30" preserveAspectRatio="none"></svg></div>
+            </div>
+          </div>
+
+          <!-- Hero level + activity -->
+          <div class="grid-12">
+            <div class="col-8" data-reveal>
+              <div class="hero-level">
+                <div class="hero-level__row">
+                  <div>
+                    <span class="hero-level__eyebrow">Seu nível atual</span>
+                    <h2 class="hero-level__name">
+                      <span class="grad" id="hero-level">—</span>
+                    </h2>
+                    <div class="hero-level__meta">
+                      <span class="hero-level__chip">
+                        <strong id="hero-once">$0</strong> desconto único
+                      </span>
+                      <span class="hero-level__chip">
+                        <strong id="hero-monthly">$0</strong> /mês recorrente
+                      </span>
+                      <span class="hero-level__chip">
+                        <strong id="hero-qualified">0</strong> indicações qualificadas
+                      </span>
+                      <span class="hero-level__chip" id="hero-premium-chip" hidden>
+                        Multiplicador <strong>1.2x</strong> ativo
+                      </span>
+                    </div>
+                  </div>
+                  <div class="hero-level__art" data-lottie-hover>
+                    <lottie-player src="https://assets10.lottiefiles.com/packages/lf20_touohxv0.json" background="transparent" speed="1" hover></lottie-player>
+                  </div>
+                </div>
+
+                <div class="ladder">
+                  <div class="ladder__track">
+                    <div class="ladder__fill" id="ladder-fill"></div>
+                  </div>
+                  <div class="ladder__nodes" id="ladder-nodes"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-4" data-reveal data-reveal-delay="1">
+              <div class="card" data-lottie-hover>
+                <div class="card__head">
+                  <div>
+                    <h3 class="card__title">Atividade recente</h3>
+                    <p class="card__sub">Últimos eventos do programa</p>
+                  </div>
+                  <div class="card__art">
+                    <lottie-player src="https://assets9.lottiefiles.com/packages/lf20_kxsd2ytq.json" background="transparent" speed="1" hover></lottie-player>
+                  </div>
+                </div>
+                <div class="feed" id="feed"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Funnel + bars row -->
+          <div class="grid-12">
+            <div class="col-5" data-reveal>
+              <div class="card">
+                <div class="card__head">
+                  <div>
+                    <h3 class="card__title">Funil de indicações</h3>
+                    <p class="card__sub">Distribuição por status</p>
+                  </div>
+                </div>
+                <div class="funnel" id="funnel"></div>
+              </div>
+            </div>
+
+            <div class="col-7" data-reveal data-reveal-delay="1">
+              <div class="card" data-lottie-hover>
+                <div class="card__head">
+                  <div>
+                    <h3 class="card__title">Retorno estimado por plano</h3>
+                    <p class="card__sub">Starter $60 · Médio $120 · Growth $250 por indicação · 1.2x no nível máximo</p>
+                  </div>
+                  <div class="card__art">
+                    <lottie-player src="https://assets8.lottiefiles.com/packages/lf20_ystsffqy.json" background="transparent" speed="1" hover></lottie-player>
+                  </div>
+                </div>
+                <div class="bars" id="bars"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Referrals table + coupons -->
+          <div class="grid-12">
+            <div class="col-8" data-reveal>
+              <div class="card card--padless">
+                <div style="padding: 18px 22px; display:flex; align-items:flex-start; justify-content:space-between; gap:16px;">
+                  <div>
+                    <h3 class="card__title">Suas indicações</h3>
+                    <p class="card__sub">Atualizadas automaticamente · qualificação em 30 dias após subaccount</p>
+                  </div>
+                </div>
+                <div class="filters" id="filters"></div>
+                <div class="tbl-wrap">
+                  <table class="tbl">
+                    <thead>
+                      <tr>
+                        <th>Indicado</th>
+                        <th>Subaccount em</th>
+                        <th>Cupom</th>
+                        <th>Status</th>
+                        <th>Detalhe</th>
+                      </tr>
+                    </thead>
+                    <tbody id="referrals-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-4" data-reveal data-reveal-delay="1">
+              <div class="card" data-lottie-hover>
+                <div class="card__head">
+                  <div>
+                    <h3 class="card__title">Cupons emitidos</h3>
+                    <p class="card__sub">Aplicados na sua próxima fatura</p>
+                  </div>
+                  <div class="card__art">
+                    <lottie-player src="https://assets1.lottiefiles.com/packages/lf20_jbrw3hcz.json" background="transparent" speed="1" hover></lottie-player>
+                  </div>
+                </div>
+                <div class="coupons" id="coupons"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tier list -->
+          <div data-reveal>
+            <div class="card">
+              <div class="card__head">
+                <div>
+                  <h3 class="card__title">Tabela de níveis</h3>
+                  <p class="card__sub">Auto-qualificação por número de indicações qualificadas</p>
+                </div>
+              </div>
+              <div id="level-list" class="tier-list"></div>
+            </div>
           </div>
         </div>
       </div>
-    </section>
-
-    <main class="page">
-      <!-- Stats grid -->
-      <div class="stats-grid">
-        <div class="stat-card" data-tone="brand" data-reveal data-reveal-delay="1">
-          <div class="stat-card__icon">
-            <lottie-player
-              src="https://assets3.lottiefiles.com/packages/lf20_x62chJ.json"
-              background="transparent"
-              speed="1"
-              autoplay
-              loop
-            ></lottie-player>
-          </div>
-          <div class="stat-card__label">Indicações qualificadas</div>
-          <div class="stat-card__value" data-count id="stat-qualified">0</div>
-          <div class="stat-card__hint" id="stat-qualified-hint">—</div>
-        </div>
-
-        <div class="stat-card" data-tone="emerald" data-reveal data-reveal-delay="2">
-          <div class="stat-card__icon">
-            <lottie-player
-              src="https://assets8.lottiefiles.com/packages/lf20_ystsffqy.json"
-              background="transparent"
-              speed="1"
-              autoplay
-              loop
-            ></lottie-player>
-          </div>
-          <div class="stat-card__label">Desconto mensal liberado</div>
-          <div class="stat-card__value" data-count data-prefix="$" id="stat-monthly">0</div>
-          <div class="stat-card__hint">recorrente enquanto mantiver o nível</div>
-        </div>
-
-        <div class="stat-card" data-tone="amber" data-reveal data-reveal-delay="3">
-          <div class="stat-card__icon">
-            <lottie-player
-              src="https://assets9.lottiefiles.com/packages/lf20_2cwDXD.json"
-              background="transparent"
-              speed="1"
-              autoplay
-              loop
-            ></lottie-player>
-          </div>
-          <div class="stat-card__label">Retorno estimado (Médio)</div>
-          <div class="stat-card__value" data-count data-prefix="$" id="stat-return">0</div>
-          <div class="stat-card__hint" id="stat-return-hint">
-            $120 por indicação qualificada
-          </div>
-        </div>
-      </div>
-
-      <!-- Progress ladder -->
-      <section class="section" data-reveal>
-        <div class="section__header">
-          <h2 class="section__title">
-            Sua jornada
-            <small id="ladder-msg">Próximo nível em 0 indicações</small>
-          </h2>
-        </div>
-        <div class="ladder">
-          <div class="ladder__track">
-            <div class="ladder__fill" id="ladder-fill"></div>
-          </div>
-          <div class="ladder__nodes" id="ladder-nodes"></div>
-        </div>
-      </section>
-
-      <!-- Referrals table -->
-      <section class="section" data-reveal>
-        <div class="section__header">
-          <h2 class="section__title">
-            Suas indicações
-            <small>Qualificação automática · 30 dias após criação da subaccount</small>
-          </h2>
-          <div class="section__art">
-            <lottie-player
-              src="https://assets9.lottiefiles.com/packages/lf20_kxsd2ytq.json"
-              background="transparent"
-              speed="1"
-              autoplay
-              loop
-            ></lottie-player>
-          </div>
-        </div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Indicado</th>
-              <th>Subaccount em</th>
-              <th>Cupom</th>
-              <th>Status</th>
-              <th>Detalhe</th>
-            </tr>
-          </thead>
-          <tbody id="referrals-tbody"></tbody>
-        </table>
-      </section>
-
-      <!-- Returns -->
-      <section class="section" data-reveal>
-        <div class="section__header">
-          <h2 class="section__title">
-            Retorno estimado
-            <small>Multiplicador 1.2x ativo no nível Muito Avançado</small>
-          </h2>
-        </div>
-        <div class="returns">
-          <div class="bars" id="bars"></div>
-          <div class="returns__art">
-            <lottie-player
-              src="https://assets8.lottiefiles.com/packages/lf20_ystsffqy.json"
-              background="transparent"
-              speed="1"
-              autoplay
-              loop
-            ></lottie-player>
-          </div>
-        </div>
-      </section>
-
-      <!-- Levels -->
-      <section class="section" data-reveal>
-        <div class="section__header">
-          <h2 class="section__title">
-            Tabela de níveis
-            <small>Auto-qualificação por indicações qualificadas</small>
-          </h2>
-          <div class="section__art">
-            <lottie-player
-              src="https://assets1.lottiefiles.com/packages/lf20_jbrw3hcz.json"
-              background="transparent"
-              speed="0.8"
-              autoplay
-              loop
-            ></lottie-player>
-          </div>
-        </div>
-        <div id="level-list" class="tier-list"></div>
-      </section>
-    </main>
+    </div>
 
     <script type="module" src="./src/app.js"></script>
   </body>

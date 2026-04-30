@@ -236,22 +236,32 @@ function setupCoupon() {
 /* ============== Prize per level ============== */
 
 const PRIZE_BY_LEVEL = {
-  none:           { emoji: "🎯", tag: "Sem nível" },
-  iniciante:      { emoji: "🥉", tag: "Bronze" },
-  basico:         { emoji: "🥈", tag: "Prata" },
-  intermediario:  { emoji: "🥇", tag: "Ouro" },
-  avancado:       { emoji: "🏆", tag: "Troféu" },
-  "muito-avancado": { emoji: "👑", tag: "Coroa" },
+  none:             "🎯",
+  iniciante:        "🥉",
+  basico:           "🥈",
+  intermediario:    "🥇",
+  avancado:         "🏆",
+  "muito-avancado": "👑",
 };
 
 function renderPrize(level) {
   const art = document.querySelector(".hero-level__art");
   const prize = document.getElementById("hero-prize");
-  const tag = document.getElementById("hero-prize-tag");
-  const data = PRIZE_BY_LEVEL[level.id] || PRIZE_BY_LEVEL.none;
   if (art) art.dataset.level = level.id;
-  if (prize) prize.textContent = data.emoji;
-  if (tag) tag.textContent = data.tag;
+  if (prize) prize.textContent = PRIZE_BY_LEVEL[level.id] || PRIZE_BY_LEVEL.none;
+}
+
+/* ============== Mouse spotlight on cards ============== */
+
+function setupSpotlight() {
+  const targets = document.querySelectorAll(".card, .coupon-card, .tier, .hero-level");
+  targets.forEach((el) => {
+    el.addEventListener("pointermove", (e) => {
+      const rect = el.getBoundingClientRect();
+      el.style.setProperty("--mx", `${e.clientX - rect.left}px`);
+      el.style.setProperty("--my", `${e.clientY - rect.top}px`);
+    });
+  });
 }
 
 /* ============== Render ============== */
@@ -275,3 +285,4 @@ setupReveal();
 setupHoverLotties();
 setupCoupon();
 render();
+setupSpotlight();

@@ -10,7 +10,61 @@ body {
   background: var(--gray-50);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+  overflow-x: hidden;
 }
+
+/* ========== Ambient background orbs (organic drifting blobs) ========== */
+
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.55;
+  will-change: transform;
+}
+.orb--a {
+  width: 520px; height: 520px;
+  left: -120px; top: -160px;
+  background: radial-gradient(closest-side, rgba(21, 94, 239, 0.28), transparent 70%);
+  animation: drift-a 28s ease-in-out infinite alternate;
+}
+.orb--b {
+  width: 460px; height: 460px;
+  right: -100px; top: 160px;
+  background: radial-gradient(closest-side, rgba(99, 102, 241, 0.20), transparent 70%);
+  animation: drift-b 34s ease-in-out infinite alternate;
+}
+.orb--c {
+  width: 600px; height: 600px;
+  left: 30%; bottom: -240px;
+  background: radial-gradient(closest-side, rgba(56, 189, 248, 0.18), transparent 70%);
+  animation: drift-c 40s ease-in-out infinite alternate;
+}
+@keyframes drift-a {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(80px, 60px) scale(1.08); }
+  100% { transform: translate(40px, 120px) scale(0.96); }
+}
+@keyframes drift-b {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(-60px, 90px) scale(1.05); }
+  100% { transform: translate(-30px, -40px) scale(1.1); }
+}
+@keyframes drift-c {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(-90px, -60px) scale(1.07); }
+  100% { transform: translate(60px, -100px) scale(0.95); }
+}
+
+.appbar, .page { position: relative; z-index: 1; }
 button { font: inherit; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
 lottie-player { display: block; pointer-events: none; }
@@ -170,6 +224,21 @@ lottie-player { display: block; pointer-events: none; }
   border-radius: var(--r-xl);
   padding: 32px;
   overflow: hidden;
+  isolation: isolate;
+}
+.hero-level > * { position: relative; z-index: 1; }
+.hero-level::before, .hero-level::after { z-index: 0; }
+/* Soft drifting blob inside the hero */
+.hero-level::before {
+  content: "";
+  position: absolute;
+  width: 420px; height: 420px;
+  left: -80px; bottom: -180px;
+  background: radial-gradient(closest-side, rgba(99, 102, 241, 0.22), transparent 70%);
+  filter: blur(40px);
+  border-radius: 50%;
+  animation: hero-drift 16s ease-in-out infinite alternate;
+  z-index: -1;
 }
 .hero-level::after {
   content: "";
@@ -177,6 +246,15 @@ lottie-player { display: block; pointer-events: none; }
   width: 380px; height: 380px;
   background: radial-gradient(closest-side, rgba(21, 94, 239, 0.10), transparent);
   border-radius: 50%;
+  animation: hero-drift-2 22s ease-in-out infinite alternate;
+}
+@keyframes hero-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(80px, -40px) scale(1.1); }
+}
+@keyframes hero-drift-2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-60px, -50px) scale(0.95); }
 }
 .hero-level__row {
   display: grid;
@@ -231,56 +309,87 @@ lottie-player { display: block; pointer-events: none; }
   font-variant-numeric: tabular-nums;
 }
 .hero-level__art {
-  width: 220px; height: 220px;
+  width: 240px; height: 240px;
   position: relative;
   border-radius: var(--r-xl);
-  background:
-    radial-gradient(closest-side, var(--white) 60%, rgba(21, 94, 239, 0.06) 100%);
+  background: radial-gradient(closest-side, var(--white) 55%, rgba(21, 94, 239, 0.06) 100%);
   border: 1px solid var(--ghl-100);
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
   overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6),
               0 8px 28px -16px rgba(21, 94, 239, 0.35);
+  isolation: isolate;
+}
+/* Rotating conic glow behind the prize */
+.hero-level__art::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(21, 94, 239, 0.22),
+    rgba(99, 102, 241, 0.10),
+    rgba(56, 189, 248, 0.18),
+    rgba(245, 158, 11, 0.12),
+    rgba(21, 94, 239, 0.22)
+  );
+  filter: blur(28px);
+  animation: conic-spin 22s linear infinite;
+  z-index: -2;
+}
+/* Inner soft pulse */
+.hero-level__art .prize-glow {
+  position: absolute;
+  width: 65%; height: 65%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(21, 94, 239, 0.20), transparent 70%);
+  filter: blur(18px);
+  animation: pulse-soft 5.5s ease-in-out infinite;
+  z-index: -1;
+}
+@keyframes conic-spin { to { transform: rotate(360deg); } }
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50%      { opacity: 0.95; transform: scale(1.06); }
 }
 .hero-level__art .prize {
-  font-size: 110px;
+  font-size: 124px;
   line-height: 1;
-  filter: drop-shadow(0 8px 12px rgba(15, 23, 42, 0.18));
+  filter: drop-shadow(0 10px 16px rgba(15, 23, 42, 0.20));
   user-select: none;
+  animation: float-soft 6s ease-in-out infinite;
+  transform-origin: center;
 }
-.hero-level__art .prize-tag {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ghl-700);
-  padding: 4px 10px;
-  border-radius: var(--r-pill);
-  background: var(--ghl-50);
-  border: 1px solid var(--ghl-100);
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50%      { transform: translateY(-8px) rotate(2deg); }
 }
-/* Per-level visual emphasis on the prize tile */
-.hero-level__art[data-level="iniciante"]      { background: radial-gradient(closest-side, #fff 60%, rgba(180, 83, 9, 0.08)); }
-.hero-level__art[data-level="basico"]         { background: radial-gradient(closest-side, #fff 60%, rgba(120, 113, 108, 0.10)); }
-.hero-level__art[data-level="intermediario"]  { background: radial-gradient(closest-side, #fff 60%, rgba(202, 138, 4, 0.10)); }
-.hero-level__art[data-level="avancado"]       { background: radial-gradient(closest-side, #fff 60%, rgba(245, 158, 11, 0.14)); }
+
+/* Per-level emphasis */
+.hero-level__art[data-level="iniciante"]      { background: radial-gradient(closest-side, #fff 55%, rgba(180, 83, 9, 0.08)); }
+.hero-level__art[data-level="basico"]         { background: radial-gradient(closest-side, #fff 55%, rgba(120, 113, 108, 0.10)); }
+.hero-level__art[data-level="intermediario"]  { background: radial-gradient(closest-side, #fff 55%, rgba(202, 138, 4, 0.10)); }
+.hero-level__art[data-level="avancado"]       { background: radial-gradient(closest-side, #fff 55%, rgba(245, 158, 11, 0.14)); }
 .hero-level__art[data-level="muito-avancado"] {
-  background: radial-gradient(closest-side, #fff 55%, rgba(245, 158, 11, 0.22));
+  background: radial-gradient(closest-side, #fff 50%, rgba(245, 158, 11, 0.22));
   border-color: #fcd34d;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7),
               0 14px 36px -12px rgba(245, 158, 11, 0.55);
 }
 .hero-level__art[data-level="muito-avancado"] .prize {
-  filter: drop-shadow(0 10px 18px rgba(245, 158, 11, 0.45));
+  filter: drop-shadow(0 10px 22px rgba(245, 158, 11, 0.55));
 }
-.hero-level__art[data-level="muito-avancado"] .prize-tag {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: #fff;
-  border-color: transparent;
+.hero-level__art[data-level="muito-avancado"]::before {
+  background: conic-gradient(
+    from 0deg,
+    rgba(245, 158, 11, 0.35),
+    rgba(251, 191, 36, 0.18),
+    rgba(245, 158, 11, 0.30),
+    rgba(217, 119, 6, 0.20),
+    rgba(245, 158, 11, 0.35)
+  );
 }
 
 /* ========== Ladder ========== */
@@ -370,11 +479,35 @@ lottie-player { display: block; pointer-events: none; }
 /* ========== Section card ========== */
 
 .card {
+  position: relative;
   background: var(--white);
   border: 1px solid var(--gray-200);
   border-radius: var(--r-lg);
   padding: 24px;
+  overflow: hidden;
+  isolation: isolate;
+  transition: border-color var(--d) var(--bezier-out),
+              box-shadow var(--d) var(--bezier-out),
+              transform var(--d) var(--bezier-out);
 }
+/* Mouse-tracked spotlight (driven by --mx / --my from JS) */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    420px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(21, 94, 239, 0.10),
+    transparent 45%
+  );
+  opacity: 0;
+  transition: opacity 360ms var(--bezier-out);
+  pointer-events: none;
+  z-index: -1;
+}
+.card:hover::before { opacity: 1; }
+.card:hover { border-color: var(--ghl-200); box-shadow: var(--shadow-md); }
 .card__head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 16px;
@@ -411,9 +544,28 @@ lottie-player { display: block; pointer-events: none; }
   border-radius: var(--r-lg);
   padding: 20px;
   overflow: hidden;
-  transition: all var(--d) var(--bezier-out);
+  isolation: isolate;
+  transition: transform var(--d) var(--bezier-out),
+              box-shadow var(--d) var(--bezier-out),
+              border-color var(--d) var(--bezier-out);
 }
-.tier:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--ghl-300); }
+.tier::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    300px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(21, 94, 239, 0.12),
+    transparent 50%
+  );
+  opacity: 0;
+  transition: opacity 360ms var(--bezier-out);
+  pointer-events: none;
+  z-index: -1;
+}
+.tier:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--ghl-300); }
+.tier:hover::after { opacity: 1; }
 .tier[data-state="locked"] { opacity: 0.65; }
 .tier[data-state="qualified"] {
   border-color: rgba(22, 163, 74, 0.45);
@@ -509,7 +661,42 @@ lottie-player { display: block; pointer-events: none; }
   padding: 24px 28px;
   position: relative;
   overflow: hidden;
+  isolation: isolate;
+  transition: border-color var(--d) var(--bezier-out),
+              box-shadow var(--d) var(--bezier-out);
 }
+.coupon-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    520px circle at var(--mx, 30%) var(--my, 50%),
+    rgba(21, 94, 239, 0.10),
+    transparent 45%
+  );
+  opacity: 0;
+  transition: opacity 360ms var(--bezier-out);
+  pointer-events: none;
+  z-index: -1;
+  border-radius: inherit;
+}
+.coupon-card:hover { border-color: var(--ghl-200); box-shadow: var(--shadow-md); }
+.coupon-card:hover::after { opacity: 1; }
+/* Animated dashed border streaming across the top */
+.coupon-card .dashed-stream {
+  position: absolute;
+  left: 24px; right: 24px;
+  top: 0;
+  height: 2px;
+  background-image: linear-gradient(90deg,
+    transparent 0%, transparent 40%,
+    rgba(21, 94, 239, 0.45) 50%,
+    transparent 60%, transparent 100%);
+  background-size: 200% 100%;
+  animation: stream 3s linear infinite;
+  pointer-events: none;
+}
+@keyframes stream { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
 .coupon-card::before {
   content: "";
   position: absolute;

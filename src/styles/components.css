@@ -484,29 +484,9 @@ lottie-player { display: block; pointer-events: none; }
   border: 1px solid var(--gray-200);
   border-radius: var(--r-lg);
   padding: 24px;
-  overflow: hidden;
-  isolation: isolate;
   transition: border-color var(--d) var(--bezier-out),
-              box-shadow var(--d) var(--bezier-out),
-              transform var(--d) var(--bezier-out);
+              box-shadow var(--d) var(--bezier-out);
 }
-/* Mouse-tracked spotlight (driven by --mx / --my from JS) */
-.card::before {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: radial-gradient(
-    420px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(21, 94, 239, 0.10),
-    transparent 45%
-  );
-  opacity: 0;
-  transition: opacity 360ms var(--bezier-out);
-  pointer-events: none;
-  z-index: -1;
-}
-.card:hover::before { opacity: 1; }
 .card:hover { border-color: var(--ghl-200); box-shadow: var(--shadow-md); }
 .card__head {
   display: flex; align-items: flex-start; justify-content: space-between;
@@ -544,28 +524,11 @@ lottie-player { display: block; pointer-events: none; }
   border-radius: var(--r-lg);
   padding: 20px;
   overflow: hidden;
-  isolation: isolate;
   transition: transform var(--d) var(--bezier-out),
               box-shadow var(--d) var(--bezier-out),
               border-color var(--d) var(--bezier-out);
 }
-.tier::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  background: radial-gradient(
-    300px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(21, 94, 239, 0.12),
-    transparent 50%
-  );
-  opacity: 0;
-  transition: opacity 360ms var(--bezier-out);
-  pointer-events: none;
-  z-index: -1;
-}
 .tier:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--ghl-300); }
-.tier:hover::after { opacity: 1; }
 .tier[data-state="locked"] { opacity: 0.65; }
 .tier[data-state="qualified"] {
   border-color: rgba(22, 163, 74, 0.45);
@@ -661,27 +624,10 @@ lottie-player { display: block; pointer-events: none; }
   padding: 24px 28px;
   position: relative;
   overflow: hidden;
-  isolation: isolate;
   transition: border-color var(--d) var(--bezier-out),
               box-shadow var(--d) var(--bezier-out);
 }
-.coupon-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    520px circle at var(--mx, 30%) var(--my, 50%),
-    rgba(21, 94, 239, 0.10),
-    transparent 45%
-  );
-  opacity: 0;
-  transition: opacity 360ms var(--bezier-out);
-  pointer-events: none;
-  z-index: -1;
-  border-radius: inherit;
-}
 .coupon-card:hover { border-color: var(--ghl-200); box-shadow: var(--shadow-md); }
-.coupon-card:hover::after { opacity: 1; }
 /* Animated dashed border streaming across the top */
 .coupon-card .dashed-stream {
   position: absolute;

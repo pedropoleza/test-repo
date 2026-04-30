@@ -251,18 +251,6 @@ function renderPrize(level) {
   if (prize) prize.textContent = PRIZE_BY_LEVEL[level.id] || PRIZE_BY_LEVEL.none;
 }
 
-/* ============== Mouse spotlight on cards ============== */
-
-function setupSpotlight() {
-  const targets = document.querySelectorAll(".card, .coupon-card, .tier, .hero-level");
-  targets.forEach((el) => {
-    el.addEventListener("pointermove", (e) => {
-      const rect = el.getBoundingClientRect();
-      el.style.setProperty("--mx", `${e.clientX - rect.left}px`);
-      el.style.setProperty("--my", `${e.clientY - rect.top}px`);
-    });
-  });
-}
 
 /* ============== Render ============== */
 
@@ -285,4 +273,3 @@ setupReveal();
 setupHoverLotties();
 setupCoupon();
 render();
-setupSpotlight();

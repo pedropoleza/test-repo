@@ -274,45 +274,84 @@ function cleanParam(v) {
   return s;
 }
 
+const LOC_CACHE_KEY = "indicacoes:lastLocation";
+
+function readCachedLocation() {
+  try {
+    const raw = localStorage.getItem(LOC_CACHE_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (obj && obj.id && obj.name) return obj;
+  } catch {}
+  return null;
+}
+
+function writeCachedLocation(loc) {
+  try { localStorage.setItem(LOC_CACHE_KEY, JSON.stringify(loc)); } catch {}
+}
+
 /**
- * Resolve a location atual. Ordem de fontes:
- *   1. Iframe SSO via postMessage (quando rodando dentro do GHL)
- *   2. Query string (link compartilhado / dev manual)
- *   3. Placeholder ("Sparkleads") apenas como último recurso
+ * Resolve a location atual. Ordem de fontes (mais autoritativa primeiro):
+ *   1. Iframe SSO via postMessage — verdade vinda do GHL
+ *   2. Query string — locationId/Name explícitos na URL
+ *   3. Cache do localStorage — última location vista neste browser
+ *   4. Placeholder "Sparkleads" — último recurso (acesso direto inicial)
  */
 async function getLocation() {
+  // 1) Iframe SSO
   if (window.parent && window.parent !== window) {
     try {
       const ctx = await requestGhlContext();
       if (ctx && (ctx.locationName || ctx.locationId)) {
         if (ctx.sessionToken) window.__sparkSession = ctx.sessionToken;
-        console.info("[ghl-iframe-sso] ok →", ctx.locationName, ctx.locationId);
-        return {
+        console.info("[location] iframe SSO →", ctx.locationName, ctx.locationId);
+        const loc = {
+          source: "iframe-sso",
           name: ctx.locationName || "Location",
           id: ctx.locationId || "loc_unknown",
           userId: ctx.userId,
           userName: ctx.userName,
           email: ctx.email,
         };
+        writeCachedLocation(loc);
+        return loc;
       }
     } catch (err) {
-      console.warn("[ghl-iframe-sso] fallback:", err?.message || err);
-      // continua para fallback de query string
+      console.warn("[location] iframe SSO fallback:", err?.message || err);
     }
   }
 
+  // 2) Query string (incluindo location_id auto-injetado pelo GHL Custom Menu Link)
   const p = new URLSearchParams(window.location.search);
-  const name =
+  const urlName =
     cleanParam(p.get("locationName")) ||
     cleanParam(p.get("companyName")) ||
-    cleanParam(p.get("name")) ||
-    "Sparkleads";
-  const id =
+    cleanParam(p.get("name"));
+  const urlId =
     cleanParam(p.get("locationId")) ||
     cleanParam(p.get("location_id")) ||
-    cleanParam(p.get("id")) ||
-    "loc_placeholder";
-  return { name, id };
+    cleanParam(p.get("id"));
+  if (urlId || urlName) {
+    const loc = {
+      source: "url",
+      name: urlName || "Location",
+      id: urlId || "loc_unknown",
+    };
+    console.info("[location] url →", loc.name, loc.id);
+    writeCachedLocation(loc);
+    return loc;
+  }
+
+  // 3) Cache do localStorage
+  const cached = readCachedLocation();
+  if (cached) {
+    console.info("[location] cache →", cached.name, cached.id);
+    return { ...cached, source: "cache" };
+  }
+
+  // 4) Fallback total
+  console.info("[location] placeholder fallback");
+  return { source: "placeholder", name: "Sparkleads", id: "loc_placeholder" };
 }
 
 function deriveCoupon(name) {
@@ -321,9 +360,14 @@ function deriveCoupon(name) {
   return slug ? `${slug}OFF` : "—";
 }
 
+// Estado atual, exposto para outros módulos via window.__sparkLocation
+let currentLocation = null;
+
 async function applyLocationAndCoupon() {
   const loc = await getLocation();
   const code = deriveCoupon(loc.name);
+  currentLocation = loc;
+  window.__sparkLocation = loc;
 
   const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
   setText("location-name", loc.name);
@@ -331,6 +375,14 @@ async function applyLocationAndCoupon() {
   setText("coupon-code", code);
   setText("coupon-company", loc.name);
   setText("settings-coupon", code);
+
+  // Tooltip do pill mostra id + fonte (iframe-sso / url / cache)
+  const pill = $("location-pill");
+  if (pill) {
+    pill.dataset.tip =
+      `Location ID: ${loc.id}` +
+      (loc.source ? ` · fonte: ${loc.source}` : "");
+  }
 
   // Drop skeleton classes once data is in
   document
@@ -441,20 +493,35 @@ function setupStripePortal() {
 
 /* ============== Email notifications (preferences) ============== */
 
-const NOTIF_KEY = "indicacoes:notifs";
+// Storage helpers chaveados por locationId — cada location tem suas
+// preferências e estado próprios neste browser.
+function locKey(suffix) {
+  const id = (currentLocation && currentLocation.id) || "loc_placeholder";
+  return `indicacoes:${id}:${suffix}`;
+}
+
 function setupNotifPrefs() {
-  const stored = JSON.parse(localStorage.getItem(NOTIF_KEY) || "{}");
   const ids = ["notif-qualified", "notif-levelup", "notif-cancelled"];
+  // Inicializa após location resolver — chamado de novo no fim do bootstrap.
+  function hydrate() {
+    const stored = JSON.parse(localStorage.getItem(locKey("notifs")) || "{}");
+    ids.forEach((id) => {
+      const cb = $(id);
+      if (!cb) return;
+      if (id in stored) cb.checked = !!stored[id];
+    });
+  }
   ids.forEach((id) => {
     const cb = $(id);
     if (!cb) return;
-    if (id in stored) cb.checked = !!stored[id];
     cb.addEventListener("change", () => {
-      const next = { ...JSON.parse(localStorage.getItem(NOTIF_KEY) || "{}"), [id]: cb.checked };
-      localStorage.setItem(NOTIF_KEY, JSON.stringify(next));
+      const key = locKey("notifs");
+      const next = { ...JSON.parse(localStorage.getItem(key) || "{}"), [id]: cb.checked };
+      localStorage.setItem(key, JSON.stringify(next));
       toast({ title: "Preferência salva", tone: "success" });
     });
   });
+  window.__sparkHydrateNotifs = hydrate;
 }
 
 /* ============== Prize per level ============== */
@@ -572,7 +639,7 @@ const BADGES = [
   { id: "monthly",  icon: "💸", name: "Recorrente",          desc: "Desbloqueou desconto mensal",        needs: (r) => r.discountMonthlyUsd > 0 },
   { id: "ten",      icon: "🏆", name: "10 indicações",       desc: "Chegou ao topo da tabela",           needs: (r) => r.qualifiedCount >= 10, tone: "amber" },
   { id: "year",     icon: "🎖️", name: "1 ano no programa",   desc: "Membro ativo há 12 meses",           needs: () => false /* TODO: usar memberSince do GHL */ },
-  { id: "share",    icon: "📣", name: "Divulgador",          desc: "Compartilhou o cupom",               needs: () => !!localStorage.getItem("indicacoes:shared") },
+  { id: "share",    icon: "📣", name: "Divulgador",          desc: "Compartilhou o cupom",               needs: () => !!localStorage.getItem(locKey("shared")) },
 ];
 
 function buildBadges(result) {
@@ -667,6 +734,10 @@ async function bootstrap() {
   } catch (err) {
     console.error("[bootstrap] location load failed:", err);
   }
+  // Re-hidrata preferências chaveadas por locationId, após a location resolver
+  if (typeof window.__sparkHydrateNotifs === "function") {
+    window.__sparkHydrateNotifs();
+  }
   lastLevelId = "none"; // baseline so first render fires confetti
   render();
 }
@@ -691,9 +762,9 @@ $("settings-coupon-copy")?.addEventListener("click", (e) => {
   if (btn.dataset.code) copyCode(btn.dataset.code, btn);
 });
 
-// Mark "share" badge as earned when modal opens
+// Mark "share" badge as earned when modal opens (per-location)
 $("coupon-share")?.addEventListener("click", () => {
-  localStorage.setItem("indicacoes:shared", "1");
+  localStorage.setItem(locKey("shared"), "1");
 });
 
 bootstrap();

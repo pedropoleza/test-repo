@@ -205,23 +205,93 @@ function animateCount(el, to, { prefix = "", duration = 900 } = {}) {
 
 /* ============== Location + Coupon ============== */
 
-function getLocation() {
-  // GHL injeta o contexto da sub-account na query string quando o
-  // usuário abre o app a partir dela. Aceitamos múltiplos nomes
-  // possíveis pra cobrir variações de placement (Custom Menu Link
-  // vs Custom Page Tab) e sub vs agency.
+/**
+ * Pede o contexto do usuário ao parent via postMessage (handshake
+ * documentado pela GHL para Custom Page apps em iframe). O parent
+ * responde com `REQUEST_USER_DATA_RESPONSE` cujo `payload` é uma
+ * string criptografada (crypto-js AES) com o Shared Secret Key.
+ * Mandamos pro backend decodificar e retornar os campos normalizados.
+ */
+function requestGhlContext(timeoutMs = 4500) {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const finish = (fn, arg) => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("message", handler);
+      clearTimeout(timer);
+      fn(arg);
+    };
+
+    const handler = async (e) => {
+      const data = e?.data;
+      if (!data || typeof data !== "object") return;
+      if (data.message !== "REQUEST_USER_DATA_RESPONSE") return;
+      try {
+        const r = await fetch("/api/auth/ghl-context", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ encrypted: data.payload }),
+        });
+        if (!r.ok) throw new Error(`http_${r.status}`);
+        finish(resolve, await r.json());
+      } catch (err) {
+        finish(reject, err);
+      }
+    };
+
+    window.addEventListener("message", handler);
+    const timer = setTimeout(
+      () => finish(reject, new Error("ghl_iframe_timeout")),
+      timeoutMs,
+    );
+    try {
+      window.parent.postMessage({ message: "REQUEST_USER_DATA" }, "*");
+    } catch (err) {
+      finish(reject, err);
+    }
+  });
+}
+
+/**
+ * Resolve a location atual. Ordem de fontes:
+ *   1. Iframe SSO via postMessage (quando rodando dentro do GHL)
+ *   2. Query string (template injection ou link compartilhado)
+ *   3. Placeholder ("Sparkleads") para acesso direto durante dev
+ */
+async function getLocation() {
+  if (window.parent && window.parent !== window) {
+    try {
+      const ctx = await requestGhlContext();
+      if (ctx && (ctx.locationName || ctx.locationId)) {
+        if (ctx.sessionToken) window.__sparkSession = ctx.sessionToken;
+        return {
+          name: ctx.locationName || "Location",
+          id: ctx.locationId || "loc_unknown",
+          userId: ctx.userId,
+          userName: ctx.userName,
+          email: ctx.email,
+        };
+      }
+    } catch (err) {
+      console.warn("[ghl-iframe-sso]", err?.message || err);
+      // continua para fallback de query string
+    }
+  }
+
   const p = new URLSearchParams(window.location.search);
-  const name =
-    p.get("locationName") ||
-    p.get("companyName") ||
-    p.get("name") ||
-    "Sparkleads";
-  const id =
-    p.get("locationId") ||
-    p.get("location_id") ||
-    p.get("id") ||
-    "loc_placeholder";
-  return { name, id };
+  return {
+    name:
+      p.get("locationName") ||
+      p.get("companyName") ||
+      p.get("name") ||
+      "Sparkleads",
+    id:
+      p.get("locationId") ||
+      p.get("location_id") ||
+      p.get("id") ||
+      "loc_placeholder",
+  };
 }
 
 function deriveCoupon(name) {
@@ -230,8 +300,8 @@ function deriveCoupon(name) {
   return slug ? `${slug}OFF` : "—";
 }
 
-function applyLocationAndCoupon() {
-  const loc = getLocation();
+async function applyLocationAndCoupon() {
+  const loc = await getLocation();
   const code = deriveCoupon(loc.name);
 
   const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
@@ -559,9 +629,8 @@ function render() {
   lastLevelId = result.level.id;
 }
 
-function bootstrap() {
-  // Start in "loading" state. Render an empty/baseline first so the
-  // counters have a from-value to animate from. Then load real data.
+async function bootstrap() {
+  // Baseline counters so animateCount has a from-value to animate from.
   $("hero-once").dataset.value = "0";
   $("hero-monthly").dataset.value = "0";
   $("hero-qualified").dataset.value = "0";
@@ -569,12 +638,16 @@ function bootstrap() {
   $("hero-monthly").textContent = "$0";
   $("hero-qualified").textContent = "0";
 
-  // Simulated GHL fetch latency.
-  setTimeout(() => {
-    applyLocationAndCoupon();
-    lastLevelId = "none"; // start from baseline so first render fires confetti
-    render();
-  }, 700);
+  // Iframe SSO has its own latency (postMessage round-trip + decrypt
+  // backend call). The skeleton stays visible until applyLocation
+  // resolves; not a fixed delay.
+  try {
+    await applyLocationAndCoupon();
+  } catch (err) {
+    console.error("[bootstrap] location load failed:", err);
+  }
+  lastLevelId = "none"; // baseline so first render fires confetti
+  render();
 }
 
 /* ============== Boot ============== */

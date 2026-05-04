@@ -2,6 +2,14 @@ import { qualify } from "./lib/qualify.js";
 import { sampleReferrals } from "./data/sample-referrals.js";
 import { levels } from "./config/tiers.js";
 
+/* ============== Source of referrals ==============
+ * Em produção, a lista virá do /api/tier (Etapa 2). Por enquanto, cada
+ * location começa em 0 indicações — clientes novos veem o empty state.
+ * Pra demonstrar a UI populada, abra com ?demo=1.
+ */
+const params = new URLSearchParams(window.location.search);
+const referralsSource = params.get("demo") === "1" ? sampleReferrals : [];
+
 /* ============== Helpers ============== */
 
 const fmtUsd = (n) =>
@@ -254,10 +262,23 @@ function requestGhlContext(timeoutMs = 4500) {
 }
 
 /**
+ * Trata strings tipo "{{location.id}}" (placeholders Liquid não
+ * substituídos pelo GHL) como ausência de valor.
+ */
+function cleanParam(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (s.startsWith("{{") && s.endsWith("}}")) return null;
+  if (s === "undefined" || s === "null") return null;
+  return s;
+}
+
+/**
  * Resolve a location atual. Ordem de fontes:
  *   1. Iframe SSO via postMessage (quando rodando dentro do GHL)
- *   2. Query string (template injection ou link compartilhado)
- *   3. Placeholder ("Sparkleads") para acesso direto durante dev
+ *   2. Query string (link compartilhado / dev manual)
+ *   3. Placeholder ("Sparkleads") apenas como último recurso
  */
 async function getLocation() {
   if (window.parent && window.parent !== window) {
@@ -265,6 +286,7 @@ async function getLocation() {
       const ctx = await requestGhlContext();
       if (ctx && (ctx.locationName || ctx.locationId)) {
         if (ctx.sessionToken) window.__sparkSession = ctx.sessionToken;
+        console.info("[ghl-iframe-sso] ok →", ctx.locationName, ctx.locationId);
         return {
           name: ctx.locationName || "Location",
           id: ctx.locationId || "loc_unknown",
@@ -274,24 +296,23 @@ async function getLocation() {
         };
       }
     } catch (err) {
-      console.warn("[ghl-iframe-sso]", err?.message || err);
+      console.warn("[ghl-iframe-sso] fallback:", err?.message || err);
       // continua para fallback de query string
     }
   }
 
   const p = new URLSearchParams(window.location.search);
-  return {
-    name:
-      p.get("locationName") ||
-      p.get("companyName") ||
-      p.get("name") ||
-      "Sparkleads",
-    id:
-      p.get("locationId") ||
-      p.get("location_id") ||
-      p.get("id") ||
-      "loc_placeholder",
-  };
+  const name =
+    cleanParam(p.get("locationName")) ||
+    cleanParam(p.get("companyName")) ||
+    cleanParam(p.get("name")) ||
+    "Sparkleads";
+  const id =
+    cleanParam(p.get("locationId")) ||
+    cleanParam(p.get("location_id")) ||
+    cleanParam(p.get("id")) ||
+    "loc_placeholder";
+  return { name, id };
 }
 
 function deriveCoupon(name) {
@@ -578,7 +599,7 @@ function renderEmpty(result) {
 }
 
 function render() {
-  const result = qualify(sampleReferrals);
+  const result = qualify(referralsSource);
 
   $("hero-level").textContent = result.level.name;
 

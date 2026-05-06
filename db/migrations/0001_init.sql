@@ -99,12 +99,17 @@ create index if not exists idx_webhook_events_type
 -- =========================================================================
 -- updated_at trigger
 -- =========================================================================
-create or replace function set_updated_at() returns trigger as $$
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
 begin
   new.updated_at = now();
   return new;
 end;
-$$ language plpgsql;
+$$;
 
 drop trigger if exists trg_installations_updated on installations;
 create trigger trg_installations_updated before update on installations

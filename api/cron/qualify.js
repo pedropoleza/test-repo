@@ -2,19 +2,23 @@
  * GET /api/cron/qualify
  * Header: x-cron-secret: <CRON_SECRET>
  *
- * Job diário (Etapa 4). Promove `referrals` em status `paid` cujo
- * relógio de qualificação já estourou (D1 define quando o relógio
- * começa) para status `qualified`, recalcula o tier do indicador, e
- * grava transições.
+ * Job diário (Etapa 4). Qualifica indicações cujo relógio dos 30 dias
+ * já estourou.
  *
- * Provider de cron (D7): Vercel Cron (default), QStash ou GitHub
- * Actions. Configuração concreta entra na Etapa 4.
+ * Decisões aplicadas:
+ *   D1=b → o relógio começa em first_payment_at.
+ *   D2=a → desqualificações retroativas (refunded/fraud/canceled)
+ *           recalculam o tier do indicador na hora (já feito pelos
+ *           webhooks; o cron só finaliza promoções pendentes).
  *
- * Suporta override em dev: ?simulate_days_passed=30 ignora a janela
- * de espera pra acelerar testes.
+ * Override de tempo em dev: ?simulate_days_passed=30 ignora a janela.
+ *
+ * Provider de cron (D7=a): Vercel Cron — definido em vercel.json.
  */
+import { db } from "../../lib/server/db.js";
 
 const QUALIFYING_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "POST") {
@@ -22,56 +26,60 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  // ====== ETAPA 4 — proteção por header secreto ======
+  // Vercel Cron envia o header `x-vercel-cron`. Em runs manuais
+  // (curl), exigimos o CRON_SECRET para evitar abuso.
+  const isVercelCron = !!req.headers["x-vercel-cron"];
   const expected = process.env.CRON_SECRET;
-  const provided = req.headers["x-cron-secret"];
-  if (!expected || provided !== expected) {
-    return res.status(401).json({ error: "unauthorized" });
+  if (!isVercelCron) {
+    const provided = req.headers["x-cron-secret"];
+    if (!expected || provided !== expected) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
   }
 
-  // ====== ETAPA 4 — override de tempo em dev ======
-  // const simulateDays = Number(req.query?.simulate_days_passed) || 0;
-  // const cutoff = new Date(Date.now() - (QUALIFYING_DAYS - simulateDays) * 86400000);
+  const simulateDays = Math.max(0, Number(req.query?.simulate_days_passed) || 0);
+  const cutoff = new Date(
+    Date.now() - Math.max(0, QUALIFYING_DAYS - simulateDays) * DAY_MS,
+  );
 
-  // ====== ETAPA 4 — buscar candidates ======
-  // const candidates = await db.referrals.findMany({
-  //   where: {
-  //     status: "paid",
-  //     first_payment_at: { lte: cutoff },
-  //   },
-  // });
-
-  // ====== ETAPA 4 — promover + recalcular tier ======
-  // const summary = { promoted: 0, demoted: 0, tierChanges: 0 };
-  // for (const ref of candidates) {
-  //   await db.referrals.update(ref.id, {
-  //     status: "qualified",
-  //     qualified_at: new Date(),
-  //   });
-  //   summary.promoted++;
-  //   const change = await recomputeIndicadorTier(ref.indicador_location);
-  //   if (change) {
-  //     summary.tierChanges++;
-  //     // TODO: disparar workflow GHL de notificação (Etapa 4)
-  //   }
-  // }
-
-  // ====== ETAPA 4 — desqualificações pendentes ======
-  // Ex.: referrals em status refunded/fraud/canceled que ainda não
-  // tiveram o tier do indicador recalculado.
-  // for (const ref of pendingDisqualifications) {
-  //   await recomputeIndicadorTier(ref.indicador_location);
-  //   summary.demoted++;
-  // }
-
-  // STUB: nada pra fazer ainda
   const summary = {
-    note: "stub_no_db",
-    cutoff_days: QUALIFYING_DAYS,
+    cutoff_iso: cutoff.toISOString(),
     promoted: 0,
-    demoted: 0,
-    tier_changes: 0,
+    skipped: 0,
+    error_rows: 0,
+    started_at: new Date().toISOString(),
   };
-  console.log("[cron.qualification.run]", JSON.stringify(summary));
+
+  // 1) Buscar candidatos: status=paid e first_payment_at <= cutoff
+  const { data: candidates, error: selErr } = await db()
+    .from("referrals")
+    .select("id,indicador_location,first_payment_at")
+    .eq("status", "paid")
+    .lte("first_payment_at", cutoff.toISOString());
+  if (selErr) {
+    console.error("[cron-qualify] select error:", selErr);
+    return res.status(500).json({ error: "db_error", message: selErr.message });
+  }
+
+  // 2) Promover cada um pra qualified
+  for (const ref of candidates || []) {
+    const { error } = await db()
+      .from("referrals")
+      .update({
+        status: "qualified",
+        qualified_at: new Date().toISOString(),
+      })
+      .eq("id", ref.id)
+      .eq("status", "paid"); // proteção contra race
+    if (error) {
+      summary.error_rows++;
+      console.error("[cron-qualify] update error:", ref.id, error);
+    } else {
+      summary.promoted++;
+    }
+  }
+
+  summary.finished_at = new Date().toISOString();
+  console.info("[cron.qualification.run]", JSON.stringify(summary));
   return res.status(200).json({ ok: true, summary });
 }

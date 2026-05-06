@@ -1,7 +1,11 @@
 -- 0001_init.sql
 -- Spark Referral Hub — schema inicial (V1).
--- Pré-requisitos: extensão pgcrypto (gen_random_uuid) habilitada.
--- Executar contra o banco do Supabase configurado em DATABASE_URL.
+-- Pré-requisitos: extensão pgcrypto (gen_random_uuid) habilitada (default no Supabase).
+-- Aplicado em projeto dedicado: spark-referral-hub.
+--
+-- Eventos de webhook GHL e Stripe NÃO ganham tabela própria — quando integrarmos
+-- com o Sparkleads OS para reuso, podemos espelhar a tabela `webhook_events`
+-- existente lá. Por enquanto este projeto fica isolado.
 
 create extension if not exists pgcrypto;
 
@@ -19,19 +23,22 @@ create table if not exists installations (
   expires_at            timestamptz not null,
   scope                 text,
   coupon_code           text unique,
+  stripe_coupon_id      text,
   stripe_promotion_id   text,
+  stripe_customer_id    text,                           -- preenchido quando mapeado
   status                text not null default 'active'
                           check (status in ('active', 'suspended', 'uninstalled')),
   installed_at          timestamptz not null default now(),
   updated_at            timestamptz not null default now()
 );
-
 create index if not exists idx_installations_status on installations(status);
+create index if not exists idx_installations_stripe_customer
+  on installations(stripe_customer_id);
 
 -- =========================================================================
 -- referrals
--- Uma linha por indicação. Estado canônico do programa.
--- (Ver D3: estado canônico vive aqui, GHL fica apenas como source de evento.)
+-- Estado canônico do programa. Uma linha por indicação.
+-- (Ver D3: estado canônico vive aqui, GHL/Stripe são apenas fontes de evento.)
 -- =========================================================================
 create table if not exists referrals (
   id                       uuid primary key default gen_random_uuid(),
@@ -55,12 +62,11 @@ create table if not exists referrals (
   created_at               timestamptz not null default now(),
   updated_at               timestamptz not null default now()
 );
-
 create index if not exists idx_referrals_indicador
   on referrals(indicador_location);
 create index if not exists idx_referrals_status
   on referrals(status);
-create index if not exists idx_referrals_pending_qualification
+create index if not exists idx_referrals_paid_pending
   on referrals(first_payment_at)
   where status = 'paid';
 create unique index if not exists uq_referrals_indicado_location
@@ -68,31 +74,27 @@ create unique index if not exists uq_referrals_indicado_location
   where indicado_location is not null;
 
 -- =========================================================================
--- ghl_events  /  stripe_events
--- Idempotência de webhooks. event_id é a chave única do provider — segunda
--- chegada do mesmo evento é detectada e ignorada.
+-- webhook_events
+-- Idempotência + auditoria de eventos vindos de GHL e Stripe.
+-- Inspirado no shape do Sparkleads OS para coerência futura.
 -- =========================================================================
-create table if not exists ghl_events (
-  event_id     text primary key,
-  type         text not null,
-  payload      jsonb not null,
-  processed_at timestamptz,
-  created_at   timestamptz not null default now()
+create table if not exists webhook_events (
+  event_id        text not null,
+  source          text not null check (source in ('ghl', 'stripe')),
+  event_type      text,
+  payload         jsonb not null,
+  headers         jsonb,
+  signature_valid boolean,
+  processed       boolean not null default false,
+  processed_at    timestamptz,
+  received_at     timestamptz not null default now(),
+  primary key (source, event_id)
 );
-create index if not exists idx_ghl_events_type on ghl_events(type);
-create index if not exists idx_ghl_events_pending on ghl_events(created_at)
-  where processed_at is null;
-
-create table if not exists stripe_events (
-  event_id     text primary key,
-  type         text not null,
-  payload      jsonb not null,
-  processed_at timestamptz,
-  created_at   timestamptz not null default now()
-);
-create index if not exists idx_stripe_events_type on stripe_events(type);
-create index if not exists idx_stripe_events_pending on stripe_events(created_at)
-  where processed_at is null;
+create index if not exists idx_webhook_events_pending
+  on webhook_events(received_at)
+  where processed = false;
+create index if not exists idx_webhook_events_type
+  on webhook_events(source, event_type);
 
 -- =========================================================================
 -- updated_at trigger
@@ -111,3 +113,15 @@ create trigger trg_installations_updated before update on installations
 drop trigger if exists trg_referrals_updated on referrals;
 create trigger trg_referrals_updated before update on referrals
   for each row execute function set_updated_at();
+
+-- =========================================================================
+-- RLS
+-- Tudo bloqueado por padrão. Acesso vem das API routes via service_role,
+-- nunca direto do browser.
+-- =========================================================================
+alter table installations enable row level security;
+alter table referrals enable row level security;
+alter table webhook_events enable row level security;
+
+-- Policy de "negar tudo" implícita: sem policies = nada passa via anon/authenticated.
+-- Service role bypassa RLS por padrão.

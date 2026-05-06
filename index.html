@@ -35,6 +35,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg>
           Hub de Indicações
         </button>
+        <button class="tab" data-tab="history">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v4H3z"/><path d="M3 11h18v10H3z"/><path d="M3 15h18M3 19h18"/></svg>
+          Histórico
+        </button>
         <button class="tab" data-tab="settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
           Settings
@@ -169,6 +173,50 @@
         <div class="achievements-strip" data-reveal data-reveal-delay="4">
           <span class="achievements-strip__label">Conquistas</span>
           <div id="badges" class="achievements-pills"></div>
+        </div>
+      </section>
+
+      <!-- ============= Histórico ============= -->
+      <section class="panel" data-panel="history" hidden>
+        <div class="page-head" data-reveal>
+          <h1>Histórico de Indicações</h1>
+          <p>
+            Tudo que entrou no programa — qualificadas, no caminho dos 30
+            dias e inválidas. Atualizado em tempo real conforme webhooks
+            do GHL e Stripe chegam.
+          </p>
+        </div>
+
+        <div data-reveal data-reveal-delay="1">
+          <div class="card card--padless">
+            <div class="card__head" style="padding: 22px 24px 0;">
+              <div>
+                <h3 class="card__title">Suas indicações</h3>
+                <p class="card__sub">Filtra por status; clica numa coluna pra ordenar</p>
+              </div>
+            </div>
+            <div class="filters" id="history-filters"></div>
+            <div class="tbl-wrap">
+              <table class="tbl" id="history-table">
+                <thead>
+                  <tr>
+                    <th>Indicado</th>
+                    <th>Subaccount em</th>
+                    <th>Status</th>
+                    <th>Detalhe</th>
+                  </tr>
+                </thead>
+                <tbody id="history-tbody"></tbody>
+              </table>
+            </div>
+            <div id="history-empty" class="history-empty" hidden>
+              <div class="history-empty__art">📭</div>
+              <div class="history-empty__title">Nenhuma indicação ainda</div>
+              <div class="history-empty__sub">
+                Compartilhe seu cupom no Hub para começar.
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

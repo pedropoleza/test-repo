@@ -823,6 +823,148 @@ lottie-player { display: block; pointer-events: none; }
 [data-reveal-delay="2"] { transition-delay: 130ms; }
 [data-reveal-delay="3"] { transition-delay: 200ms; }
 
+/* ========== History tab — filters, table ========== */
+
+.card--padless { padding: 0; overflow: hidden; }
+
+.filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 24px;
+  border-top: 1px solid var(--gray-150);
+  border-bottom: 1px solid var(--gray-150);
+  background: var(--gray-50);
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  color: var(--gray-700);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: all var(--d-fast);
+}
+.filter-chip:hover { border-color: var(--ghl-300); color: var(--ghl-700); }
+.filter-chip.is-active {
+  background: var(--ghl-50);
+  border-color: var(--ghl-300);
+  color: var(--ghl-700);
+  box-shadow: var(--shadow-blue-soft);
+}
+.filter-chip .count {
+  font-variant-numeric: tabular-nums;
+  background: var(--gray-100);
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+}
+.filter-chip.is-active .count {
+  background: var(--ghl-100);
+  color: var(--ghl-700);
+}
+
+.tbl-wrap { overflow-x: auto; }
+
+.tbl {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--fs-base);
+}
+.tbl thead th {
+  text-align: left;
+  padding: 14px 24px;
+  background: var(--white);
+  border-bottom: 1px solid var(--gray-200);
+  font-weight: 600;
+  color: var(--gray-500);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.tbl tbody td {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--gray-150);
+  vertical-align: middle;
+}
+.tbl tbody tr { transition: background-color var(--d-fast); }
+.tbl tbody tr:hover { background: var(--gray-50); }
+.tbl tbody tr:last-child td { border-bottom: none; }
+.tbl tbody tr[data-status="invalidated"] td {
+  color: var(--gray-400);
+}
+.tbl tbody tr[data-status="invalidated"] .ref-name {
+  text-decoration: line-through;
+}
+.tbl .ref-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+.tbl .ref-name::before {
+  content: "";
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gray-300);
+}
+.tbl tbody tr[data-status="qualified"] .ref-name::before {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(22,163,74,0.15);
+}
+.tbl tbody tr[data-status^="awaiting"] .ref-name::before {
+  background: var(--warn);
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+.tbl tbody tr[data-status="invalidated"] .ref-name::before {
+  background: var(--danger);
+}
+.tbl .muted {
+  color: var(--gray-500);
+  font-size: var(--fs-sm);
+}
+.tbl .countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  background: var(--warn-bg);
+  color: #b45309;
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 600;
+}
+.tbl .countdown::before {
+  content: "⏳";
+  font-size: 11px;
+}
+
+.history-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--gray-500);
+}
+.history-empty__art {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+.history-empty__title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 4px;
+}
+.history-empty__sub {
+  font-size: var(--fs-sm);
+  color: var(--gray-500);
+}
+
 /* ========== Custom scrollbar (GHL blue, slim) ========== */
 
 * {

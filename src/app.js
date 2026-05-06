@@ -751,6 +751,140 @@ function buildBadges(result) {
 /* ============== Render + Skeleton phase ============== */
 
 let lastLevelId = null;
+let historyFilter = "all"; // 'all' | 'qualified' | 'awaiting' | 'invalidated'
+
+/* ============== History tab ============== */
+
+const HISTORY_STATUS_LABEL = {
+  qualified: "Qualificada",
+  "awaiting-time": "Aguardando 30 dias",
+  "awaiting-coupon": "Aguardando cupom",
+  "awaiting-both": "Aguardando ciclo",
+  "awaiting-subaccount": "Aguardando subaccount",
+  invalidated: "Inválida",
+};
+
+function fmtDateBR(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function fmtRelativePast(d) {
+  if (!d) return "—";
+  const ms = Date.now() - new Date(d).getTime();
+  const days = Math.floor(ms / 86400000);
+  if (days <= 0) return "hoje";
+  if (days === 1) return "ontem";
+  if (days < 7) return `há ${days} dias`;
+  if (days < 30) return `há ${Math.floor(days / 7)} sem`;
+  if (days < 365) return `há ${Math.floor(days / 30)} mês${days < 60 ? "" : "es"}`;
+  return `há ${Math.floor(days / 365)} ano(s)`;
+}
+
+function statusDetail(r) {
+  if (r.status === "qualified") return fmtRelativePast(r.qualifiesOn || r.subaccountAddedAt);
+  if (r.status === "invalidated") return "removida da contagem";
+  if (r.status === "awaiting-coupon") return "cupom pendente de emissão";
+  if (r.status === "awaiting-subaccount") return "subaccount não criada";
+  if (r.status === "awaiting-time" || r.status === "awaiting-both") {
+    const d = r.daysUntilQualified;
+    if (typeof d === "number") {
+      return `<span class="countdown">qualifica em ${d} dia${d === 1 ? "" : "s"}</span>`;
+    }
+  }
+  return "—";
+}
+
+function buildHistoryFilters(result) {
+  const root = $("history-filters");
+  if (!root) return;
+  const counts = {
+    all: result.referrals.length,
+    qualified: result.referrals.filter((r) => r.status === "qualified").length,
+    awaiting: result.referrals.filter((r) =>
+      ["awaiting-time", "awaiting-coupon", "awaiting-both", "awaiting-subaccount"].includes(r.status),
+    ).length,
+    invalidated: result.referrals.filter((r) => r.status === "invalidated").length,
+  };
+  const chips = [
+    { id: "all",         label: "Todas" },
+    { id: "qualified",   label: "Qualificadas" },
+    { id: "awaiting",    label: "Aguardando" },
+    { id: "invalidated", label: "Inválidas" },
+  ];
+  root.innerHTML = chips
+    .map(
+      (c) => `
+      <button class="filter-chip ${c.id === historyFilter ? "is-active" : ""}" data-filter="${c.id}">
+        ${c.label} <span class="count">${counts[c.id]}</span>
+      </button>`,
+    )
+    .join("");
+}
+
+function buildHistoryTable(result) {
+  const tbody = $("history-tbody");
+  const empty = $("history-empty");
+  const wrap = $("history-table");
+  if (!tbody) return;
+
+  if (!result.referrals.length) {
+    empty.hidden = false;
+    if (wrap) wrap.style.display = "none";
+    tbody.innerHTML = "";
+    return;
+  }
+  empty.hidden = true;
+  if (wrap) wrap.style.display = "";
+
+  const rows = result.referrals.filter((r) => {
+    if (historyFilter === "all") return true;
+    if (historyFilter === "qualified") return r.status === "qualified";
+    if (historyFilter === "awaiting")
+      return ["awaiting-time", "awaiting-coupon", "awaiting-both", "awaiting-subaccount"].includes(r.status);
+    if (historyFilter === "invalidated") return r.status === "invalidated";
+    return true;
+  });
+
+  tbody.innerHTML = rows
+    .map((r) => `
+      <tr data-status="${r.status}">
+        <td><span class="ref-name">${escapeHtml(r.name || "Indicação")}</span></td>
+        <td>${fmtDateBR(r.subaccountAddedAt)}</td>
+        <td><span class="badge badge--${r.status}">${HISTORY_STATUS_LABEL[r.status] || r.status}</span></td>
+        <td class="muted">${statusDetail(r)}</td>
+      </tr>`)
+    .join("");
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildHistory(result) {
+  buildHistoryFilters(result);
+  buildHistoryTable(result);
+}
+
+function setupHistoryFilters() {
+  const root = $("history-filters");
+  if (!root) return;
+  root.addEventListener("click", (e) => {
+    const btn = e.target.closest(".filter-chip");
+    if (!btn) return;
+    historyFilter = btn.dataset.filter;
+    // Re-render: precisa do result atual; usa qualify(activeReferrals).
+    buildHistory(qualify(activeReferrals));
+  });
+}
 
 function countPending(result) {
   return (result.referrals || []).filter((r) =>
@@ -830,6 +964,7 @@ function render() {
   buildTierList(result);
   buildBadges(result);
   renderEmpty(result);
+  buildHistory(result);
 
   // Level-up detection
   if (lastLevelId !== null && result.level.id !== lastLevelId && result.level.id !== "none") {
@@ -881,6 +1016,7 @@ async function bootstrap() {
 /* ============== Boot ============== */
 
 setupTabs();
+setupHistoryFilters();
 setupReveal();
 setupTooltips();
 setupHoverLotties();

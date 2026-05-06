@@ -14,9 +14,9 @@
  *   - Mapear stripe_customer_id (depende de D8)
  */
 import Stripe from "stripe";
-import { encrypt } from "../../../lib/server/crypto.js";
-import { sign as jwtSign } from "../../../lib/server/jwt.js";
-import { db } from "../../../lib/server/db.js";
+import { encrypt } from "../../lib/server/crypto.js";
+import { sign as jwtSign } from "../../lib/server/jwt.js";
+import { db } from "../../lib/server/db.js";
 
 const GHL_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token";
 
@@ -211,7 +211,7 @@ async function exchangeCode(code) {
     client_secret: process.env.GHL_CLIENT_SECRET || "",
     grant_type: "authorization_code",
     code,
-    redirect_uri: `${process.env.PUBLIC_BASE_URL || ""}/api/oauth/ghl/callback`,
+    redirect_uri: `${process.env.PUBLIC_BASE_URL || ""}/api/oauth/callback`,
     user_type: "Location",
   });
   const r = await fetch(GHL_TOKEN_URL, {

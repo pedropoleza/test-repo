@@ -6,16 +6,16 @@
     <meta name="theme-color" content="#155EEF" />
     <title>Programa de Indicações · GHL</title>
     <!--
-      OAuth fallback: se o GHL Marketplace estiver com Redirect URL
-      apontando pra raiz, o ?code= cai aqui em vez do /api/oauth/ghl/callback.
-      Esse script intercepta antes de qualquer outra coisa carregar e
-      encaminha pro callback real preservando todos os params.
+      OAuth fallback: se o Marketplace estiver com Redirect URL apontando
+      pra raiz, o ?code= cai aqui em vez de /api/oauth/callback. Esse script
+      intercepta antes de qualquer outra coisa carregar e encaminha pro
+      callback real preservando todos os params.
     -->
     <script>
       (function () {
         var p = new URLSearchParams(location.search);
         if (p.has("code") && !p.has("session")) {
-          location.replace("/api/oauth/ghl/callback" + location.search);
+          location.replace("/api/oauth/callback" + location.search);
         }
       })();
     </script>

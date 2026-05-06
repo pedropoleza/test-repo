@@ -1,19 +1,14 @@
 /**
  * GET /api/tier?locationId=...
- * Header: x-spark-session: <JWT>
+ * Header (preferido): x-spark-session: <JWT>
+ * Query alternativa:  ?session=<JWT>  (usada no primeiro redirect pós-OAuth)
  *
- * Retorna o payload no shape consumido pelo front (mesma forma do
- * resultado da função qualify()): nível atual, descontos, retorno
- * estimado, lista de indicações com status. O front substituiu o
- * import de sample-referrals.js por fetch a este endpoint quando a
- * Etapa 2 começar.
- *
- * Estado atual (skeleton): valida o JWT (se presente), mas retorna
- * uma resposta vazia/estável (qualifiedCount=0, level=none) até o
- * DATABASE_URL existir.
+ * Valida o JWT, lê referrals da location no Supabase e devolve no
+ * shape consumido por qualify() no front. O front mantém qualify()
+ * como fonte única da regra de negócio.
  */
-
 import { verify as jwtVerify } from "../lib/server/jwt.js";
+import { db } from "../lib/server/db.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -26,35 +21,53 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "missing_locationId" });
   }
 
-  // ====== ETAPA 1 — TODO: validar JWT do iframe ======
-  // const token = req.headers["x-spark-session"];
-  // try {
-  //   const claims = jwtVerify(token);
-  //   if (claims.locationId !== locationId) {
-  //     return res.status(403).json({ error: "location_mismatch" });
-  //   }
-  // } catch (err) {
-  //   return res.status(401).json({ error: "invalid_session" });
-  // }
+  const token = req.headers["x-spark-session"] || req.query?.session;
+  if (!token) return res.status(401).json({ error: "missing_session" });
 
-  // ====== ETAPA 2 — TODO: buscar referrals do DB ======
-  // const referrals = await db.referrals.findMany({
-  //   where: { indicador_location: locationId },
-  //   orderBy: { created_at: "desc" },
-  // });
-  //
-  // Mapear para o shape consumido pelo front:
-  //   { name, subaccountAddedAt, couponIssued, cancelled?, refunded?, fraud? }
-  //
-  // Importante: a função qualify() em src/lib/qualify.js já calcula
-  // status, daysUntilQualified, etc. Mantemos qualify() como única
-  // fonte de verdade da regra — backend não precisa duplicar.
+  let claims;
+  try {
+    claims = jwtVerify(token);
+  } catch (err) {
+    return res.status(401).json({ error: "invalid_session", reason: err.message });
+  }
+  if (claims.locationId !== locationId) {
+    return res.status(403).json({ error: "location_mismatch" });
+  }
 
-  // STUB: location nova / DB não conectado — devolve estado zero.
+  const { data, error } = await db()
+    .from("referrals")
+    .select(
+      "id,indicado_location,indicado_email,coupon_used,status," +
+        "subaccount_created_at,first_payment_at,qualified_at," +
+        "disqualified_at,disqualification_reason",
+    )
+    .eq("indicador_location", locationId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[tier] db error:", error);
+    return res.status(500).json({ error: "db_error" });
+  }
+
+  const referrals = (data || []).map(rowToReferral);
+
   return res.status(200).json({
     locationId,
-    referrals: [],
+    referrals,
     asOf: new Date().toISOString(),
-    note: "stub_no_db",
   });
+}
+
+function rowToReferral(r) {
+  return {
+    name:
+      r.indicado_email ||
+      r.indicado_location ||
+      `Indicação ${(r.id || "").slice(0, 4)}`,
+    subaccountAddedAt: r.subaccount_created_at,
+    couponIssued: !!r.coupon_used,
+    cancelled: r.status === "canceled",
+    refunded: r.status === "refunded",
+    fraud: r.status === "fraud",
+  };
 }

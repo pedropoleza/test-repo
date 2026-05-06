@@ -3,12 +3,73 @@ import { sampleReferrals } from "./data/sample-referrals.js";
 import { levels } from "./config/tiers.js";
 
 /* ============== Source of referrals ==============
- * Em produção, a lista virá do /api/tier (Etapa 2). Por enquanto, cada
- * location começa em 0 indicações — clientes novos veem o empty state.
- * Pra demonstrar a UI populada, abra com ?demo=1.
+ * Em produção, a lista vem de /api/tier (Etapa 2). ?demo=1 força o
+ * dataset estático pra demos. Caso o /api/tier falhe (404, 401), o
+ * fallback gracioso é uma lista vazia (empty state aparece).
  */
 const params = new URLSearchParams(window.location.search);
-const referralsSource = params.get("demo") === "1" ? sampleReferrals : [];
+const isDemoMode = params.get("demo") === "1";
+let activeReferrals = []; // mutável; populado em bootstrap()
+
+/* ============== Session (JWT) =============== */
+
+const SESSION_KEY = "indicacoes:session";
+
+function getSession() {
+  if (window.__sparkSession) return window.__sparkSession;
+  try {
+    const v = sessionStorage.getItem(SESSION_KEY);
+    if (v) return v;
+  } catch {}
+  return null;
+}
+
+function setSession(token) {
+  if (!token) return;
+  window.__sparkSession = token;
+  try { sessionStorage.setItem(SESSION_KEY, token); } catch {}
+}
+
+// Captura ?session=… do redirect pós-OAuth e limpa da URL.
+(function captureSessionFromUrl() {
+  const s = params.get("session");
+  if (!s) return;
+  setSession(s);
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("session");
+    history.replaceState(null, "", url.toString());
+  } catch {}
+})();
+
+/* ============== Fetch helpers =============== */
+
+async function fetchTier(locationId) {
+  const session = getSession();
+  if (!session) throw new Error("no_session");
+  const r = await fetch(`/api/tier?locationId=${encodeURIComponent(locationId)}`, {
+    headers: { "x-spark-session": session },
+  });
+  if (!r.ok) {
+    const body = await r.text().catch(() => "");
+    throw new Error(`tier_${r.status}: ${body.slice(0, 120)}`);
+  }
+  return r.json();
+}
+
+async function loadReferrals(locationId) {
+  if (isDemoMode) return sampleReferrals;
+  if (!locationId || locationId === "loc_placeholder" || locationId === "loc_unknown") {
+    return [];
+  }
+  try {
+    const data = await fetchTier(locationId);
+    return Array.isArray(data?.referrals) ? data.referrals : [];
+  } catch (err) {
+    console.warn("[tier] fetch falhou, fallback empty:", err?.message || err);
+    return [];
+  }
+}
 
 /* ============== Helpers ============== */
 
@@ -480,14 +541,44 @@ function setupShare() {
 /* ============== Stripe Customer Portal ============== */
 
 function setupStripePortal() {
-  $("open-stripe-portal")?.addEventListener("click", () => {
-    // TODO: chamar /api/stripe/portal-session que cria a sessão e
-    // retorna a URL. Por enquanto, abrir docs como placeholder.
-    toast({
-      title: "Conectando ao Stripe…",
-      sub: "Backend ainda não plugado — ver setup pendente.",
-      tone: "info",
-    });
+  const btn = $("open-stripe-portal");
+  if (!btn) return;
+  btn.addEventListener("click", async () => {
+    const session = getSession();
+    if (!session) {
+      toast({
+        title: "Sessão expirada",
+        sub: "Reabra o app pelo GHL para autenticar.",
+        tone: "warn",
+      });
+      return;
+    }
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Conectando…";
+    try {
+      const r = await fetch("/api/portal", {
+        method: "POST",
+        headers: { "x-spark-session": session },
+      });
+      const json = await r.json().catch(() => ({}));
+      if (!r.ok || !json.url) {
+        toast({
+          title: "Não foi possível abrir o portal",
+          sub: json.message || json.error || `HTTP ${r.status}`,
+          tone: "warn",
+          duration: 5000,
+        });
+        return;
+      }
+      // Abre em nova aba — o portal Stripe não autoriza iframe.
+      window.open(json.url, "_blank", "noopener");
+    } catch (err) {
+      toast({ title: "Erro de rede", sub: err.message, tone: "warn" });
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
   });
 }
 
@@ -666,7 +757,7 @@ function renderEmpty(result) {
 }
 
 function render() {
-  const result = qualify(referralsSource);
+  const result = qualify(activeReferrals);
 
   $("hero-level").textContent = result.level.name;
 
@@ -737,6 +828,13 @@ async function bootstrap() {
   // Re-hidrata preferências chaveadas por locationId, após a location resolver
   if (typeof window.__sparkHydrateNotifs === "function") {
     window.__sparkHydrateNotifs();
+  }
+  // Carrega referrals reais (ou sample em ?demo=1)
+  try {
+    activeReferrals = await loadReferrals(currentLocation?.id);
+  } catch (err) {
+    console.error("[bootstrap] referrals load failed:", err);
+    activeReferrals = [];
   }
   lastLevelId = "none"; // baseline so first render fires confetti
   render();

@@ -538,50 +538,6 @@ function setupShare() {
   });
 }
 
-/* ============== Stripe Customer Portal ============== */
-
-function setupStripePortal() {
-  const btn = $("open-stripe-portal");
-  if (!btn) return;
-  btn.addEventListener("click", async () => {
-    const session = getSession();
-    if (!session) {
-      toast({
-        title: "Sessão expirada",
-        sub: "Reabra o app pelo GHL para autenticar.",
-        tone: "warn",
-      });
-      return;
-    }
-    const original = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "Conectando…";
-    try {
-      const r = await fetch("/api/portal", {
-        method: "POST",
-        headers: { "x-spark-session": session },
-      });
-      const json = await r.json().catch(() => ({}));
-      if (!r.ok || !json.url) {
-        toast({
-          title: "Não foi possível abrir o portal",
-          sub: json.message || json.error || `HTTP ${r.status}`,
-          tone: "warn",
-          duration: 5000,
-        });
-        return;
-      }
-      // Abre em nova aba — o portal Stripe não autoriza iframe.
-      window.open(json.url, "_blank", "noopener");
-    } catch (err) {
-      toast({ title: "Erro de rede", sub: err.message, tone: "warn" });
-    } finally {
-      btn.disabled = false;
-      btn.textContent = original;
-    }
-  });
-}
-
 /* ============== Email notifications (preferences) ============== */
 
 // Storage helpers chaveados por locationId — cada location tem suas
@@ -1022,7 +978,6 @@ setupTooltips();
 setupHoverLotties();
 setupNotifPrefs();
 setupShare();
-setupStripePortal();
 
 // Wire copy buttons (handlers persist; data-code is updated when data loads)
 $("coupon-copy")?.addEventListener("click", (e) => {

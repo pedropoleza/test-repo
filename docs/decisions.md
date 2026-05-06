@@ -156,7 +156,7 @@ infra extra. Migrar pra (b) só se precisar de retries inteligentes.
 ## D8 — Mapeamento location ↔ Stripe customer
 
 **Pergunta.** Como descobrimos qual `customer_id` no Stripe corresponde
-a cada `locationId` do GHL pra aplicar o desconto / abrir o portal?
+a cada `locationId` do GHL pra aplicar o desconto?
 
 **Opções.**
 - **(a)** `customer.metadata.location_id` no Stripe (set quando o

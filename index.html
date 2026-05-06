@@ -85,8 +85,8 @@
                   <span class="hero-level__chip" data-tip="Aplicado mensalmente enquanto você mantiver o nível.">
                     <strong id="hero-monthly">$0</strong> /mês recorrente
                   </span>
-                  <span class="hero-level__chip" data-tip="Indicações que cumpriram 30 dias após a criação da subaccount.">
-                    <strong id="hero-qualified">0</strong> indicações qualificadas
+                  <span class="hero-level__chip" data-tip="Qualificadas: cumpriram 30 dias + pagamento confirmado. Aguardando: ainda no ciclo.">
+                    <strong id="hero-qualified">0</strong> qualificadas<span id="hero-pending-wrap" class="chip-extra" hidden> · <strong id="hero-pending">0</strong> aguardando</span>
                   </span>
                   <span class="hero-level__chip" id="hero-premium-chip" data-tip="Aumenta o retorno estimado em 20% no nível máximo." hidden>
                     Multiplicador <strong>1.2x</strong> ativo
@@ -146,9 +146,9 @@
         </div>
 
         <div id="empty-state" class="empty-state" hidden>
-          <div class="empty-state__art">🎉</div>
-          <div class="empty-state__title">Você ainda não tem indicações qualificadas</div>
-          <div class="empty-state__sub">
+          <div class="empty-state__art" id="empty-state-art">🎉</div>
+          <div class="empty-state__title" id="empty-state-title">Você ainda não tem indicações qualificadas</div>
+          <div class="empty-state__sub" id="empty-state-sub">
             Compartilhe seu cupom para começar. A primeira indicação já libera <strong>$30 de desconto único</strong>.
           </div>
           <button class="btn btn--primary" id="empty-share">Compartilhar cupom</button>

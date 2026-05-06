@@ -752,8 +752,41 @@ function buildBadges(result) {
 
 let lastLevelId = null;
 
+function countPending(result) {
+  return (result.referrals || []).filter((r) =>
+    ["awaiting-time", "awaiting-coupon", "awaiting-both"].includes(r.status),
+  ).length;
+}
+
 function renderEmpty(result) {
-  $("empty-state").hidden = result.qualifiedCount > 0;
+  const pending = countPending(result);
+  const empty = $("empty-state");
+  if (result.qualifiedCount > 0) {
+    empty.hidden = true;
+    return;
+  }
+  empty.hidden = false;
+
+  // Estado vazio com diferenciação: tem alguém esperando? ainda
+  // não chegou ninguém?
+  const art = $("empty-state-art");
+  const title = $("empty-state-title");
+  const sub = $("empty-state-sub");
+  if (pending > 0) {
+    if (art) art.textContent = "⏳";
+    if (title) title.textContent =
+      `${pending} indicação${pending === 1 ? "" : "ões"} aguardando o ciclo de 30 dias`;
+    if (sub) sub.innerHTML =
+      "Boas notícias: você já tem indicações no caminho. Elas viram " +
+      "<strong>qualificadas</strong> automaticamente após 30 dias do primeiro " +
+      "pagamento confirmado. Continue compartilhando seu cupom.";
+  } else {
+    if (art) art.textContent = "🎉";
+    if (title) title.textContent = "Você ainda não tem indicações qualificadas";
+    if (sub) sub.innerHTML =
+      "Compartilhe seu cupom para começar. A primeira indicação já libera " +
+      "<strong>$30 de desconto único</strong>.";
+  }
 }
 
 function render() {
@@ -763,6 +796,11 @@ function render() {
 
   // Animated count-up on hero numbers
   animateCount($("hero-qualified"), result.qualifiedCount);
+
+  const pending = countPending(result);
+  const pendWrap = $("hero-pending-wrap");
+  if (pendWrap) pendWrap.hidden = pending === 0;
+  animateCount($("hero-pending"), pending);
 
   // Animated count-up for currency-prefixed values
   const onceEl = $("hero-once");

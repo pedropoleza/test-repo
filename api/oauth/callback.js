@@ -133,9 +133,34 @@ export default async function handler(req, res) {
     userType,
   } = tokens;
 
-  if (!access_token || !refresh_token || !locationId) {
-    console.error("[oauth-ghl] incomplete token payload", Object.keys(tokens));
-    return renderError(res, "Resposta inesperada do GHL", "Tokens ou locationId faltando");
+  // Logamos pra Vercel logs sem expor tokens
+  console.info("[oauth-ghl] token response keys:", Object.keys(tokens || {}),
+    "userType=", userType, "hasLocationId=", !!locationId,
+    "hasCompanyId=", !!companyId);
+
+  if (!access_token || !refresh_token) {
+    return renderError(
+      res,
+      "Resposta inesperada do GHL",
+      `Faltam tokens. Recebido: ${Object.keys(tokens || {}).join(", ") || "(vazio)"} | userType=${userType || "?"}`,
+    );
+  }
+
+  if (!locationId) {
+    // Caso comum: usuário autorizou no nível Agency/Company em vez de
+    // pickar uma location na tela de chooselocation.
+    if (userType === "Company" || companyId) {
+      return renderError(
+        res,
+        "Autorização em nível errado",
+        `Você autorizou no nível Agency. Esse app precisa ser instalado em uma SUB-LOCATION específica. Volte na tela do GHL e selecione uma location na lista (não clique em "Authorize for Agency"). userType=${userType || "?"}, companyId=${companyId || "?"}.`,
+      );
+    }
+    return renderError(
+      res,
+      "locationId ausente",
+      `Tokens vieram, mas sem locationId. Campos: ${Object.keys(tokens).join(", ")}. userType=${userType || "?"}`,
+    );
   }
 
   // 2) Encripta tokens

@@ -9,6 +9,7 @@
  */
 import { verify as jwtVerify } from "../lib/server/jwt.js";
 import { db } from "../lib/server/db.js";
+import { ensureInstallation } from "../lib/server/provision.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -32,6 +33,16 @@ export default async function handler(req, res) {
   }
   if (claims.locationId !== locationId) {
     return res.status(403).json({ error: "location_mismatch" });
+  }
+
+  // Defesa em profundidade: se a location ainda não tem installation,
+  // provisiona agora via PIT da agency. Idempotente — noop se já existe.
+  if (process.env.GHL_AGENCY_PIT) {
+    try {
+      await ensureInstallation(locationId, { companyId: claims.companyId });
+    } catch (err) {
+      console.warn("[tier] provision skipped:", err?.message || err);
+    }
   }
 
   const { data, error } = await db()

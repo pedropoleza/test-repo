@@ -8,6 +8,7 @@
  */
 import { decryptCryptoJS } from "../../lib/server/ghl-decrypt.js";
 import { sign as jwtSign } from "../../lib/server/jwt.js";
+import { ensureInstallation } from "../../lib/server/provision.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -70,9 +71,24 @@ export default async function handler(req, res) {
     console.warn("[ghl-context] jwt skipped:", err.message);
   }
 
+  // Lazy provisioning agency-wide via PIT: se a location ainda não tem
+  // installation, cria uma agora (com Stripe Coupon + Promotion Code).
+  // Erros aqui não bloqueiam o SSO — degradamos pra empty state.
+  let installation = null;
+  if (locationId && process.env.GHL_AGENCY_PIT) {
+    try {
+      installation = await ensureInstallation(locationId, {
+        locationName,
+        companyId,
+      });
+    } catch (err) {
+      console.warn("[ghl-context] provision skipped:", err?.message || err);
+    }
+  }
+
   return res.status(200).json({
     locationId,
-    locationName,
+    locationName: installation?.location_name || locationName,
     userId,
     userName,
     email,
@@ -80,6 +96,7 @@ export default async function handler(req, res) {
     type,
     companyId,
     sessionToken,
+    couponCode: installation?.coupon_code || null,
   });
 }
 

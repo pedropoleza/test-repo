@@ -73,7 +73,7 @@ export default async function handler(req, res) {
           amount_off: INDICADO_DISCOUNT_USD * 100,
           currency: "usd",
           duration: "once",
-          name: `Indicação — ${r.location_name || r.location_id}`,
+          name: `Indicação — ${r.location_name || r.location_id}`.slice(0, 40),
           metadata: {
             location_id: r.location_id,
             role: "indicado",

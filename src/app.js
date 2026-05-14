@@ -64,6 +64,11 @@ async function loadReferrals(locationId) {
   }
   try {
     const data = await fetchTier(locationId);
+    // /api/tier também devolve shareUrl + couponCode (defesa em
+    // profundidade caso SSO tenha falhado em popular).
+    if (data?.shareUrl && !window.__sparkShareUrl) {
+      window.__sparkShareUrl = data.shareUrl;
+    }
     return Array.isArray(data?.referrals) ? data.referrals : [];
   } catch (err) {
     console.warn("[tier] fetch falhou, fallback empty:", err?.message || err);
@@ -365,6 +370,7 @@ async function getLocation() {
       const ctx = await requestGhlContext();
       if (ctx && (ctx.locationName || ctx.locationId)) {
         if (ctx.sessionToken) window.__sparkSession = ctx.sessionToken;
+        if (ctx.shareUrl) window.__sparkShareUrl = ctx.shareUrl;
         if (ctx.paymentLinkBase) window.__sparkPaymentLinkBase = ctx.paymentLinkBase;
         console.info("[location] iframe SSO →", ctx.locationName, ctx.locationId);
         const loc = {
@@ -489,13 +495,18 @@ async function copyCode(code, btn, label) {
 
 /**
  * Constrói o link compartilhável que o indicador manda pra um indicado.
- * Vai pro Stripe Payment Link com o cupom já pré-aplicado, então o
- * indicado abre o checkout sem precisar digitar nada.
  *
- * URL base vem do servidor (window.__sparkPaymentLinkBase, populado via
- * iframe SSO). Se não tiver, fallback pro link genérico de fallback.
+ * Prioridade:
+ *   1. window.__sparkShareUrl — Payment Link próprio da location, com
+ *      o cupom já anexado via discounts:[{coupon}] (auto-aplicado, sem
+ *      o cliente digitar nada). Esse é o caminho canônico.
+ *   2. window.__sparkPaymentLinkBase + ?prefilled_promo_code= — fallback
+ *      pro link base com cupom em query string (só preenche o campo,
+ *      cliente ainda precisa clicar em "Apply").
+ *   3. Link GHL genérico — último fallback caso nada esteja setado.
  */
 function shareLinkFor(code) {
+  if (window.__sparkShareUrl) return window.__sparkShareUrl;
   const base = window.__sparkPaymentLinkBase;
   if (base) {
     const sep = base.includes("?") ? "&" : "?";

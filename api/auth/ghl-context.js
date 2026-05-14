@@ -121,6 +121,7 @@ export default async function handler(req, res) {
     companyId,
     sessionToken,
     couponCode: installation?.coupon_code || null,
+    shareUrl: installation?.payment_link_url || null,
     paymentLinkBase: process.env.STRIPE_PAYMENT_LINK_BASE || null,
   });
 }

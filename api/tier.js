@@ -37,12 +37,21 @@ export default async function handler(req, res) {
 
   // Defesa em profundidade: se a location ainda não tem installation,
   // provisiona agora via PIT da agency. Idempotente — noop se já existe.
+  let installation = null;
   if (process.env.GHL_AGENCY_PIT) {
     try {
-      await ensureInstallation(locationId, { companyId: claims.companyId });
+      installation = await ensureInstallation(locationId, { companyId: claims.companyId });
     } catch (err) {
       console.warn("[tier] provision skipped:", err?.message || err);
     }
+  }
+  if (!installation) {
+    const { data } = await db()
+      .from("installations")
+      .select("coupon_code, payment_link_url")
+      .eq("location_id", locationId)
+      .maybeSingle();
+    installation = data;
   }
 
   const { data, error } = await db()
@@ -65,6 +74,8 @@ export default async function handler(req, res) {
   return res.status(200).json({
     locationId,
     referrals,
+    couponCode: installation?.coupon_code || null,
+    shareUrl: installation?.payment_link_url || null,
     paymentLinkBase: process.env.STRIPE_PAYMENT_LINK_BASE || null,
     asOf: new Date().toISOString(),
   });

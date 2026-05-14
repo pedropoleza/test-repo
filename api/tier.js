@@ -65,6 +65,7 @@ export default async function handler(req, res) {
   return res.status(200).json({
     locationId,
     referrals,
+    paymentLinkBase: process.env.STRIPE_PAYMENT_LINK_BASE || null,
     asOf: new Date().toISOString(),
   });
 }

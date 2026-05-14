@@ -365,6 +365,7 @@ async function getLocation() {
       const ctx = await requestGhlContext();
       if (ctx && (ctx.locationName || ctx.locationId)) {
         if (ctx.sessionToken) window.__sparkSession = ctx.sessionToken;
+        if (ctx.paymentLinkBase) window.__sparkPaymentLinkBase = ctx.paymentLinkBase;
         console.info("[location] iframe SSO →", ctx.locationName, ctx.locationId);
         const loc = {
           source: "iframe-sso",
@@ -486,8 +487,20 @@ async function copyCode(code, btn, label) {
 
 /* ============== Share modal ============== */
 
+/**
+ * Constrói o link compartilhável que o indicador manda pra um indicado.
+ * Vai pro Stripe Payment Link com o cupom já pré-aplicado, então o
+ * indicado abre o checkout sem precisar digitar nada.
+ *
+ * URL base vem do servidor (window.__sparkPaymentLinkBase, populado via
+ * iframe SSO). Se não tiver, fallback pro link genérico de fallback.
+ */
 function shareLinkFor(code) {
-  // Replace with the public landing once it exists.
+  const base = window.__sparkPaymentLinkBase;
+  if (base) {
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}prefilled_promo_code=${encodeURIComponent(code)}`;
+  }
   return `https://app.gohighlevel.com/?coupon=${encodeURIComponent(code)}`;
 }
 

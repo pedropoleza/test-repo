@@ -66,8 +66,10 @@ async function loadReferrals(locationId) {
     const data = await fetchTier(locationId);
     // /api/tier também devolve shareUrl + couponCode (defesa em
     // profundidade caso SSO tenha falhado em popular).
-    if (data?.shareUrl && !window.__sparkShareUrl) {
-      window.__sparkShareUrl = data.shareUrl;
+    if (data?.shareUrl) window.__sparkShareUrl = data.shareUrl;
+    if (data?.couponCode) window.__sparkCoupon = data.couponCode;
+    if (typeof window.__sparkRehydrateCheckoutCta === "function") {
+      window.__sparkRehydrateCheckoutCta();
     }
     return Array.isArray(data?.referrals) ? data.referrals : [];
   } catch (err) {
@@ -434,13 +436,39 @@ let currentLocation = null;
 
 async function applyLocationAndCoupon() {
   const loc = await getLocation();
-  // Preferência: cupom REAL do server (via SSO ctx). Fallback: deriva
-  // localmente — mas a derivação local é simplificada e pode diferir
-  // da server-side (que combina palavras até 5 chars). Quando isso
-  // acontece, o botão de checkout abre URL com cupom inexistente.
-  const code = loc.couponCode || deriveCoupon(loc.name);
   currentLocation = loc;
   window.__sparkLocation = loc;
+
+  // Resolução do cupom em ordem:
+  //  1. SSO ctx (mais rápido — já vem no postMessage)
+  //  2. Fetch /api/cupom?locationId= (canônico do server, faz lazy
+  //     provision se a installation ainda não existir)
+  //  3. deriveCoupon(loc.name) — último recurso. Pode estar errado
+  //     (lógica simplificada vs server) mas é melhor que vazio.
+  let code = loc.couponCode || null;
+  if (
+    !code &&
+    loc.id &&
+    loc.id !== "loc_placeholder" &&
+    loc.id !== "loc_unknown"
+  ) {
+    try {
+      const r = await fetch(
+        `/api/cupom?locationId=${encodeURIComponent(loc.id)}`,
+      );
+      if (r.ok) {
+        const data = await r.json();
+        if (data?.couponCode) {
+          code = data.couponCode;
+          if (data.shareUrl) window.__sparkShareUrl = data.shareUrl;
+          if (data.locationName) loc.name = data.locationName;
+        }
+      }
+    } catch (err) {
+      console.warn("[cupom] api fetch failed:", err.message);
+    }
+  }
+  if (!code) code = deriveCoupon(loc.name);
 
   const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
   setText("location-name", loc.name);

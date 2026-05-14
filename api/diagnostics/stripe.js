@@ -77,5 +77,50 @@ export default async function handler(req, res) {
     out.coupons_error = err.message;
   }
 
+  // NEW: lista Products + Prices pra entender estrutura de planos
+  try {
+    const products = await stripeClient().products.list({ limit: 30, active: true });
+    out.products = [];
+    for (const p of products.data) {
+      const prices = await stripeClient().prices.list({
+        product: p.id,
+        limit: 10,
+        active: true,
+      });
+      out.products.push({
+        id: p.id,
+        name: p.name,
+        description: p.description?.slice(0, 80),
+        metadata: p.metadata,
+        prices: prices.data.map((pr) => ({
+          id: pr.id,
+          unit_amount: pr.unit_amount,
+          currency: pr.currency,
+          type: pr.type,
+          recurring: pr.recurring
+            ? { interval: pr.recurring.interval, count: pr.recurring.interval_count }
+            : null,
+          nickname: pr.nickname,
+        })),
+      });
+    }
+  } catch (err) {
+    out.products_error = err.message;
+  }
+
+  // NEW: lista Payment Links e Checkout sessions setup (top 20)
+  try {
+    const links = await stripeClient().paymentLinks.list({ limit: 20, active: true });
+    out.payment_links = links.data.map((l) => ({
+      id: l.id,
+      url: l.url,
+      active: l.active,
+      allow_promotion_codes: l.allow_promotion_codes,
+      line_items_count: l.line_items?.data?.length || "?",
+    }));
+  } catch (err) {
+    out.payment_links_error = err.message;
+  }
+
   return res.status(200).json(out);
 }

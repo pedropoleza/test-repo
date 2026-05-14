@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/cron/sync-locations",
-      "schedule": "0 */6 * * *"
+      "schedule": "30 4 * * *"
     }
   ],
   "functions": {

@@ -19,6 +19,7 @@
  *     num cron diário.
  */
 import { ensureInstallation } from "../../lib/server/provision.js";
+import { checkCronSecret } from "../../lib/server/auth-admin.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST" && req.method !== "GET") {
@@ -26,9 +27,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
-  const expected = process.env.CRON_SECRET;
-  const provided = req.headers["x-cron-secret"];
-  if (!expected || provided !== expected) {
+  if (!checkCronSecret(req)) {
     return res.status(401).json({ error: "unauthorized" });
   }
 

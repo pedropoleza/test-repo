@@ -4,6 +4,17 @@
     {
       "path": "/api/cron/qualify",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/sync-locations",
+      "schedule": "0 */6 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/cron/sync-locations.js": { "maxDuration": 60 },
+    "api/admin/resync-locations.js": { "maxDuration": 60 },
+    "api/admin/repair-missing-coupons.js": { "maxDuration": 60 },
+    "api/admin/cleanup-pit-installations.js": { "maxDuration": 60 },
+    "api/admin/recompute-tier.js": { "maxDuration": 30 }
+  }
 }

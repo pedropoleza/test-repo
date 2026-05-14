@@ -8,18 +8,11 @@
  *
  * Não expõe nada sensível além do que o usuário já tem no Dashboard.
  */
-import Stripe from "stripe";
-
-let _stripe = null;
-function stripeClient() {
-  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  return _stripe;
-}
+import { stripeClient } from "../../lib/server/stripe-coupon.js";
+import { checkCronSecret } from "../../lib/server/auth-admin.js";
 
 export default async function handler(req, res) {
-  const expected = process.env.CRON_SECRET;
-  const provided = req.headers["x-cron-secret"];
-  if (!expected || provided !== expected) {
+  if (!checkCronSecret(req)) {
     return res.status(401).json({ error: "unauthorized" });
   }
 

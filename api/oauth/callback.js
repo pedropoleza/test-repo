@@ -13,92 +13,12 @@
  *   - Criar Stripe Coupon + Promotion Code (depende de D5)
  *   - Mapear stripe_customer_id (depende de D8)
  */
-import Stripe from "stripe";
 import { encrypt } from "../../lib/server/crypto.js";
 import { sign as jwtSign } from "../../lib/server/jwt.js";
 import { db } from "../../lib/server/db.js";
+import { ensureIndicadoCoupon } from "../../lib/server/stripe-coupon.js";
 
 const GHL_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token";
-
-// D5=a (working assumption): indicado ganha $20 once quando digita o cupom.
-const INDICADO_DISCOUNT_USD = 20;
-
-let _stripe = null;
-function stripeClient() {
-  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  return _stripe;
-}
-
-function deriveCouponCode(name) {
-  const first = (name || "").trim().split(/\s+/)[0] || "";
-  const slug = first
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-  return slug ? `${slug}OFF` : null;
-}
-
-/**
- * Cria (ou reaproveita) Stripe Coupon + Promotion Code para a
- * location. Em caso de colisão de Promotion Code, sufixa com 4 chars
- * do locationId.
- *
- * Retorna { couponCode, stripeCouponId, stripePromotionId } ou null
- * se a key não tiver escopo / Stripe falhar.
- */
-async function ensureStripeCoupon(locationId, locationName) {
-  const baseCode = deriveCouponCode(locationName) || `LOC${(locationId || "").slice(0, 6).toUpperCase()}OFF`;
-  const stripe = stripeClient();
-  try {
-    // 1) Cria o Coupon (idempotência via metadata.location_id)
-    const existing = await stripe.coupons.list({ limit: 100 }).catch(() => ({ data: [] }));
-    let coupon = existing.data?.find(
-      (c) => c.metadata?.location_id === locationId && c.metadata?.role === "indicado",
-    );
-    if (!coupon) {
-      coupon = await stripe.coupons.create({
-        amount_off: INDICADO_DISCOUNT_USD * 100,
-        currency: "usd",
-        duration: "once",
-        name: `Indicação — ${locationName || locationId}`,
-        metadata: { location_id: locationId, role: "indicado", source: "spark-referral-hub" },
-      });
-    }
-
-    // 2) Cria o Promotion Code (com fallback de sufixo em colisão)
-    let promo;
-    let attemptCode = baseCode;
-    for (let i = 0; i < 3; i++) {
-      try {
-        promo = await stripe.promotionCodes.create({
-          coupon: coupon.id,
-          code: attemptCode,
-          metadata: { location_id: locationId },
-        });
-        break;
-      } catch (err) {
-        if (err?.code === "resource_already_exists" || /already/i.test(err.message)) {
-          // Sufixar com 4 chars do locationId
-          const suf = (locationId || "").slice(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, "");
-          attemptCode = `${baseCode}${suf}${i || ""}`;
-          continue;
-        }
-        throw err;
-      }
-    }
-    if (!promo) throw new Error("promo_code_collision_unresolved");
-
-    return {
-      couponCode: promo.code,
-      stripeCouponId: coupon.id,
-      stripePromotionId: promo.id,
-    };
-  } catch (err) {
-    console.warn("[oauth-ghl] stripe coupon skipped:", err?.message || err);
-    return null;
-  }
-}
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -183,7 +103,7 @@ export default async function handler(req, res) {
   }
 
   // Garante o Stripe Coupon + Promotion Code dessa location.
-  const couponData = await ensureStripeCoupon(locationId, locationName);
+  const couponData = await ensureIndicadoCoupon(locationId, locationName);
 
   try {
     const { error } = await db()

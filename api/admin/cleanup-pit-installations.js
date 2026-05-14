@@ -10,23 +10,16 @@
  * provision_source='oauth' (essas têm tokens próprios e não dá pra
  * recriar via PIT).
  */
-import Stripe from "stripe";
 import { db } from "../../lib/server/db.js";
-
-let _stripe = null;
-function stripeClient() {
-  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  return _stripe;
-}
+import { stripeClient } from "../../lib/server/stripe-coupon.js";
+import { checkCronSecret } from "../../lib/server/auth-admin.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "method_not_allowed" });
   }
-  const expected = process.env.CRON_SECRET;
-  const provided = req.headers["x-cron-secret"];
-  if (!expected || provided !== expected) {
+  if (!checkCronSecret(req)) {
     return res.status(401).json({ error: "unauthorized" });
   }
 

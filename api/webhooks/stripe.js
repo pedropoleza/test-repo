@@ -14,17 +14,12 @@
  *
  * GET retorna metadata do endpoint (saúde / ready_for_validation).
  */
-import Stripe from "stripe";
 import { db } from "../../lib/server/db.js";
 import { readRawBody } from "../../lib/server/raw-body.js";
+import { stripeClient } from "../../lib/server/stripe-coupon.js";
+import { recomputeTier } from "../../lib/server/tier-discount.js";
 
 export const config = { api: { bodyParser: false } };
-
-let _stripe = null;
-function stripeClient() {
-  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  return _stripe;
-}
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
@@ -87,8 +82,12 @@ export default async function handler(req, res) {
   }
 
   // Dispatch
+  const affectedIndicators = new Set();
   try {
-    await dispatch(event);
+    const result = await dispatch(event);
+    if (result?.indicadorLocations) {
+      for (const l of result.indicadorLocations) affectedIndicators.add(l);
+    }
     await db()
       .from("webhook_events")
       .update({ processed: true, processed_at: new Date().toISOString() })
@@ -96,8 +95,17 @@ export default async function handler(req, res) {
       .eq("event_id", event.id);
   } catch (err) {
     console.error("[stripe-webhook] handler error:", err);
-    // 200 mesmo assim — evento gravado, podemos reprocessar pelo
-    // processed_at IS NULL.
+    // Em vez de marcar processed=true em falha, deixamos processed_at=null
+    // pra eventual reprocessamento futuro via cron de DLQ.
+  }
+
+  // Recomputa tier dos indicadores afetados (best-effort; não bloqueia 200)
+  for (const loc of affectedIndicators) {
+    try {
+      await recomputeTier(loc, { reason: `stripe.${event.type}` });
+    } catch (err) {
+      console.warn("[stripe-webhook] recomputeTier failed:", loc, err.message);
+    }
   }
 
   console.info("[stripe-webhook] handled:", event.type, event.id);
@@ -115,10 +123,18 @@ async function dispatch(event) {
     case "customer.subscription.deleted":
       return onSubscriptionDeleted(event);
     case "customer.subscription.updated":
-      return; // sem ação por enquanto; reservado pra mudança de plano
+      return null;
     default:
-      return;
+      return null;
   }
+}
+
+async function collectIndicators(filter) {
+  const { data } = await db()
+    .from("referrals")
+    .select("indicador_location")
+    .match(filter);
+  return [...new Set((data || []).map((r) => r.indicador_location).filter(Boolean))];
 }
 
 /**
@@ -146,7 +162,8 @@ async function onPaymentSucceeded(event) {
   let q = db()
     .from("referrals")
     .update(updates)
-    .in("status", ["pending"]); // só promove de pending
+    .in("status", ["pending"])
+    .select("indicador_location");
 
   if (couponId) {
     q = q.eq("coupon_used", couponId);
@@ -154,8 +171,12 @@ async function onPaymentSucceeded(event) {
     q = q.eq("stripe_subscription_id", subId);
   }
 
-  const { error } = await q;
-  if (error) console.error("[stripe-webhook] payment_succeeded update:", error);
+  const { error, data } = await q;
+  if (error) {
+    console.error("[stripe-webhook] payment_succeeded update:", error);
+    return null;
+  }
+  return { indicadorLocations: (data || []).map((r) => r.indicador_location).filter(Boolean) };
 }
 
 async function onPaymentFailed(event) {
@@ -164,25 +185,66 @@ async function onPaymentFailed(event) {
 }
 
 async function onCharged(event, newStatus, reason) {
+  // Match em ordem: subscription_id (mais específico) → customer_id →
+  // coupon usado no charge. Resolve a race onde charge.refunded chega
+  // antes do invoice.payment_succeeded (stripe_customer_id ainda null).
   const ch = event.data.object;
   const customerId = ch.customer;
-  if (!customerId) return;
-  const { error } = await db()
-    .from("referrals")
-    .update({
-      status: newStatus,
-      disqualified_at: new Date().toISOString(),
-      disqualification_reason: reason,
-    })
-    .eq("stripe_customer_id", customerId)
-    .in("status", ["pending", "paid", "qualified"]);
-  if (error) console.error("[stripe-webhook] disqualify update:", error);
+  const invoiceId = ch.invoice;
+  let subId = null;
+  let couponId = null;
+  if (invoiceId) {
+    try {
+      const inv = await stripeClient().invoices.retrieve(invoiceId, {
+        expand: ["discount.coupon", "subscription"],
+      });
+      subId = typeof inv.subscription === "string" ? inv.subscription : inv.subscription?.id;
+      couponId = inv.discount?.coupon?.id || null;
+    } catch (err) {
+      console.warn("[stripe-webhook] invoice retrieve failed:", err.message);
+    }
+  }
+
+  // Tenta de forma escalonada: primeiro pelo identificador mais específico
+  // que tivermos. Se nada bater, ainda assim retorna 200 (não-erro).
+  const baseUpdate = {
+    status: newStatus,
+    disqualified_at: new Date().toISOString(),
+    disqualification_reason: reason,
+  };
+
+  for (const filter of [
+    subId ? { col: "stripe_subscription_id", val: subId } : null,
+    customerId ? { col: "stripe_customer_id", val: customerId } : null,
+    couponId ? { col: "coupon_used", val: couponId } : null,
+  ]) {
+    if (!filter) continue;
+    const { error, data } = await db()
+      .from("referrals")
+      .update(baseUpdate)
+      .eq(filter.col, filter.val)
+      .in("status", ["pending", "paid", "qualified"])
+      .select("indicador_location");
+    if (error) {
+      console.error("[stripe-webhook] disqualify update:", error);
+      return null;
+    }
+    if (data && data.length > 0) {
+      console.info("[stripe-webhook] disqualified", data.length, "via", filter.col);
+      return {
+        indicadorLocations: data.map((r) => r.indicador_location).filter(Boolean),
+      };
+    }
+  }
+  console.info("[stripe-webhook] no referral matched for disqualify",
+    { customerId, subId, couponId, eventId: event.id });
+  return null;
 }
 
 async function onSubscriptionDeleted(event) {
   const sub = event.data.object;
   const subId = sub.id;
-  const { error } = await db()
+  const { error, data } = await db()
     .from("referrals")
     .update({
       status: "canceled",
@@ -190,6 +252,11 @@ async function onSubscriptionDeleted(event) {
       disqualification_reason: "subscription_deleted",
     })
     .eq("stripe_subscription_id", subId)
-    .in("status", ["pending", "paid", "qualified"]);
-  if (error) console.error("[stripe-webhook] sub_deleted update:", error);
+    .in("status", ["pending", "paid", "qualified"])
+    .select("indicador_location");
+  if (error) {
+    console.error("[stripe-webhook] sub_deleted update:", error);
+    return null;
+  }
+  return { indicadorLocations: (data || []).map((r) => r.indicador_location).filter(Boolean) };
 }

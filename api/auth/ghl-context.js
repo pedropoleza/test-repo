@@ -110,6 +110,14 @@ export default async function handler(req, res) {
     }
   }
 
+  // shareUrl é nosso redirector /r/<cupom> que cria Checkout Session
+  // com discount auto-aplicado. URL nossa = perpétua + auto-apply.
+  let shareUrl = null;
+  if (installation?.coupon_code) {
+    const base = process.env.PUBLIC_BASE_URL || `https://${req.headers.host}`;
+    shareUrl = `${base}/r/${encodeURIComponent(installation.coupon_code)}`;
+  }
+
   return res.status(200).json({
     locationId,
     locationName: installation?.location_name || locationName,
@@ -121,8 +129,7 @@ export default async function handler(req, res) {
     companyId,
     sessionToken,
     couponCode: installation?.coupon_code || null,
-    shareUrl: installation?.payment_link_url || null,
-    paymentLinkBase: process.env.STRIPE_PAYMENT_LINK_BASE || null,
+    shareUrl,
   });
 }
 

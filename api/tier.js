@@ -48,10 +48,16 @@ export default async function handler(req, res) {
   if (!installation) {
     const { data } = await db()
       .from("installations")
-      .select("coupon_code, payment_link_url")
+      .select("coupon_code")
       .eq("location_id", locationId)
       .maybeSingle();
     installation = data;
+  }
+
+  let shareUrl = null;
+  if (installation?.coupon_code) {
+    const base = process.env.PUBLIC_BASE_URL || `https://${req.headers.host}`;
+    shareUrl = `${base}/r/${encodeURIComponent(installation.coupon_code)}`;
   }
 
   const { data, error } = await db()
@@ -75,8 +81,7 @@ export default async function handler(req, res) {
     locationId,
     referrals,
     couponCode: installation?.coupon_code || null,
-    shareUrl: installation?.payment_link_url || null,
-    paymentLinkBase: process.env.STRIPE_PAYMENT_LINK_BASE || null,
+    shareUrl,
     asOf: new Date().toISOString(),
   });
 }

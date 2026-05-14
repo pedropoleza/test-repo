@@ -58,6 +58,51 @@ async function stripeState(_req, res) {
   } catch (err) {
     out.promo_codes_error = err.message;
   }
+
+  // Payment Links (precisa de escopo Payment Links: Read na restricted key)
+  try {
+    const links = await stripeClient().paymentLinks.list({ limit: 20, active: true });
+    out.payment_links = links.data.map((l) => ({
+      id: l.id,
+      url: l.url,
+      active: l.active,
+      allow_promotion_codes: l.allow_promotion_codes,
+      after_completion: l.after_completion,
+      created: new Date(l.created * 1000).toISOString(),
+      metadata: l.metadata,
+    }));
+  } catch (err) {
+    out.payment_links_error = err.message;
+  }
+
+  // Products + Prices (precisa de escopo Products: Read)
+  try {
+    const products = await stripeClient().products.list({ limit: 20, active: true });
+    out.products = [];
+    for (const p of products.data) {
+      const prices = await stripeClient().prices.list({
+        product: p.id,
+        limit: 10,
+        active: true,
+      });
+      out.products.push({
+        id: p.id,
+        name: p.name,
+        prices: prices.data.map((pr) => ({
+          id: pr.id,
+          unit_amount: pr.unit_amount,
+          currency: pr.currency,
+          recurring: pr.recurring
+            ? { interval: pr.recurring.interval }
+            : null,
+          nickname: pr.nickname,
+        })),
+      });
+    }
+  } catch (err) {
+    out.products_error = err.message;
+  }
+
   return res.status(200).json(out);
 }
 

@@ -110,12 +110,13 @@ export default async function handler(req, res) {
     }
   }
 
-  // shareUrl é nosso redirector /r/<cupom> que cria Checkout Session
-  // com discount auto-aplicado. URL nossa = perpétua + auto-apply.
+  // shareUrl = Stripe Payment Link + ?prefilled_promo_code=<cupom>
+  // (cupom é pre-preenchido no campo do checkout, cliente clica Apply)
   let shareUrl = null;
-  if (installation?.coupon_code) {
-    const base = process.env.PUBLIC_BASE_URL || `https://${req.headers.host}`;
-    shareUrl = `${base}/r/${encodeURIComponent(installation.coupon_code)}`;
+  const linkBase = process.env.STRIPE_PAYMENT_LINK_BASE;
+  if (linkBase && installation?.coupon_code) {
+    const sep = linkBase.includes("?") ? "&" : "?";
+    shareUrl = `${linkBase}${sep}prefilled_promo_code=${encodeURIComponent(installation.coupon_code)}`;
   }
 
   return res.status(200).json({

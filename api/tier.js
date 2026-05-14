@@ -55,9 +55,10 @@ export default async function handler(req, res) {
   }
 
   let shareUrl = null;
-  if (installation?.coupon_code) {
-    const base = process.env.PUBLIC_BASE_URL || `https://${req.headers.host}`;
-    shareUrl = `${base}/r/${encodeURIComponent(installation.coupon_code)}`;
+  const linkBase = process.env.STRIPE_PAYMENT_LINK_BASE;
+  if (linkBase && installation?.coupon_code) {
+    const sep = linkBase.includes("?") ? "&" : "?";
+    shareUrl = `${linkBase}${sep}prefilled_promo_code=${encodeURIComponent(installation.coupon_code)}`;
   }
 
   const { data, error } = await db()

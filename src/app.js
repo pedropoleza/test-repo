@@ -502,24 +502,20 @@ async function copyCode(code, btn, label) {
 
 /**
  * Constrói o link compartilhável que o indicador manda pra um indicado.
+ * É o Stripe Payment Link + ?prefilled_promo_code=<cupom>, que pré-preenche
+ * o campo de cupom no checkout com o código desta sub-account.
  *
- * Prioridade:
- *   1. window.__sparkShareUrl — Payment Link próprio da location, com
- *      o cupom já anexado via discounts:[{coupon}] (auto-aplicado, sem
- *      o cliente digitar nada). Esse é o caminho canônico.
- *   2. window.__sparkPaymentLinkBase + ?prefilled_promo_code= — fallback
- *      pro link base com cupom em query string (só preenche o campo,
- *      cliente ainda precisa clicar em "Apply").
- *   3. Link GHL genérico — último fallback caso nada esteja setado.
+ * Prioridade: shareUrl vindo do servidor (já montado server-side em
+ * ghl-context/tier). Fallback monta no client se só temos o base.
  */
 function shareLinkFor(code) {
   if (window.__sparkShareUrl) return window.__sparkShareUrl;
   const base = window.__sparkPaymentLinkBase;
-  if (base) {
+  if (base && code) {
     const sep = base.includes("?") ? "&" : "?";
     return `${base}${sep}prefilled_promo_code=${encodeURIComponent(code)}`;
   }
-  return `https://app.gohighlevel.com/?coupon=${encodeURIComponent(code)}`;
+  return "";
 }
 
 function shareTextFor(code) {
@@ -529,54 +525,25 @@ function shareTextFor(code) {
 /* ============== Checkout CTA (final do hub) ============== */
 
 function setupCheckoutCta() {
-  const urlEl = $("checkout-cta-url");
   const openBtn = $("checkout-cta-open");
-  const copyBtn = $("checkout-cta-copy");
-  const copyLabel = $("checkout-cta-copy-label");
-  if (!urlEl || !openBtn || !copyBtn) return;
+  if (!openBtn) return;
 
   const hydrate = () => {
     const code = window.__sparkCoupon || $("coupon-copy")?.dataset?.code || null;
-    const url = shareLinkFor(code || "OFF");
-    if (!code || code === "OFF") {
-      urlEl.textContent = "carregando seu link…";
-      urlEl.setAttribute("data-loading", "true");
+    if (!code) {
       openBtn.disabled = true;
-      copyBtn.disabled = true;
       return;
     }
-    urlEl.textContent = url;
-    urlEl.removeAttribute("data-loading");
+    const url = shareLinkFor(code);
     openBtn.disabled = false;
-    copyBtn.disabled = false;
     openBtn.dataset.url = url;
-    copyBtn.dataset.url = url;
   };
 
   openBtn.addEventListener("click", () => {
     const url = openBtn.dataset.url;
     if (url) window.open(url, "_blank", "noopener");
   });
-  copyBtn.addEventListener("click", async () => {
-    const url = copyBtn.dataset.url;
-    if (!url) return;
-    try {
-      await navigator.clipboard.writeText(url);
-      const orig = copyLabel.textContent;
-      copyLabel.textContent = "Copiado!";
-      setTimeout(() => { copyLabel.textContent = orig; }, 1600);
-    } catch {
-      // Fallback: select e copy via execCommand
-      const ta = document.createElement("textarea");
-      ta.value = url;
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand("copy"); } catch {}
-      document.body.removeChild(ta);
-    }
-  });
 
-  // Expor pra outras partes do app rehydratarem quando o coupon mudar
   window.__sparkRehydrateCheckoutCta = hydrate;
   hydrate();
 }

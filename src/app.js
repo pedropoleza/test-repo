@@ -371,8 +371,8 @@ async function getLocation() {
       if (ctx && (ctx.locationName || ctx.locationId)) {
         if (ctx.sessionToken) window.__sparkSession = ctx.sessionToken;
         if (ctx.shareUrl) window.__sparkShareUrl = ctx.shareUrl;
-        if (ctx.paymentLinkBase) window.__sparkPaymentLinkBase = ctx.paymentLinkBase;
-        console.info("[location] iframe SSO →", ctx.locationName, ctx.locationId);
+        if (ctx.couponCode) window.__sparkCoupon = ctx.couponCode;
+        console.info("[location] iframe SSO →", ctx.locationName, ctx.locationId, ctx.couponCode);
         const loc = {
           source: "iframe-sso",
           name: ctx.locationName || "Location",
@@ -380,6 +380,7 @@ async function getLocation() {
           userId: ctx.userId,
           userName: ctx.userName,
           email: ctx.email,
+          couponCode: ctx.couponCode || null,
         };
         writeCachedLocation(loc);
         return loc;
@@ -433,7 +434,11 @@ let currentLocation = null;
 
 async function applyLocationAndCoupon() {
   const loc = await getLocation();
-  const code = deriveCoupon(loc.name);
+  // Preferência: cupom REAL do server (via SSO ctx). Fallback: deriva
+  // localmente — mas a derivação local é simplificada e pode diferir
+  // da server-side (que combina palavras até 5 chars). Quando isso
+  // acontece, o botão de checkout abre URL com cupom inexistente.
+  const code = loc.couponCode || deriveCoupon(loc.name);
   currentLocation = loc;
   window.__sparkLocation = loc;
 
@@ -530,18 +535,33 @@ function setupCheckoutCta() {
 
   const hydrate = () => {
     const code = window.__sparkCoupon || $("coupon-copy")?.dataset?.code || null;
-    if (!code) {
-      openBtn.disabled = true;
-      return;
-    }
-    const url = shareLinkFor(code);
-    openBtn.disabled = false;
-    openBtn.dataset.url = url;
+    const url = code ? shareLinkFor(code) : "";
+    openBtn.disabled = !url;
+    openBtn.dataset.url = url || "";
   };
 
   openBtn.addEventListener("click", () => {
-    const url = openBtn.dataset.url;
-    if (url) window.open(url, "_blank", "noopener");
+    // Sempre recalcula no click — caso o cupom ou shareUrl tenha
+    // chegado depois do primeiro hydrate.
+    let url = openBtn.dataset.url;
+    if (!url) {
+      const code = window.__sparkCoupon || $("coupon-copy")?.dataset?.code;
+      url = code ? shareLinkFor(code) : "";
+    }
+    if (url) {
+      window.open(url, "_blank", "noopener");
+    } else {
+      console.error("[checkout-cta] no URL available", {
+        coupon: window.__sparkCoupon,
+        shareUrl: window.__sparkShareUrl,
+        base: window.__sparkPaymentLinkBase,
+      });
+      toast({
+        title: "Link indisponível",
+        sub: "Recarregue a página. Se persistir, contate o suporte.",
+        tone: "warn",
+      });
+    }
   });
 
   window.__sparkRehydrateCheckoutCta = hydrate;

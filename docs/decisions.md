@@ -4,6 +4,23 @@ Registro vivo das decisões de produto que afetam código. Cada entrada
 deve ser preenchida com **resposta · data · responsável** antes de o
 trabalho da Etapa correspondente começar. Revisar a cada 90 dias.
 
+## Resumo final (state-of-the-world)
+
+| ID | Decisão | Implementado |
+|----|---------|--------------|
+| D1 | Janela 30d começa em `first_payment_at` (b) | ✅ `api/cron/qualify.js` |
+| D2 | Refund retroativo desqualifica imediato (a) | ✅ `api/webhooks/stripe.js` |
+| D5 | Indicado ganha `$50 amount_off / once / usd` (a) | ✅ `lib/server/stripe-coupon.js:INDICADO_DISCOUNT_USD=50` |
+| D7 | Provider de cron: Vercel Cron (a) | ✅ `vercel.json` |
+| D8 | Mapeamento: `metadata.location_id` + backfill por email (a) | ✅ `lib/server/d8-resolver.js` |
+
+| ID | Decisão | Status |
+|----|---------|--------|
+| D3 | Estado canônico vive em `referrals` no Supabase | ✅ implementado |
+| D4 | Re-tentativa de webhook: idempotência via PK (source,event_id) | ✅ implementado |
+| D6 | Detecção de fraude: manual em V1 | ✅ status='fraud' setado manualmente |
+| D9 | Notificações por email: backend é stub em V1 | ⏳ provider não configurado |
+
 ---
 
 ## D1 — Quando começam os 30 dias da qualificação?

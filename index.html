@@ -188,6 +188,45 @@
           <span class="achievements-strip__label">Conquistas</span>
           <div id="badges" class="achievements-pills"></div>
         </div>
+
+        <!-- ============= Link de checkout ============= -->
+        <div class="checkout-cta" data-reveal data-reveal-delay="5">
+          <div class="checkout-cta__head">
+            <div class="checkout-cta__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9 11V7a3 3 0 016 0v4"/><rect x="3" y="11" width="18" height="11" rx="2"/></svg>
+            </div>
+            <div>
+              <h3 class="checkout-cta__title">Seu link de checkout</h3>
+              <p class="checkout-cta__sub">
+                Quem abrir esse link vê <strong>$50 de desconto já aplicado</strong> automaticamente — sem precisar digitar o cupom.
+              </p>
+            </div>
+          </div>
+
+          <div class="checkout-cta__breakdown">
+            <div class="checkout-cta__line"><span>Mensalidade</span><strong>$99/mês</strong></div>
+            <div class="checkout-cta__line"><span>Taxa de ativação</span><strong>$75 única</strong></div>
+            <div class="checkout-cta__line checkout-cta__line--discount"><span>Cupom de indicação</span><strong>−$50</strong></div>
+            <div class="checkout-cta__line checkout-cta__line--total">
+              <span>Primeiro pagamento</span><strong id="checkout-cta-total">$124</strong>
+            </div>
+          </div>
+
+          <div class="checkout-cta__url">
+            <code id="checkout-cta-url" data-loading="true">carregando…</code>
+          </div>
+
+          <div class="checkout-cta__actions">
+            <button class="btn btn--primary" id="checkout-cta-open" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Abrir checkout
+            </button>
+            <button class="btn btn--ghost" id="checkout-cta-copy" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              <span id="checkout-cta-copy-label">Copiar link</span>
+            </button>
+          </div>
+        </div>
       </section>
 
       <!-- ============= Histórico ============= -->

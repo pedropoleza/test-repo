@@ -462,6 +462,13 @@ async function applyLocationAndCoupon() {
   if (heroBtn) heroBtn.dataset.code = code;
   if (setBtn) setBtn.dataset.code = code;
   $("share-code") && ($("share-code").textContent = code);
+
+  // Memo no window pro CTA do final do hub poder rehidratar
+  window.__sparkCoupon = code;
+  if (typeof window.__sparkRehydrateCheckoutCta === "function") {
+    window.__sparkRehydrateCheckoutCta();
+  }
+
   return { loc, code };
 }
 
@@ -517,6 +524,61 @@ function shareLinkFor(code) {
 
 function shareTextFor(code) {
   return `Use o cupom ${code} pra ganhar desconto na sua subaccount GoHighLevel.`;
+}
+
+/* ============== Checkout CTA (final do hub) ============== */
+
+function setupCheckoutCta() {
+  const urlEl = $("checkout-cta-url");
+  const openBtn = $("checkout-cta-open");
+  const copyBtn = $("checkout-cta-copy");
+  const copyLabel = $("checkout-cta-copy-label");
+  if (!urlEl || !openBtn || !copyBtn) return;
+
+  const hydrate = () => {
+    const code = window.__sparkCoupon || $("coupon-copy")?.dataset?.code || null;
+    const url = shareLinkFor(code || "OFF");
+    if (!code || code === "OFF") {
+      urlEl.textContent = "carregando seu link…";
+      urlEl.setAttribute("data-loading", "true");
+      openBtn.disabled = true;
+      copyBtn.disabled = true;
+      return;
+    }
+    urlEl.textContent = url;
+    urlEl.removeAttribute("data-loading");
+    openBtn.disabled = false;
+    copyBtn.disabled = false;
+    openBtn.dataset.url = url;
+    copyBtn.dataset.url = url;
+  };
+
+  openBtn.addEventListener("click", () => {
+    const url = openBtn.dataset.url;
+    if (url) window.open(url, "_blank", "noopener");
+  });
+  copyBtn.addEventListener("click", async () => {
+    const url = copyBtn.dataset.url;
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      const orig = copyLabel.textContent;
+      copyLabel.textContent = "Copiado!";
+      setTimeout(() => { copyLabel.textContent = orig; }, 1600);
+    } catch {
+      // Fallback: select e copy via execCommand
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch {}
+      document.body.removeChild(ta);
+    }
+  });
+
+  // Expor pra outras partes do app rehydratarem quando o coupon mudar
+  window.__sparkRehydrateCheckoutCta = hydrate;
+  hydrate();
 }
 
 function setupShare() {
@@ -1002,6 +1064,7 @@ setupTooltips();
 setupHoverLotties();
 setupNotifPrefs();
 setupShare();
+setupCheckoutCta();
 
 // Wire copy buttons (handlers persist; data-code is updated when data loads)
 $("coupon-copy")?.addEventListener("click", (e) => {

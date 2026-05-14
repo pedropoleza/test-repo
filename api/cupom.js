@@ -27,6 +27,11 @@ export default async function handler(req, res) {
   if (!locationId || typeof locationId !== "string") {
     return res.status(400).json({ error: "missing_locationId" });
   }
+  // Format GHL: 20 chars alphanumeric. Rejeita lixo pra não provisionar
+  // cupom Stripe por engano (DoS protection).
+  if (!/^[A-Za-z0-9]{15,30}$/.test(locationId)) {
+    return res.status(400).json({ error: "invalid_locationId_format" });
+  }
 
   // Cache control: pode cachear curto pra reduzir DB hits.
   res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300");

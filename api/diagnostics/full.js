@@ -1,10 +1,12 @@
 /**
- * GET /api/diagnostics/full?locationId=...
+ * GET /api/diagnostics/full
+ *   ?mode=location&locationId=...   → estado completo de 1 location
+ *   ?mode=stripe                    → estado geral do Stripe (default)
+ *   ?mode=dlq                       → webhook_events com processed=false
+ *
  * Header: x-cron-secret: <CRON_SECRET>
  *
- * Mostra estado completo de uma location: installation + referrals +
- * tier history + Stripe customer + coupons aplicados. Útil pra debug
- * end-to-end ("o que tá acontecendo com a location X?").
+ * Endpoint único de diagnóstico (Hobby plan: 12 funções no máximo).
  */
 import { db } from "../../lib/server/db.js";
 import { stripeClient } from "../../lib/server/stripe-coupon.js";
@@ -15,12 +17,71 @@ export default async function handler(req, res) {
   if (!checkCronSecret(req)) {
     return res.status(401).json({ error: "unauthorized" });
   }
+  const mode = (req.query?.mode || "stripe").toLowerCase();
+
+  if (mode === "location") return locationDetail(req, res);
+  if (mode === "dlq") return dlqState(req, res);
+  return stripeState(req, res);
+}
+
+async function stripeState(_req, res) {
+  const out = {
+    mode: "stripe",
+    stripe_mode: process.env.STRIPE_MODE,
+    has_secret: !!process.env.STRIPE_SECRET_KEY,
+  };
+  try {
+    const account = await stripeClient().accounts.retrieve();
+    out.account = {
+      id: account.id,
+      country: account.country,
+      default_currency: account.default_currency,
+      display_name: account.settings?.dashboard?.display_name,
+    };
+  } catch (err) {
+    out.account_error = err.message;
+  }
+  try {
+    const promos = await stripeClient().promotionCodes.list({ limit: 50 });
+    out.promotion_codes_total = promos.data.length;
+    out.promotion_codes = promos.data.map((p) => ({
+      code: p.code,
+      active: p.active,
+      amount_off: p.coupon?.amount_off,
+      currency: p.coupon?.currency,
+      percent_off: p.coupon?.percent_off,
+      duration: p.coupon?.duration,
+      valid: p.coupon?.valid,
+      times_redeemed: p.times_redeemed,
+      metadata: p.coupon?.metadata,
+    }));
+  } catch (err) {
+    out.promo_codes_error = err.message;
+  }
+  return res.status(200).json(out);
+}
+
+async function dlqState(_req, res) {
+  const { data: pending, error } = await db()
+    .from("webhook_events")
+    .select("source, event_id, event_type, received_at, signature_valid")
+    .eq("processed", false)
+    .order("received_at", { ascending: false })
+    .limit(50);
+  if (error) return res.status(500).json({ error: "db_error", detail: error.message });
+  return res.status(200).json({
+    mode: "dlq",
+    total_pending: pending?.length || 0,
+    pending,
+  });
+}
+
+async function locationDetail(req, res) {
   const locationId = req.query?.locationId;
   if (!locationId) return res.status(400).json({ error: "missing_locationId" });
 
-  const out = { locationId };
+  const out = { mode: "location", locationId };
 
-  // 1) Installation
   const { data: inst } = await db()
     .from("installations")
     .select("*")
@@ -43,7 +104,6 @@ export default async function handler(req, res) {
     installed_at: inst.installed_at,
   };
 
-  // 2) Referrals
   const { data: refs } = await db()
     .from("referrals")
     .select(
@@ -52,16 +112,11 @@ export default async function handler(req, res) {
     )
     .eq("indicador_location", locationId)
     .order("created_at", { ascending: false });
-  out.referrals = {
-    total: refs?.length || 0,
-    by_status: {},
-    recent: (refs || []).slice(0, 5),
-  };
+  out.referrals = { total: refs?.length || 0, by_status: {}, recent: (refs || []).slice(0, 5) };
   for (const r of refs || []) {
     out.referrals.by_status[r.status] = (out.referrals.by_status[r.status] || 0) + 1;
   }
 
-  // 3) Tier history
   const { data: th } = await db()
     .from("tier_history")
     .select("from_tier, to_tier, qualified_count, reason, created_at")
@@ -70,7 +125,6 @@ export default async function handler(req, res) {
     .limit(10);
   out.tier_history = th || [];
 
-  // 4) Stripe customer resolution
   out.stripe = {};
   try {
     const customerId = await resolveStripeCustomerId(locationId);
@@ -81,7 +135,6 @@ export default async function handler(req, res) {
         id: c.id,
         email: c.email,
         name: c.name,
-        balance: c.balance,
         delinquent: c.delinquent,
         discount: c.discount
           ? {
@@ -92,15 +145,10 @@ export default async function handler(req, res) {
           : null,
         metadata: c.metadata,
       };
-      // subscriptions
-      const subs = await stripeClient().subscriptions.list({
-        customer: customerId,
-        limit: 5,
-      });
+      const subs = await stripeClient().subscriptions.list({ customer: customerId, limit: 5 });
       out.stripe.subscriptions = subs.data.map((s) => ({
         id: s.id,
         status: s.status,
-        current_period_end: s.current_period_end,
         discount: s.discount
           ? { coupon_id: s.discount.coupon?.id, amount_off: s.discount.coupon?.amount_off }
           : null,
@@ -110,7 +158,6 @@ export default async function handler(req, res) {
     out.stripe.error = err.message;
   }
 
-  // 5) Indicado coupon details (do próprio location)
   if (inst.stripe_coupon_id) {
     try {
       const coupon = await stripeClient().coupons.retrieve(inst.stripe_coupon_id);

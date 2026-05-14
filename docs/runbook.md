@@ -17,7 +17,7 @@ Todos exigem `x-cron-secret: $CRON_SECRET` (timing-safe compare).
 
 ```bash
 curl -H "x-cron-secret: $CRON_SECRET" \
-  "https://test-repo-ebon-nine.vercel.app/api/diagnostics/full?locationId=<id>"
+  "https://test-repo-ebon-nine.vercel.app/api/diagnostics/full?mode=location&locationId=<id>"
 ```
 
 Retorna: installation row + últimos 5 referrals + by-status counts +
@@ -28,12 +28,20 @@ algo dá errado pra uma location.**
 ### Estado geral do Stripe
 
 ```bash
+# default mode = stripe state
 curl -H "x-cron-secret: $CRON_SECRET" \
-  "https://test-repo-ebon-nine.vercel.app/api/diagnostics/stripe" | jq
+  "https://test-repo-ebon-nine.vercel.app/api/diagnostics/full?mode=stripe" | jq
 ```
 
 Lista: account currency, top 50 promotion codes (active), top 50
-coupons, products + prices, payment links.
+coupons.
+
+### Webhook DLQ — eventos com processamento pendente
+
+```bash
+curl -H "x-cron-secret: $CRON_SECRET" \
+  "https://test-repo-ebon-nine.vercel.app/api/diagnostics/full?mode=dlq" | jq
+```
 
 ### Recomputar tier manualmente
 

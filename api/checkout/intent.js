@@ -60,6 +60,16 @@ function tierConfig(tierId) {
 }
 
 export default async function handler(req, res) {
+  // GET ?action=pubkey → devolve publishable key pro front montar Stripe.js
+  if (req.method === "GET" && req.query?.action === "pubkey") {
+    const pk = process.env.STRIPE_PUBLISHABLE_KEY;
+    if (!pk) {
+      return res.status(500).json({ error: "STRIPE_PUBLISHABLE_KEY not set" });
+    }
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.status(200).json({ publishableKey: pk });
+  }
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "method_not_allowed" });

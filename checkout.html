@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Spark · Checkout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap"
+    />
+    <link rel="stylesheet" href="/checkout-assets/styles.css" />
+    <script src="https://js.stripe.com/v3/"></script>
+  </head>
+  <body>
+    <!-- ============= Background animated layers ============= -->
+    <div class="bg-layers" aria-hidden="true">
+      <div class="bg-grid"></div>
+      <div class="bg-orb bg-orb--1"></div>
+      <div class="bg-orb bg-orb--2"></div>
+      <div class="bg-orb bg-orb--3"></div>
+      <div class="bg-noise"></div>
+    </div>
+
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Spark">
+        <span class="brand__bolt" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M13 2L4.09 12.97a.5.5 0 00.39.81H11l-1 8.22 8.91-10.97a.5.5 0 00-.39-.81H12l1-7.22z"/></svg>
+        </span>
+        <span class="brand__name">SparkLeads</span>
+      </a>
+      <div class="topbar__hint" data-help>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        Pagamento seguro · Stripe
+      </div>
+    </header>
+
+    <main class="checkout">
+      <!-- ============= STEP 1 : Plan picker ============= -->
+      <section class="step step--plans" data-step="1">
+        <div class="step__intro">
+          <p class="eyebrow">Escolha seu plano</p>
+          <h1 class="step__title">
+            Acelere a captação <span class="grad">com a SparkLeads</span>
+          </h1>
+          <p class="step__sub">
+            3 níveis. Sem fidelidade. Cancele quando quiser. Cupom de indicação aplica desconto direto no checkout.
+          </p>
+        </div>
+
+        <div class="plans" id="plans">
+          <button class="plan" data-tier="starter" type="button">
+            <div class="plan__shine"></div>
+            <header class="plan__head">
+              <span class="plan__name">Starter</span>
+              <span class="plan__tag">Pra começar</span>
+            </header>
+            <div class="plan__price">
+              <span class="plan__amount">$79<small>/mês</small></span>
+              <span class="plan__activation">sem taxa de ativação</span>
+            </div>
+            <ul class="plan__features">
+              <li>Hub de indicações</li>
+              <li>Cupom INDICACAO_STARTER (-$40/mês × 3)</li>
+              <li>Suporte por email</li>
+            </ul>
+            <span class="plan__cta">Selecionar Starter →</span>
+          </button>
+
+          <button class="plan plan--featured" data-tier="growth" type="button">
+            <div class="plan__badge">Mais popular</div>
+            <div class="plan__shine"></div>
+            <header class="plan__head">
+              <span class="plan__name">Growth</span>
+              <span class="plan__tag">Equilíbrio ideal</span>
+            </header>
+            <div class="plan__price">
+              <span class="plan__amount">$120<small>/mês</small></span>
+              <span class="plan__activation">+ $99 ativação única</span>
+            </div>
+            <ul class="plan__features">
+              <li>Tudo do Starter</li>
+              <li>Workflows GHL ilimitados</li>
+              <li>Cupom INDICACAO_GROWTH (-$50 1ª fatura)</li>
+              <li>Suporte prioritário</li>
+            </ul>
+            <span class="plan__cta">Selecionar Growth →</span>
+          </button>
+
+          <button class="plan" data-tier="scale" type="button">
+            <div class="plan__shine"></div>
+            <header class="plan__head">
+              <span class="plan__name">Scale</span>
+              <span class="plan__tag">Pra agências</span>
+            </header>
+            <div class="plan__price">
+              <span class="plan__amount">$250<small>/mês</small></span>
+              <span class="plan__activation">+ $199 ativação única</span>
+            </div>
+            <ul class="plan__features">
+              <li>Tudo do Growth</li>
+              <li>Sub-accounts ilimitadas</li>
+              <li>Cupom INDICACAO_SCALE (-$100 1ª fatura)</li>
+              <li>Account manager dedicado</li>
+            </ul>
+            <span class="plan__cta">Selecionar Scale →</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ============= STEP 2 : Form + Stripe Elements ============= -->
+      <section class="step step--form" data-step="2" hidden>
+        <button class="back-btn" id="back-to-plans" type="button">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+          Trocar de plano
+        </button>
+
+        <div class="form-layout">
+          <!-- Left: dados + cartão -->
+          <form id="checkout-form" class="form-card" novalidate>
+            <h2 class="form-card__title">Seus dados</h2>
+
+            <label class="field">
+              <span class="field__label">Nome completo</span>
+              <input
+                class="field__input"
+                type="text"
+                id="f-name"
+                name="name"
+                required
+                autocomplete="name"
+                placeholder="Como aparece no cartão"
+              />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Email</span>
+              <input
+                class="field__input"
+                type="email"
+                id="f-email"
+                name="email"
+                required
+                autocomplete="email"
+                placeholder="voce@empresa.com"
+              />
+            </label>
+
+            <label class="field">
+              <span class="field__label">
+                Cupom de indicação
+                <span class="field__hint">opcional</span>
+              </span>
+              <div class="field__group">
+                <input
+                  class="field__input"
+                  type="text"
+                  id="f-coupon"
+                  name="coupon"
+                  placeholder="ex: INDICACAO_GROWTH"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                />
+                <button
+                  type="button"
+                  class="btn btn--ghost btn--inline"
+                  id="apply-coupon"
+                >
+                  Aplicar
+                </button>
+              </div>
+              <span class="field__status" id="coupon-status" data-state=""></span>
+            </label>
+
+            <h2 class="form-card__title form-card__title--card">Cartão</h2>
+            <div id="card-element" class="card-input"></div>
+            <div class="field__status field__status--card" id="card-error"></div>
+
+            <button
+              type="submit"
+              class="btn btn--primary btn--full btn--xl"
+              id="submit-pay"
+              disabled
+            >
+              <span class="btn__label" id="submit-label">Finalizar pagamento</span>
+              <span class="btn__spinner" id="submit-spinner" hidden>
+                <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="50 100"/></svg>
+              </span>
+            </button>
+
+            <p class="legal">
+              Ao continuar você concorda com nossos
+              <a href="https://sparkleads.pro/terms" target="_blank">termos</a>
+              e
+              <a href="https://sparkleads.pro/privacy" target="_blank">privacidade</a>.
+              Pagamento processado pelo Stripe.
+            </p>
+          </form>
+
+          <!-- Right: order summary -->
+          <aside class="summary">
+            <div class="summary__sticky">
+              <h3 class="summary__title">Resumo do pedido</h3>
+              <div class="summary__plan" id="summary-plan">
+                <span class="summary__plan-name" id="summary-plan-name">—</span>
+                <span class="summary__plan-tag" id="summary-plan-tag">mensalidade recorrente</span>
+              </div>
+
+              <div class="summary__lines" id="summary-lines">
+                <!-- preenchido por JS -->
+              </div>
+
+              <div class="summary__total">
+                <span>Total devido hoje</span>
+                <span class="summary__total-amount" id="summary-total">—</span>
+              </div>
+
+              <div class="summary__recurring" id="summary-recurring"></div>
+
+              <div class="summary__assurances">
+                <div class="summary__assurance">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                  Cobrança recorrente automática
+                </div>
+                <div class="summary__assurance">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c0 1-3 8-9 8s-9-7-9-8 3-8 9-8 9 7 9 8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  Você pode cancelar quando quiser
+                </div>
+                <div class="summary__assurance">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                  Pagamento seguro via Stripe
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- ============= STEP 3 : Success ============= -->
+      <section class="step step--done" data-step="3" hidden>
+        <div class="success">
+          <div class="success__art">
+            <svg viewBox="0 0 80 80" width="80" height="80">
+              <circle cx="40" cy="40" r="36" fill="none" stroke="#22c55e" stroke-width="4" class="success__circle"/>
+              <path d="M24 42 L36 54 L56 30" fill="none" stroke="#22c55e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" class="success__check"/>
+            </svg>
+          </div>
+          <h2 class="success__title">Pagamento confirmado</h2>
+          <p class="success__sub">
+            Em alguns minutos a equipe SparkLeads vai entrar em contato pra
+            ativar sua conta. Confira seu email
+            <strong id="success-email"></strong>.
+          </p>
+          <a class="btn btn--primary btn--xl" href="https://sparkleads.pro">Voltar pro site</a>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/checkout-assets/app.js"></script>
+  </body>
+</html>

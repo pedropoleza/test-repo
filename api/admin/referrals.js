@@ -52,12 +52,31 @@ export default async function handler(req, res) {
     return res.status(404).json({ error: "not_found" }); // 404 ao invés de 401 pra obscurity
   }
 
-  if (req.method === "GET") return listReferrals(req, res);
+  if (req.method === "GET") {
+    if (req.query?.action === "search_locations") return searchLocations(req, res);
+    return listReferrals(req, res);
+  }
   if (req.method === "POST") return createReferral(req, res);
   if (req.method === "PATCH") return updateReferral(req, res);
   if (req.method === "DELETE") return deleteReferral(req, res);
   res.setHeader("Allow", "GET, POST, PATCH, DELETE");
   return res.status(405).json({ error: "method_not_allowed" });
+}
+
+async function searchLocations(req, res) {
+  const q = String(req.query?.q || "").trim();
+  if (!q || q.length < 2) return res.status(200).json({ locations: [] });
+
+  // Match por nome OU id. Limita 20 resultados.
+  // Use ilike pra case-insensitive partial match no nome.
+  const { data, error } = await db()
+    .from("installations")
+    .select("location_id, location_name")
+    .or(`location_name.ilike.%${q.replace(/[%_]/g, "")}%,location_id.eq.${q}`)
+    .limit(20);
+  if (error) return res.status(500).json({ error: "db_error", detail: error.message });
+
+  return res.status(200).json({ locations: data || [] });
 }
 
 async function listReferrals(req, res) {

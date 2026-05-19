@@ -461,6 +461,7 @@ async function applyLocationAndCoupon() {
         if (data?.couponCode) {
           code = data.couponCode;
           if (data.shareUrl) window.__sparkShareUrl = data.shareUrl;
+          if (data.tiers) window.__sparkTiers = data.tiers;
           if (data.locationName) loc.name = data.locationName;
         }
       }
@@ -469,6 +470,28 @@ async function applyLocationAndCoupon() {
     }
   }
   if (!code) code = deriveCoupon(loc.name);
+
+  // Garante que window.__sparkTiers tem as 3 URLs com cupom prefilled.
+  // Necessário porque o SSO ctx só traz shareUrl única (legado);
+  // os 3 tiers vem via /api/cupom.
+  if (
+    !window.__sparkTiers &&
+    loc.id &&
+    loc.id !== "loc_placeholder" &&
+    loc.id !== "loc_unknown"
+  ) {
+    try {
+      const r = await fetch(
+        `/api/cupom?locationId=${encodeURIComponent(loc.id)}`,
+      );
+      if (r.ok) {
+        const data = await r.json();
+        if (data?.tiers) window.__sparkTiers = data.tiers;
+      }
+    } catch (err) {
+      console.warn("[tiers] fetch failed:", err.message);
+    }
+  }
 
   const setText = (id, val) => { const el = $(id); if (el) el.textContent = val; };
   setText("location-name", loc.name);
@@ -555,41 +578,41 @@ function shareTextFor(code) {
   return `Use o cupom ${code} pra ganhar desconto na sua subaccount GoHighLevel.`;
 }
 
-/* ============== Checkout CTA (final do hub) ============== */
+/* ============== Checkout CTA (final do hub) — 3 tiers ============== */
 
 function setupCheckoutCta() {
-  const openBtn = $("checkout-cta-open");
-  if (!openBtn) return;
+  const wrap = $("checkout-cta-tiers");
+  if (!wrap) return;
+  const buttons = wrap.querySelectorAll(".tier-btn[data-tier]");
+  if (!buttons.length) return;
 
   const hydrate = () => {
-    const code = window.__sparkCoupon || $("coupon-copy")?.dataset?.code || null;
-    const url = code ? shareLinkFor(code) : "";
-    openBtn.disabled = !url;
-    openBtn.dataset.url = url || "";
+    const tiers = window.__sparkTiers || null;
+    buttons.forEach((btn) => {
+      const tierId = btn.dataset.tier;
+      const url = tiers?.[tierId]?.url || "";
+      btn.disabled = !url;
+      btn.dataset.url = url;
+    });
   };
 
-  openBtn.addEventListener("click", () => {
-    // Sempre recalcula no click — caso o cupom ou shareUrl tenha
-    // chegado depois do primeiro hydrate.
-    let url = openBtn.dataset.url;
-    if (!url) {
-      const code = window.__sparkCoupon || $("coupon-copy")?.dataset?.code;
-      url = code ? shareLinkFor(code) : "";
-    }
-    if (url) {
-      window.open(url, "_blank", "noopener");
-    } else {
-      console.error("[checkout-cta] no URL available", {
-        coupon: window.__sparkCoupon,
-        shareUrl: window.__sparkShareUrl,
-        base: window.__sparkPaymentLinkBase,
-      });
-      toast({
-        title: "Link indisponível",
-        sub: "Recarregue a página. Se persistir, contate o suporte.",
-        tone: "warn",
-      });
-    }
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const url = btn.dataset.url;
+      if (url) {
+        window.open(url, "_blank", "noopener");
+      } else {
+        console.error("[checkout-cta] tier url missing", {
+          tier: btn.dataset.tier,
+          tiers: window.__sparkTiers,
+        });
+        toast({
+          title: "Link indisponível",
+          sub: "Recarregue a página. Se persistir, contate o suporte.",
+          tone: "warn",
+        });
+      }
+    });
   });
 
   window.__sparkRehydrateCheckoutCta = hydrate;

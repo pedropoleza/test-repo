@@ -72,10 +72,36 @@ export default async function handler(req, res) {
     shareUrl = `${base}${sep}prefilled_promo_code=${encodeURIComponent(row.coupon_code)}`;
   }
 
+  // 3-tier URLs (Starter/Growth/Scale). Cada um com cupom prefilled.
+  const buildTierUrl = (envKey) => {
+    const url = process.env[envKey];
+    if (!url) return null;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}prefilled_promo_code=${encodeURIComponent(row.coupon_code)}`;
+  };
+  const tiers = {
+    starter: {
+      name: "Spark Starter",
+      price_usd: 79,
+      url: buildTierUrl("STRIPE_LINK_STARTER"),
+    },
+    growth: {
+      name: "Spark Growth",
+      price_usd: 120,
+      url: buildTierUrl("STRIPE_LINK_GROWTH"),
+    },
+    scale: {
+      name: "Spark Scale",
+      price_usd: 250,
+      url: buildTierUrl("STRIPE_LINK_SCALE"),
+    },
+  };
+
   return res.status(200).json({
     locationId,
     locationName: row.location_name,
     couponCode: row.coupon_code,
     shareUrl,
+    tiers,
   });
 }

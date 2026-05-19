@@ -3,147 +3,385 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0f172a" />
-    <title>Spark · Admin Interno</title>
+    <meta name="theme-color" content="#155EEF" />
+    <title>Spark · Admin</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     />
-    <link rel="stylesheet" href="/checkout-assets/styles.css" />
-    <link rel="stylesheet" href="/checkout-assets/admin.css" />
+    <link rel="stylesheet" href="/checkout-assets/admin-v2.css" />
   </head>
   <body>
-    <div class="bg-layers" aria-hidden="true">
-      <div class="bg-grid"></div>
-      <div class="bg-orb bg-orb--1"></div>
-      <div class="bg-orb bg-orb--2"></div>
-      <div class="bg-noise"></div>
-    </div>
+    <!-- ===== Halftone background (diagonal canto inferior direito → topo esquerdo) ===== -->
+    <svg class="halftone" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="dots-lg" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
+          <circle cx="14" cy="14" r="4" fill="#155EEF"/>
+        </pattern>
+        <pattern id="dots-sm" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
+          <circle cx="7" cy="7" r="1.2" fill="#155EEF"/>
+        </pattern>
+        <linearGradient id="halftone-fade" x1="100%" y1="100%" x2="0%" y2="0%">
+          <stop offset="0%" stop-color="white" stop-opacity="1"/>
+          <stop offset="35%" stop-color="white" stop-opacity="0.5"/>
+          <stop offset="75%" stop-color="white" stop-opacity="0"/>
+        </linearGradient>
+        <mask id="halftone-mask">
+          <rect width="100%" height="100%" fill="url(#halftone-fade)"/>
+        </mask>
+      </defs>
+      <rect class="halftone__lg" width="100%" height="100%" fill="url(#dots-lg)" mask="url(#halftone-mask)" opacity="0.18"/>
+      <rect class="halftone__sm" width="100%" height="100%" fill="url(#dots-sm)" mask="url(#halftone-mask)" opacity="0.10"/>
+    </svg>
 
-    <header class="topbar">
-      <a class="brand" href="/" aria-label="Spark">
-        <span class="brand__bolt">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M13 2L4.09 12.97a.5.5 0 00.39.81H11l-1 8.22 8.91-10.97a.5.5 0 00-.39-.81H12l1-7.22z"/></svg>
-        </span>
-        <span class="brand__name">SparkLeads <span class="admin-tag">Admin</span></span>
-      </a>
-      <div class="topbar__hint">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Painel interno · não compartilhe
-      </div>
-    </header>
-
-    <!-- Locked state (when no/wrong key) -->
-    <main class="admin-locked" id="locked" hidden>
-      <div class="admin-locked__card">
-        <div class="admin-locked__lock">
-          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    <!-- ===== Locked state ===== -->
+    <main class="locked" id="locked" hidden>
+      <div class="locked__card">
+        <div class="locked__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
         </div>
         <h2>Acesso restrito</h2>
-        <p>Use a URL completa com sua chave de acesso. Sem chave, esta página não funciona.</p>
-        <code class="admin-locked__hint">/admin?k=&lt;sua-chave-secreta&gt;</code>
+        <p>Use a URL completa com a chave secreta. Sem ela, esta página não funciona.</p>
+        <code>/admin?k=&lt;sua-chave-secreta&gt;</code>
       </div>
     </main>
 
-    <!-- Authenticated state -->
-    <main class="admin" id="admin" hidden>
-      <section class="admin-head" data-reveal>
-        <div>
-          <p class="eyebrow">Painel interno</p>
-          <h1 class="step__title">Registrar indicação <span class="grad">manual</span></h1>
-          <p class="step__sub">
-            Use esse formulário pra registrar indicações que aconteceram fora do checkout
-            automático. O sistema cria a row, recomputa o tier do indicador, e mostra +1 no hub dele.
-          </p>
+    <!-- ===== Authenticated app ===== -->
+    <div class="app" id="app" hidden>
+      <!-- ===== Topbar ===== -->
+      <header class="topbar">
+        <div class="topbar__brand">
+          <img
+            class="topbar__logo"
+            src="https://assets.cdn.filesafe.space/efZEjK6PqtPGDHqB2vV6/media/6830ef82dc1ab5df548b4253.png"
+            alt="SparkLeads"
+            width="120"
+            height="32"
+          />
+          <span class="topbar__tag">Admin</span>
         </div>
-      </section>
+        <div class="topbar__meta">
+          <span class="topbar__hint">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            Painel interno
+          </span>
+        </div>
+      </header>
 
-      <div class="admin-grid">
-        <!-- Form column -->
-        <form id="ref-form" class="form-card" data-reveal>
-          <h2 class="form-card__title">Nova indicação</h2>
+      <!-- ===== Tab content area ===== -->
+      <main class="content">
 
-          <label class="field">
-            <span class="field__label">Indicador (location da Spark)</span>
-            <div class="field__group">
-              <input
-                class="field__input"
-                type="text"
-                id="indicador-search"
-                placeholder="Busque por nome ou cole o locationId"
-                autocomplete="off"
-              />
+        <!-- Tab: INDICAÇÕES (default, principal) -->
+        <section class="tab" data-tab="indicacoes">
+          <div class="page-head">
+            <div>
+              <h1>Registrar indicação</h1>
+              <p>Crie uma indicação manual. Funciona quando o checkout não captura via URL.</p>
             </div>
-            <div class="search-results" id="search-results" hidden></div>
-            <span class="field__status" id="indicador-status" data-state=""></span>
-          </label>
+          </div>
 
-          <label class="field">
-            <span class="field__label">Email do indicado</span>
-            <input class="field__input" type="email" id="indicado-email" required placeholder="cliente@email.com" />
-          </label>
+          <div class="two-col">
+            <form id="ref-form" class="card form">
+              <h2 class="card__title">Nova indicação</h2>
 
-          <label class="field">
-            <span class="field__label">Nome do indicado</span>
-            <input class="field__input" type="text" id="indicado-name" required placeholder="João da Silva" />
-          </label>
+              <label class="field">
+                <span class="field__label">Indicador (location Spark)</span>
+                <div class="autocomplete">
+                  <input id="indicador-search" class="input" type="text" placeholder="Buscar por nome ou colar locationId" autocomplete="off" />
+                  <div class="autocomplete__results" id="search-results" hidden></div>
+                </div>
+                <span class="field__hint" id="indicador-status" data-state=""></span>
+              </label>
 
-          <div class="field-row">
-            <label class="field">
-              <span class="field__label">Plano contratado</span>
-              <select class="field__input" id="tier-purchased">
-                <option value="">— a definir —</option>
-                <option value="starter">Spark Starter ($79/mês)</option>
-                <option value="growth">Spark Growth ($120/mês)</option>
-                <option value="scale">Spark Scale ($250/mês)</option>
+              <div class="grid-2">
+                <label class="field">
+                  <span class="field__label">Nome do indicado</span>
+                  <input id="indicado-name" class="input" type="text" required placeholder="João Silva" />
+                </label>
+                <label class="field">
+                  <span class="field__label">Email do indicado</span>
+                  <input id="indicado-email" class="input" type="email" required placeholder="cliente@email.com" />
+                </label>
+              </div>
+
+              <div class="grid-2">
+                <label class="field">
+                  <span class="field__label">Plano contratado</span>
+                  <select id="tier-purchased" class="input">
+                    <option value="">— a definir —</option>
+                    <option value="starter">Starter — $79/mês</option>
+                    <option value="growth">Growth — $120/mês</option>
+                    <option value="scale">Scale — $250/mês</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label">Status inicial</span>
+                  <select id="status" class="input">
+                    <option value="pending">Pending</option>
+                    <option value="paid" selected>Paid</option>
+                    <option value="qualified">Qualified</option>
+                  </select>
+                </label>
+              </div>
+
+              <label class="field">
+                <span class="field__label">Cupom usado <small>(opcional)</small></span>
+                <input id="cupom-code" class="input" type="text" placeholder="ex: INDICACAO_GROWTH" />
+              </label>
+
+              <label class="check">
+                <input type="checkbox" id="activation-paid" />
+                <span>Taxa de ativação foi paga</span>
+              </label>
+
+              <button type="submit" class="btn btn--primary" id="submit-ref">
+                Registrar indicação
+              </button>
+              <div class="field__hint" id="form-status" data-state=""></div>
+            </form>
+
+            <aside class="card recent">
+              <header class="card__head">
+                <h3 class="card__title">Últimas 25 indicações</h3>
+                <button class="btn btn--ghost btn--icon" id="refresh-recent" title="Atualizar">↻</button>
+              </header>
+              <div class="recent__list" id="recent-list">
+                <div class="empty">Carregando…</div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <!-- Tab: INÍCIO (dashboard) -->
+        <section class="tab" data-tab="inicio" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Visão geral</h1>
+              <p>KPIs principais e indicações que precisam da sua atenção.</p>
+            </div>
+            <button class="btn btn--ghost" id="refresh-dashboard">Atualizar</button>
+          </div>
+
+          <div class="kpi-grid" id="kpi-grid">
+            <div class="kpi-card kpi-skel"></div>
+            <div class="kpi-card kpi-skel"></div>
+            <div class="kpi-card kpi-skel"></div>
+            <div class="kpi-card kpi-skel"></div>
+          </div>
+
+          <div class="two-col">
+            <div class="card">
+              <header class="card__head">
+                <h3 class="card__title">Próximos a qualificar (7 dias)</h3>
+              </header>
+              <div id="qualifying-soon" class="list">
+                <div class="empty">Carregando…</div>
+              </div>
+            </div>
+            <div class="card">
+              <header class="card__head">
+                <h3 class="card__title">Top 3 indicadores do mês</h3>
+              </header>
+              <div id="top-month" class="list">
+                <div class="empty">Carregando…</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab: LOCATIONS -->
+        <section class="tab" data-tab="locations" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Locations</h1>
+              <p>Todas as sub-accounts da agency com tier e estatísticas.</p>
+            </div>
+            <div class="page-head__actions">
+              <input id="loc-search" class="input input--inline" type="search" placeholder="Buscar por nome…" />
+              <select id="loc-tier-filter" class="input input--inline">
+                <option value="">Todos os tiers</option>
+                <option value="none">Sem nível</option>
+                <option value="iniciante">Iniciante</option>
+                <option value="basico">Básico</option>
+                <option value="intermediario">Intermediário</option>
+                <option value="avancado">Avançado</option>
+                <option value="muito-avancado">Muito Avançado</option>
               </select>
-            </label>
-
-            <label class="field">
-              <span class="field__label">Status inicial</span>
-              <select class="field__input" id="status">
-                <option value="pending">Pending (aguardando pagto)</option>
-                <option value="paid" selected>Paid (já pagou)</option>
-                <option value="qualified">Qualified (qualificada)</option>
-              </select>
-            </label>
+            </div>
           </div>
 
-          <label class="field">
-            <span class="field__label">
-              Cupom usado <span class="field__hint">opcional</span>
-            </span>
-            <input class="field__input" type="text" id="cupom-code" placeholder="ex: INDICACAO_GROWTH" />
-          </label>
-
-          <label class="field-check">
-            <input type="checkbox" id="activation-paid" />
-            <span>Taxa de ativação foi paga</span>
-          </label>
-
-          <button type="submit" class="btn btn--primary btn--full btn--xl" id="submit-ref">
-            Registrar indicação
-          </button>
-
-          <div class="field__status" id="form-status" data-state=""></div>
-        </form>
-
-        <!-- Recent referrals column -->
-        <aside class="recent" data-reveal data-reveal-delay="1">
-          <div class="recent__head">
-            <h3>Últimas 50</h3>
-            <button class="btn btn--ghost btn--inline" id="refresh-list">↻</button>
+          <div class="card card--padless">
+            <div class="table-wrap">
+              <table class="table" id="locs-table">
+                <thead>
+                  <tr>
+                    <th>Location</th>
+                    <th>Tier</th>
+                    <th>Qualificadas</th>
+                    <th>Cupom</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="locs-tbody">
+                  <tr><td colspan="6"><div class="empty">Carregando…</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-foot" id="locs-foot"></div>
           </div>
-          <div class="recent__list" id="recent-list">
-            <div class="recent__loading">Carregando…</div>
-          </div>
-        </aside>
-      </div>
-    </main>
+        </section>
 
-    <script type="module" src="/checkout-assets/admin.js"></script>
+        <!-- Tab: RANKING -->
+        <section class="tab" data-tab="ranking" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Ranking de indicadores</h1>
+              <p>Top performers por indicações qualificadas.</p>
+            </div>
+            <div class="seg" role="tablist">
+              <button class="seg__btn is-active" data-period="all">Todo período</button>
+              <button class="seg__btn" data-period="90d">90 dias</button>
+              <button class="seg__btn" data-period="month">Este mês</button>
+            </div>
+          </div>
+
+          <div class="card card--padless">
+            <ol class="leaderboard" id="leaderboard">
+              <li class="lb-skel"></li>
+              <li class="lb-skel"></li>
+              <li class="lb-skel"></li>
+            </ol>
+          </div>
+        </section>
+
+        <!-- Tab: ATIVIDADE -->
+        <section class="tab" data-tab="atividade" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Feed de atividade</h1>
+              <p>Toda ação admin, webhook recebido e transição automática em ordem cronológica.</p>
+            </div>
+            <button class="btn btn--ghost" id="refresh-activity">Atualizar</button>
+          </div>
+
+          <div class="card card--padless">
+            <ul class="activity" id="activity">
+              <li class="empty">Carregando…</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Tab: CUPONS -->
+        <section class="tab" data-tab="cupons" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Cupons</h1>
+              <p>Cupons globais por tier + cupons por location, com contagem de uso.</p>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 class="card__title">Cupons globais (INDICACAO_*)</h3>
+            <div id="cupons-global" class="list"></div>
+          </div>
+
+          <div class="card card--padless">
+            <header class="card__head">
+              <h3 class="card__title">Cupons por location <span class="muted" id="cupons-total"></span></h3>
+              <input id="cupons-search" class="input input--inline" type="search" placeholder="Buscar cupom…" />
+            </header>
+            <div class="table-wrap">
+              <table class="table" id="cupons-table">
+                <thead>
+                  <tr>
+                    <th>Code</th>
+                    <th>Location</th>
+                    <th>Times used</th>
+                    <th>Promotion ID</th>
+                  </tr>
+                </thead>
+                <tbody id="cupons-tbody">
+                  <tr><td colspan="4"><div class="empty">Carregando…</div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab: OPERAÇÕES -->
+        <section class="tab" data-tab="ops" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Operações em lote</h1>
+              <p>Comandos administrativos que rodam contra todas as locations/indicações.</p>
+            </div>
+          </div>
+
+          <div class="op-grid">
+            <div class="op-card">
+              <div class="op-card__icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/><path d="M20.49 15A9 9 0 015.64 18.36L1 14"/></svg></div>
+              <h3>Recompute tiers</h3>
+              <p>Recalcula o tier de todas locations com pelo menos 1 indicação qualificada. Aplica/revoga discounts no Stripe.</p>
+              <button class="btn btn--primary" id="op-recompute">Rodar agora</button>
+              <div class="op-card__status" id="op-recompute-status"></div>
+            </div>
+
+            <div class="op-card">
+              <div class="op-card__icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+              <h3>Sync de locations</h3>
+              <p>Lista todas as sub-accounts da agency e provisiona as que estão faltando no banco. Cria cupom Stripe automaticamente.</p>
+              <button class="btn btn--primary" id="op-sync">Rodar agora</button>
+              <div class="op-card__status" id="op-sync-status"></div>
+            </div>
+
+            <div class="op-card">
+              <div class="op-card__icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+              <h3>Exportar indicações</h3>
+              <p>Baixa CSV com todas indicações (status, indicador, indicado, plano, datas). Útil pra análise externa.</p>
+              <button class="btn btn--primary" id="op-export">Baixar CSV</button>
+              <div class="op-card__status" id="op-export-status"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- ===== Bottom tab bar ===== -->
+      <nav class="bottom-nav" role="tablist">
+        <button class="nav-btn is-active" data-go="indicacoes" role="tab">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Indicações</span>
+        </button>
+        <button class="nav-btn" data-go="inicio" role="tab">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Início</span>
+        </button>
+        <button class="nav-btn" data-go="locations" role="tab">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <span>Locations</span>
+        </button>
+        <button class="nav-btn" data-go="ranking" role="tab">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+          <span>Ranking</span>
+        </button>
+        <button class="nav-btn" data-go="atividade" role="tab">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <span>Atividade</span>
+        </button>
+        <button class="nav-btn" data-go="cupons" role="tab">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6V4l-4 4 4 4v-4h14M4 12v4h14v4l4-4-4-4v4H4z"/></svg>
+          <span>Cupons</span>
+        </button>
+        <button class="nav-btn" data-go="ops" role="tab">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          <span>Operações</span>
+        </button>
+      </nav>
+    </div>
+
+    <script type="module" src="/checkout-assets/admin-v2.js"></script>
   </body>
 </html>

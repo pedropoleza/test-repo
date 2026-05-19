@@ -13,8 +13,7 @@
   "functions": {
     "api/cron/sync-locations.js": { "maxDuration": 60 },
     "api/admin/resync-locations.js": { "maxDuration": 60 },
-    "api/admin/repair-missing-coupons.js": { "maxDuration": 60 },
-    "api/admin/cleanup-pit-installations.js": { "maxDuration": 60 },
-    "api/admin/recompute-tier.js": { "maxDuration": 30 }
+    "api/admin/recompute-tier.js": { "maxDuration": 60 },
+    "api/checkout/intent.js": { "maxDuration": 30 }
   }
 }

@@ -679,6 +679,85 @@ select.input { cursor: pointer; appearance: none; -webkit-appearance: none; back
 .activity__time { font-size: 11px; color: var(--text-faint); white-space: nowrap; padding-top: 4px; }
 
 /* =====================================================
+   Cupom cards (3 globais)
+   ===================================================== */
+.cupom-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+@media (max-width: 900px) { .cupom-cards { grid-template-columns: 1fr; } }
+.cupom-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  transition: transform 280ms cubic-bezier(.4,0,.2,1), box-shadow 280ms;
+}
+.cupom-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 4px;
+  background: var(--blue);
+}
+.cupom-card--iniciante::before { background: #047857; }
+.cupom-card--intermediario::before { background: var(--violet); }
+.cupom-card--muito-avancado::before { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+.cupom-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+.cupom-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.cupom-card__uses {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  padding: 3px 10px;
+  border-radius: 100px;
+}
+.cupom-card__code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+.cupom-card__plan {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+.cupom-card__discount {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+}
+.cupom-card__off {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--blue);
+  font-variant-numeric: tabular-nums;
+}
+.cupom-card--iniciante .cupom-card__off { color: #047857; }
+.cupom-card--intermediario .cupom-card__off { color: var(--violet); }
+.cupom-card--muito-avancado .cupom-card__off { color: var(--amber); }
+.cupom-card__dur {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* =====================================================
    Operations grid
    ===================================================== */
 .op-grid {

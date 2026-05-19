@@ -557,55 +557,41 @@ async function loadActivity() {
    TAB: CUPONS
    ===================================================== */
 TAB_LOADERS.cupons = loadCupons;
-let cuponsCache = null;
-$("cupons-search")?.addEventListener("input", () => renderCupons());
+
+const CUPOM_META = {
+  INDICACAO_STARTER: { tier: "Starter", plan: "$79/mês", discount: "$40 off", duration: "por 3 meses", color: "iniciante" },
+  INDICACAO_GROWTH: { tier: "Growth", plan: "$120/mês + $99 ativação", discount: "$50 off", duration: "1ª fatura", color: "intermediario" },
+  INDICACAO_SCALE: { tier: "Scale", plan: "$250/mês + $199 ativação", discount: "$100 off", duration: "1ª fatura", color: "muito-avancado" },
+};
 
 async function loadCupons() {
+  const root = $("cupons-global");
+  root.innerHTML = '<div class="empty">Carregando…</div>';
   try {
     const r = await api("?action=cupons");
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "erro");
-    cuponsCache = d;
-    // Global
-    $("cupons-global").innerHTML = d.global
+    root.innerHTML = d.global
       .map((c) => {
-        const tier = c.code.split("_")[1]?.toLowerCase() || "none";
-        return `<div class="list__item">
-          <div class="list__item-info">
-            <div class="list__item-name" style="font-family:ui-monospace,monospace">${escapeHtml(c.code)}</div>
-            <div class="list__item-meta">${tierBadge(tier === "starter" ? "iniciante" : tier)} cupom global</div>
+        const m = CUPOM_META[c.code] || { tier: "—", plan: "", discount: "", duration: "", color: "none" };
+        return `<div class="cupom-card cupom-card--${m.color}">
+          <div class="cupom-card__head">
+            <span class="cupom-card__tier">${tierBadge(m.color)}</span>
+            <span class="cupom-card__uses">${c.times_used} ${c.times_used === 1 ? "uso" : "usos"}</span>
           </div>
-          <div class="list__item-value">${c.times_used} ${c.times_used === 1 ? "uso" : "usos"}</div>
+          <div class="cupom-card__code">${escapeHtml(c.code)}</div>
+          <div class="cupom-card__plan">${escapeHtml(m.plan)}</div>
+          <div class="cupom-card__discount">
+            <span class="cupom-card__off">${escapeHtml(m.discount)}</span>
+            <span class="cupom-card__dur">${escapeHtml(m.duration)}</span>
+          </div>
         </div>`;
       })
       .join("");
-    $("cupons-total").textContent = `(${d.total_per_location})`;
-    renderCupons();
+    staggerReveal(root, ".cupom-card", 90);
   } catch (err) {
-    $("cupons-tbody").innerHTML = `<tr><td colspan="4"><div class="empty">Erro: ${escapeHtml(err.message)}</div></td></tr>`;
+    root.innerHTML = `<div class="empty">Erro: ${escapeHtml(err.message)}</div>`;
   }
-}
-
-function renderCupons() {
-  if (!cuponsCache) return;
-  const q = ($("cupons-search").value || "").trim().toLowerCase();
-  const filtered = cuponsCache.per_location.filter(
-    (c) =>
-      !q ||
-      c.code?.toLowerCase().includes(q) ||
-      (c.location_name || "").toLowerCase().includes(q),
-  );
-  $("cupons-tbody").innerHTML = filtered
-    .slice(0, 100)
-    .map(
-      (c) => `<tr>
-        <td style="font-family:ui-monospace,monospace;font-size:12px;font-weight:600">${escapeHtml(c.code)}</td>
-        <td>${escapeHtml(c.location_name || "—")}</td>
-        <td><strong>${c.times_used}</strong></td>
-        <td style="font-family:ui-monospace,monospace;font-size:11px;color:var(--text-faint)">${escapeHtml(c.stripe_promotion_id || "—")}</td>
-      </tr>`,
-    )
-    .join("") || '<tr><td colspan="4"><div class="empty">Nada encontrado.</div></td></tr>';
 }
 
 /* =====================================================

@@ -287,37 +287,12 @@
         <section class="tab" data-tab="cupons" hidden>
           <div class="page-head">
             <div>
-              <h1>Cupons</h1>
-              <p>Cupons globais por tier + cupons por location, com contagem de uso.</p>
+              <h1>Cupons de indicação</h1>
+              <p>Os 3 cupons aplicados no checkout, um por plano. O desconto varia conforme o tier escolhido pelo indicado.</p>
             </div>
           </div>
 
-          <div class="card">
-            <h3 class="card__title">Cupons globais (INDICACAO_*)</h3>
-            <div id="cupons-global" class="list"></div>
-          </div>
-
-          <div class="card card--padless">
-            <header class="card__head">
-              <h3 class="card__title">Cupons por location <span class="muted" id="cupons-total"></span></h3>
-              <input id="cupons-search" class="input input--inline" type="search" placeholder="Buscar cupom…" />
-            </header>
-            <div class="table-wrap">
-              <table class="table" id="cupons-table">
-                <thead>
-                  <tr>
-                    <th>Code</th>
-                    <th>Location</th>
-                    <th>Times used</th>
-                    <th>Promotion ID</th>
-                  </tr>
-                </thead>
-                <tbody id="cupons-tbody">
-                  <tr><td colspan="4"><div class="empty">Carregando…</div></td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <div class="cupom-cards" id="cupons-global"></div>
         </section>
 
         <!-- Tab: OPERAÇÕES -->

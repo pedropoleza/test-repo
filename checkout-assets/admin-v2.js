@@ -2,6 +2,11 @@
    Spark Admin V2 — tab navigation + data loaders per tab
    ============================================================= */
 
+import {
+  countUp, attachRipple, attachRippleAll, backgroundPulse, toast,
+  progressStart, progressDone, confetti, staggerReveal, moveNavIndicator,
+} from "./admin-fx.js";
+
 const COOKIE_KEY = "spark_admin_key";
 const API = "/api/admin/referrals";
 const $ = (id) => document.getElementById(id);
@@ -63,14 +68,19 @@ async function authCheck() {
    API helper
    ===================================================== */
 async function api(qs = "", opts = {}) {
-  return fetch(API + qs, {
-    ...opts,
-    headers: {
-      ...(opts.headers || {}),
-      "x-spark-admin-key": ADMIN_KEY || "",
-      ...(opts.body ? { "content-type": "application/json" } : {}),
-    },
-  });
+  progressStart();
+  try {
+    return await fetch(API + qs, {
+      ...opts,
+      headers: {
+        ...(opts.headers || {}),
+        "x-spark-admin-key": ADMIN_KEY || "",
+        ...(opts.body ? { "content-type": "application/json" } : {}),
+      },
+    });
+  } finally {
+    progressDone();
+  }
 }
 
 /* =====================================================
@@ -114,18 +124,41 @@ function tierBadge(tierId) {
 const TAB_LOADERS = {};
 let currentTab = null;
 function setupTabs() {
+  const nav = document.querySelector(".bottom-nav");
   $$(".nav-btn[data-go]").forEach((btn) => {
-    btn.addEventListener("click", () => switchTo(btn.dataset.go));
+    attachRipple(btn);
+    btn.addEventListener("click", () => switchTo(btn.dataset.go, btn));
+  });
+  // Posiciona o indicador deslizante no botão ativo inicial
+  const active = document.querySelector(".nav-btn.is-active");
+  if (nav && active) requestAnimationFrame(() => moveNavIndicator(nav, active));
+  window.addEventListener("resize", () => {
+    const a = document.querySelector(".nav-btn.is-active");
+    if (nav && a) moveNavIndicator(nav, a);
   });
 }
-function switchTo(tab) {
+function switchTo(tab, originBtn) {
   if (currentTab === tab) return;
   currentTab = tab;
+  const nav = document.querySelector(".bottom-nav");
+  const btn = originBtn || document.querySelector(`.nav-btn[data-go="${tab}"]`);
+
   $$(".nav-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.go === tab));
+  if (nav && btn) moveNavIndicator(nav, btn);
+
+  // Background pulse a partir do botão clicado
+  backgroundPulse(btn);
+
   $$(".tab[data-tab]").forEach((s) => { s.hidden = s.dataset.tab !== tab; });
-  // Lazy load
+
+  // Stagger reveal dos cards/itens do tab
+  const panel = document.querySelector(`.tab[data-tab="${tab}"]`);
+  if (panel) {
+    const targets = panel.querySelectorAll(".kpi-card, .card, .op-card, .lb-item");
+    if (targets.length) staggerReveal(panel, ".kpi-card, .card, .op-card", 70);
+  }
+
   if (TAB_LOADERS[tab]) TAB_LOADERS[tab]();
-  // Update URL
   try { history.replaceState(null, "", `#${tab}`); } catch {}
 }
 
@@ -215,13 +248,15 @@ function setupIndicacoes() {
       const data = await r.json();
       if (!r.ok) {
         setStatus("form-status", data.message || data.error || "erro", "err");
+        toast(data.message || data.error || "Erro ao criar indicação", { type: "error", title: "Falha" });
         return;
       }
-      setStatus(
-        "form-status",
-        `✓ Criada: ${data.referral.indicado_name} → ${data.indicador_name}`,
-        "ok",
-      );
+      setStatus("form-status", "", "");
+      toast(`${data.referral.indicado_name} → ${data.indicador_name}`, {
+        type: "success",
+        title: "Indicação registrada",
+      });
+      confetti();
       $("ref-form").reset();
       selectedIndicador = null;
       input.value = "";
@@ -286,25 +321,42 @@ async function loadDashboard() {
     $("kpi-grid").innerHTML = `
       <div class="kpi-card">
         <div class="kpi-card__label">MRR Estimado</div>
-        <div class="kpi-card__value">${fmtUsd(d.mrr_estimated_usd)}<small>/mês</small></div>
+        <div class="kpi-card__value" data-count="${d.mrr_estimated_usd}" data-prefix="$" data-suffix="/mês">$0</div>
         <div class="kpi-card__detail">de ${d.referrals.qualified} indicações qualificadas</div>
       </div>
       <div class="kpi-card kpi-card--green">
         <div class="kpi-card__label">Indicações este mês</div>
-        <div class="kpi-card__value">${d.referrals.this_month}</div>
+        <div class="kpi-card__value" data-count="${d.referrals.this_month}">0</div>
         <div class="kpi-card__detail">${d.referrals.paid} paid · ${d.referrals.qualified} qualified</div>
       </div>
       <div class="kpi-card kpi-card--violet">
         <div class="kpi-card__label">Taxa de Conversão</div>
-        <div class="kpi-card__value">${d.conversion_rate}<small>%</small></div>
+        <div class="kpi-card__value" data-count="${d.conversion_rate}" data-suffix="%">0%</div>
         <div class="kpi-card__detail">paid → qualified</div>
       </div>
       <div class="kpi-card kpi-card--amber">
         <div class="kpi-card__label">Locations Ativas</div>
-        <div class="kpi-card__value">${d.locations_total}</div>
+        <div class="kpi-card__value" data-count="${d.locations_total}">0</div>
         <div class="kpi-card__detail">sub-accounts no GHL</div>
       </div>
     `;
+    // Count-up em cada KPI
+    $("kpi-grid").querySelectorAll("[data-count]").forEach((el) => {
+      const small = el.dataset.suffix
+        ? `<small>${el.dataset.suffix}</small>`
+        : "";
+      countUp(el, Number(el.dataset.count), {
+        prefix: el.dataset.prefix || "",
+        duration: 1000,
+      });
+      // re-append suffix visual após count
+      if (el.dataset.suffix) {
+        setTimeout(() => {
+          el.innerHTML = `${el.dataset.prefix || ""}${Number(el.dataset.count).toLocaleString("en-US")}${small}`;
+        }, 1050);
+      }
+    });
+    staggerReveal($("kpi-grid"), ".kpi-card", 80);
 
     // Próximos a qualificar
     const qsRoot = $("qualifying-soon");
@@ -652,8 +704,15 @@ function showApp() { $("locked").hidden = true; $("app").hidden = false; }
   setupIndicacoes();
   setupOps();
 
+  // Ripple em todos os botões primários/ghost
+  attachRippleAll(".btn");
+
   // Initial tab from hash or default
   const hash = location.hash.replace("#", "");
   const validTabs = ["indicacoes", "inicio", "locations", "ranking", "atividade", "cupons", "ops"];
-  switchTo(validTabs.includes(hash) ? hash : "indicacoes");
+  const initial = validTabs.includes(hash) ? hash : "indicacoes";
+  // força o switch (currentTab começa null)
+  switchTo(initial, document.querySelector(`.nav-btn[data-go="${initial}"]`));
+
+  toast("Bem-vindo ao painel Spark", { type: "info", duration: 2600 });
 })();

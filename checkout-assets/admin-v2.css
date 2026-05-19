@@ -812,5 +812,293 @@ select.input { cursor: pointer; appearance: none; -webkit-appearance: none; back
 /* =====================================================
    Tab transition
    ===================================================== */
-.tab { animation: tabIn 240ms ease both; }
-@keyframes tabIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.tab { animation: tabIn 380ms cubic-bezier(.4,0,.2,1) both; }
+@keyframes tabIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+
+/* =====================================================
+   FX 1 — Aurora animated background (behind halftone)
+   ===================================================== */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: -2;
+  background:
+    radial-gradient(40% 40% at 20% 30%, rgba(21,94,239,0.10) 0%, transparent 70%),
+    radial-gradient(45% 45% at 80% 20%, rgba(124,58,237,0.08) 0%, transparent 70%),
+    radial-gradient(50% 50% at 70% 80%, rgba(34,197,94,0.06) 0%, transparent 70%);
+  filter: blur(30px);
+  animation: auroraDrift 28s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes auroraDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(3%, -2%) scale(1.05); }
+  66% { transform: translate(-2%, 3%) scale(0.98); }
+}
+
+/* =====================================================
+   FX 2 — Halftone breathing + pulse on tab switch
+   ===================================================== */
+.halftone {
+  animation: halftoneBreath 9s ease-in-out infinite;
+  transform-origin: bottom right;
+}
+@keyframes halftoneBreath {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.82; transform: scale(1.015); }
+}
+.halftone--pulse { animation: halftonePulse 850ms cubic-bezier(.22,1,.36,1); }
+@keyframes halftonePulse {
+  0% { transform: scale(1); filter: none; }
+  35% { transform: scale(1.04); filter: brightness(1.4) saturate(1.3); }
+  100% { transform: scale(1); filter: none; }
+}
+
+/* =====================================================
+   FX 3 — Background pulse ripple on tab switch
+   ===================================================== */
+.fx-bg-pulse {
+  position: fixed;
+  z-index: 5;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(21,94,239,0.45) 0%, rgba(21,94,239,0) 70%);
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: none;
+  animation: bgPulse 850ms cubic-bezier(.22,1,.36,1) forwards;
+}
+@keyframes bgPulse {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(140); opacity: 0; }
+}
+
+/* =====================================================
+   FX 4 — Sliding nav indicator
+   ===================================================== */
+.fx-nav-indicator {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  border-radius: 100px;
+  background: var(--blue);
+  box-shadow: var(--shadow-blue);
+  transition: transform 420ms cubic-bezier(.34,1.56,.64,1), width 320ms ease, height 320ms ease;
+  z-index: 0;
+  pointer-events: none;
+}
+.nav-btn { z-index: 1; }
+/* When indicator is present, active button keeps text white but loses its own bg */
+.bottom-nav .nav-btn.is-active { background: transparent; box-shadow: none; }
+.bottom-nav .nav-btn.is-active:hover { background: transparent; }
+
+/* FX 5 — nav icon bounce on activation */
+.nav-btn.is-active svg { animation: navBounce 500ms cubic-bezier(.34,1.56,.64,1); }
+@keyframes navBounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.3) translateY(-2px); }
+  100% { transform: scale(1); }
+}
+
+/* =====================================================
+   FX 6 — Material ripple
+   ===================================================== */
+.fx-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  transform: scale(0);
+  animation: rippleExpand 600ms ease-out;
+  pointer-events: none;
+}
+.btn--ghost .fx-ripple, .nav-btn .fx-ripple { background: rgba(21,94,239,0.25); }
+@keyframes rippleExpand {
+  to { transform: scale(2.2); opacity: 0; }
+}
+
+/* =====================================================
+   FX 7 — Toasts
+   ===================================================== */
+.fx-toasts {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 360px;
+}
+.fx-toast {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 420ms cubic-bezier(.34,1.56,.64,1), opacity 300ms;
+  border-left: 4px solid var(--blue);
+}
+.fx-toast.is-in { transform: none; opacity: 1; }
+.fx-toast--success { border-left-color: var(--green); }
+.fx-toast--error { border-left-color: var(--red); }
+.fx-toast__icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  background: var(--blue-50); color: var(--blue);
+}
+.fx-toast--success .fx-toast__icon { background: var(--green-50); color: var(--green); }
+.fx-toast--error .fx-toast__icon { background: var(--red-50); color: var(--red); }
+.fx-toast__title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.fx-toast__msg { font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+
+/* =====================================================
+   FX 8 — Top progress bar
+   ===================================================== */
+.fx-progress {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, var(--blue), var(--violet), var(--blue));
+  background-size: 200% 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  z-index: 2000;
+  opacity: 0;
+  transition: transform 400ms ease, opacity 200ms;
+  animation: progressShimmer 1.2s linear infinite;
+}
+.fx-progress.is-active { opacity: 1; }
+@keyframes progressShimmer { to { background-position: -200% 0; } }
+
+/* =====================================================
+   FX 9 — Confetti
+   ===================================================== */
+.fx-confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1500;
+  overflow: hidden;
+}
+.fx-confetti i {
+  position: absolute;
+  top: 55%;
+  display: block;
+  opacity: 0;
+  animation: confettiFly 1.8s cubic-bezier(.15,.6,.4,1) forwards;
+  animation-delay: var(--delay);
+}
+@keyframes confettiFly {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); }
+}
+
+/* =====================================================
+   FX 10 — Card hover lift + glow
+   ===================================================== */
+.card, .kpi-card, .op-card {
+  transition: transform 280ms cubic-bezier(.4,0,.2,1), box-shadow 280ms, border-color 280ms;
+}
+.kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px -12px rgba(21,94,239,0.25), 0 0 0 1px var(--blue-100);
+}
+.op-card:hover { transform: translateY(-3px); }
+
+/* FX 11 — Animated focus ring on inputs */
+.input:focus {
+  animation: focusPop 320ms cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes focusPop {
+  0% { box-shadow: 0 0 0 0 var(--blue-50); }
+  60% { box-shadow: 0 0 0 6px var(--blue-50); }
+  100% { box-shadow: 0 0 0 3px var(--blue-50); }
+}
+
+/* FX 12 — Table row hover slide */
+.table tbody tr {
+  transition: background var(--d-fast), box-shadow var(--d-fast);
+}
+.table tbody tr:hover {
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+/* FX 13 — Qualified pill pulse glow */
+.pill--qualified {
+  animation: pillGlow 2.4s ease-in-out infinite;
+}
+@keyframes pillGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); }
+  50% { box-shadow: 0 0 0 4px rgba(22,163,74,0.12); }
+}
+
+/* FX 14 — Leaderboard rank shine on top1 */
+.lb-item--top1 .lb-item__rank {
+  position: relative;
+  overflow: hidden;
+}
+.lb-item--top1 .lb-item__rank::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.6) 50%, transparent 60%);
+  animation: rankShine 3s ease-in-out infinite;
+}
+@keyframes rankShine {
+  0% { transform: translateX(-120%); }
+  60%, 100% { transform: translateX(220%); }
+}
+
+/* FX 15 — KPI top accent bar grow on load */
+.kpi-card::before { transform-origin: left; animation: barGrow 700ms cubic-bezier(.4,0,.2,1) both; }
+@keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* FX 16 — Button press feedback */
+.btn:active:not(:disabled) { transform: scale(0.97); }
+
+/* FX 17 — Empty state pulse icon */
+.empty { animation: emptyFade 500ms ease both; }
+@keyframes emptyFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* FX 18 — Logo subtle hover scale */
+.topbar__logo { transition: transform 320ms cubic-bezier(.34,1.56,.64,1); }
+.topbar__brand:hover .topbar__logo { transform: scale(1.05) rotate(-1deg); }
+
+/* FX 19 — Tier badge muito-avancado shimmer */
+.tier-badge--muito-avancado {
+  position: relative;
+  overflow: hidden;
+}
+.tier-badge--muito-avancado::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.7) 50%, transparent 60%);
+  animation: rankShine 3.5s ease-in-out infinite;
+}
+
+/* FX 20 — Recent item entrance + hover */
+.recent__item { transition: transform var(--d-fast), border-color var(--d-fast), box-shadow var(--d-fast); }
+.recent__item:hover { transform: translateX(3px); box-shadow: -3px 0 0 var(--blue); border-color: var(--blue-100); }
+
+/* FX 21 — Smooth scroll */
+html { scroll-behavior: smooth; }
+
+/* FX 22 — Nav button hover pop */
+.nav-btn { transition: color var(--d-fast), background var(--d-fast), transform var(--d-fast); }
+.nav-btn:hover:not(.is-active) { transform: translateY(-2px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

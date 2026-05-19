@@ -45,6 +45,9 @@
 }
 
 * { box-sizing: border-box; }
+/* Garante que [hidden] sempre vença regras de display (.locked usa
+   display:flex, .app etc — sem isso o hidden é ignorado). */
+[hidden] { display: none !important; }
 html, body {
   margin: 0;
   padding: 0;

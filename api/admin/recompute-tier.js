@@ -13,14 +13,52 @@
  *     com metadata pra roteamento de webhook. Idempotente via
  *     metadata.tier search.
  */
-import { stripeClient } from "../../lib/server/stripe-coupon.js";
+import { stripeClient, ensureIndicadoCoupon } from "../../lib/server/stripe-coupon.js";
+import { db } from "../../lib/server/db.js";
 import { checkCronSecret } from "../../lib/server/auth-admin.js";
 import { recomputeTier } from "../../lib/server/tier-discount.js";
 
 const TIERS = [
-  { id: "starter", name: "Spark Starter", price: 79, slug: "spark-starter" },
-  { id: "growth", name: "Spark Growth", price: 120, slug: "spark-growth" },
-  { id: "scale", name: "Spark Scale", price: 250, slug: "spark-scale" },
+  {
+    id: "starter",
+    name: "Spark Starter",
+    monthlyUsd: 79,
+    activationUsd: 0,
+    slug: "spark-starter",
+    indicacaoCoupon: {
+      code: "INDICACAO_STARTER",
+      amountUsd: 40,
+      duration: "repeating",
+      durationInMonths: 3,
+      name: "Indicação Starter — $40 off por 3 meses",
+    },
+  },
+  {
+    id: "growth",
+    name: "Spark Growth",
+    monthlyUsd: 120,
+    activationUsd: 99,
+    slug: "spark-growth",
+    indicacaoCoupon: {
+      code: "INDICACAO_GROWTH",
+      amountUsd: 50,
+      duration: "once",
+      name: "Indicação Growth — $50 off",
+    },
+  },
+  {
+    id: "scale",
+    name: "Spark Scale",
+    monthlyUsd: 250,
+    activationUsd: 199,
+    slug: "spark-scale",
+    indicacaoCoupon: {
+      code: "INDICACAO_SCALE",
+      amountUsd: 100,
+      duration: "once",
+      name: "Indicação Scale — $100 off",
+    },
+  },
 ];
 
 const WELCOME_BASE = "https://sparkleads.pro/welcome";
@@ -37,6 +75,8 @@ export default async function handler(req, res) {
   const action = String(req.query?.action || "recompute_tier");
 
   if (action === "setup_tiers") return setupTiers(req, res);
+  if (action === "cleanup_pit") return cleanupPit(req, res);
+  if (action === "repair_coupons") return repairCoupons(req, res);
 
   if (action === "recompute_tier") {
     const locationId = req.query?.locationId;
@@ -54,17 +94,99 @@ export default async function handler(req, res) {
 }
 
 /**
- * Cria/reusa: 3 Products + 3 Prices + 3 Payment Links.
- * Idempotente via metadata.tier.
+ * Limpa rows agency_pit + arquiva Promotion Codes velhos.
+ * Útil pra refresh quando muda a derivação de cupom.
+ */
+async function cleanupPit(_req, res) {
+  const stripe = stripeClient();
+  const { data: rows, error } = await db()
+    .from("installations")
+    .select("location_id, location_name, coupon_code, stripe_promotion_id")
+    .eq("provision_source", "agency_pit");
+  if (error) return res.status(500).json({ error: "db_error", detail: error.message });
+
+  const summary = { candidates: rows.length, archived: 0, archive_errors: [], deleted_rows: 0 };
+  for (const r of rows) {
+    if (!r.stripe_promotion_id) continue;
+    try {
+      await stripe.promotionCodes.update(r.stripe_promotion_id, { active: false });
+      summary.archived++;
+    } catch (err) {
+      summary.archive_errors.push({
+        promo: r.stripe_promotion_id,
+        location: r.location_id,
+        error: err?.message || String(err),
+      });
+    }
+  }
+  const { error: delErr, count } = await db()
+    .from("installations")
+    .delete({ count: "exact" })
+    .eq("provision_source", "agency_pit");
+  if (delErr) return res.status(500).json({ error: "delete_failed", detail: delErr.message, partial: summary });
+  summary.deleted_rows = count || 0;
+  return res.status(200).json({ ok: true, summary });
+}
+
+/**
+ * Pra rows com coupon_code IS NULL, refaz ensureIndicadoCoupon.
+ */
+async function repairCoupons(_req, res) {
+  const { data: rows, error } = await db()
+    .from("installations")
+    .select("location_id, location_name")
+    .is("coupon_code", null);
+  if (error) return res.status(500).json({ error: "db_error", detail: error.message });
+
+  const out = { candidates: rows.length, fixed: 0, errors: [] };
+  for (const r of rows) {
+    try {
+      const cd = await ensureIndicadoCoupon(r.location_id, r.location_name);
+      if (!cd) {
+        out.errors.push({ location_id: r.location_id, error: "ensure_returned_null" });
+        continue;
+      }
+      const upd = await db()
+        .from("installations")
+        .update({
+          coupon_code: cd.couponCode,
+          stripe_coupon_id: cd.stripeCouponId,
+          stripe_promotion_id: cd.stripePromotionId,
+          last_sync_at: new Date().toISOString(),
+        })
+        .eq("location_id", r.location_id);
+      if (upd.error) throw upd.error;
+      out.fixed++;
+    } catch (err) {
+      out.errors.push({ location_id: r.location_id, error: err?.message || String(err) });
+    }
+  }
+  return res.status(200).json({ ok: true, summary: out });
+}
+
+/**
+ * Cria/reusa pra cada tier:
+ *   - Product
+ *   - Recurring Price (mensalidade)
+ *   - One-time Price de ativação (Growth + Scale; Starter não tem)
+ *   - Indicação Coupon (INDICACAO_STARTER / GROWTH / SCALE)
+ *
+ * NÃO cria Payment Links — agora temos checkout próprio.
+ * Idempotente via metadata.tier / metadata.role.
  */
 async function setupTiers(req, res) {
   const stripe = stripeClient();
   const results = [];
 
   for (const tier of TIERS) {
-    const out = { tier: tier.id, name: tier.name, price_usd: tier.price };
+    const out = {
+      tier: tier.id,
+      name: tier.name,
+      monthly_usd: tier.monthlyUsd,
+      activation_usd: tier.activationUsd,
+    };
 
-    // 1) Find or create Product
+    // 1) Product
     let product;
     try {
       const search = await stripe.products.search({
@@ -83,7 +205,6 @@ async function setupTiers(req, res) {
           metadata: {
             tier: tier.id,
             plan_slug: tier.slug,
-            plan_price_usd: String(tier.price),
             source: "spark-referral-hub",
           },
         });
@@ -94,84 +215,133 @@ async function setupTiers(req, res) {
       }
     }
     out.product_id = product.id;
-    out.product_reused = !!product.metadata?.tier;
 
-    // 2) Create Price (sempre cria novo se não houver um com mesma tier+amount).
-    //    Stripe não aceita search em Prices direto — fazemos list+filter.
-    let price;
+    // 2) Recurring Price (mensalidade)
+    let monthlyPrice;
     try {
       const list = await stripe.prices.list({
         product: product.id,
         active: true,
         limit: 20,
       });
-      price = list.data?.find(
+      monthlyPrice = list.data?.find(
         (p) =>
-          p.unit_amount === tier.price * 100 &&
+          p.unit_amount === tier.monthlyUsd * 100 &&
           p.recurring?.interval === "month",
       );
     } catch (err) {
-      out.price_list_error = err.message;
+      out.monthly_list_error = err.message;
     }
-    if (!price) {
+    if (!monthlyPrice) {
       try {
-        price = await stripe.prices.create({
+        monthlyPrice = await stripe.prices.create({
           product: product.id,
-          unit_amount: tier.price * 100,
+          unit_amount: tier.monthlyUsd * 100,
           currency: "usd",
           recurring: { interval: "month" },
           nickname: `${tier.name} — mensal`,
-          metadata: { tier: tier.id, plan_slug: tier.slug },
+          metadata: { tier: tier.id, plan_slug: tier.slug, role: "monthly" },
         });
       } catch (err) {
-        out.price_error = err.message;
+        out.monthly_error = err.message;
         results.push(out);
         continue;
       }
     }
-    out.price_id = price.id;
+    out.monthly_price_id = monthlyPrice.id;
 
-    // 3) Find or create Payment Link
-    let link;
+    // 3) Activation Price (one-time) — só Growth + Scale
+    if (tier.activationUsd > 0) {
+      let activationPrice;
+      try {
+        const list = await stripe.prices.list({
+          product: product.id,
+          active: true,
+          limit: 20,
+        });
+        activationPrice = list.data?.find(
+          (p) =>
+            p.unit_amount === tier.activationUsd * 100 &&
+            !p.recurring &&
+            p.metadata?.role === "activation",
+        );
+      } catch (err) {
+        out.activation_list_error = err.message;
+      }
+      if (!activationPrice) {
+        try {
+          activationPrice = await stripe.prices.create({
+            product: product.id,
+            unit_amount: tier.activationUsd * 100,
+            currency: "usd",
+            nickname: `${tier.name} — taxa de ativação`,
+            metadata: { tier: tier.id, plan_slug: tier.slug, role: "activation" },
+          });
+        } catch (err) {
+          out.activation_error = err.message;
+        }
+      }
+      if (activationPrice) out.activation_price_id = activationPrice.id;
+    }
+
+    // 4) Indicação Coupon
+    const coupOpts = tier.indicacaoCoupon;
+    let coupon;
     try {
-      const list = await stripe.paymentLinks.list({ active: true, limit: 100 });
-      link = list.data?.find(
-        (l) =>
-          l.metadata?.tier === tier.id &&
-          l.metadata?.source === "spark-referral-hub",
+      const search = await stripe.coupons.list({ limit: 100 });
+      coupon = search.data?.find(
+        (c) =>
+          c.metadata?.role === "indicacao" &&
+          c.metadata?.tier === tier.id &&
+          c.amount_off === coupOpts.amountUsd * 100,
       );
     } catch (err) {
-      out.link_list_error = err.message;
+      out.coupon_list_error = err.message;
     }
-    if (!link) {
+    if (!coupon) {
       try {
-        link = await stripe.paymentLinks.create({
-          line_items: [{ price: price.id, quantity: 1 }],
-          allow_promotion_codes: true,
-          billing_address_collection: "required",
-          phone_number_collection: { enabled: true },
-          after_completion: {
-            type: "redirect",
-            redirect: { url: `${WELCOME_BASE}/${tier.id}` },
-          },
+        const couponParams = {
+          amount_off: coupOpts.amountUsd * 100,
+          currency: "usd",
+          duration: coupOpts.duration,
+          name: coupOpts.name,
           metadata: {
+            role: "indicacao",
             tier: tier.id,
-            plan_slug: tier.slug,
-            plan_price_usd: String(tier.price),
             source: "spark-referral-hub",
           },
-          subscription_data: {
-            metadata: { tier: tier.id, plan_slug: tier.slug },
-          },
-        });
+        };
+        if (coupOpts.durationInMonths) {
+          couponParams.duration_in_months = coupOpts.durationInMonths;
+        }
+        coupon = await stripe.coupons.create(couponParams);
       } catch (err) {
-        out.link_error = err.message;
-        results.push(out);
-        continue;
+        out.coupon_error = err.message;
       }
     }
-    out.payment_link_id = link.id;
-    out.payment_link_url = link.url;
+    if (coupon) {
+      out.coupon_id = coupon.id;
+      // Cria Promotion Code com nome legível
+      try {
+        const existingPromos = await stripe.promotionCodes.list({
+          coupon: coupon.id,
+          active: true,
+          limit: 5,
+        });
+        let promo = existingPromos.data?.find((p) => p.code === coupOpts.code);
+        if (!promo) {
+          promo = await stripe.promotionCodes.create({
+            coupon: coupon.id,
+            code: coupOpts.code,
+            metadata: { role: "indicacao", tier: tier.id },
+          });
+        }
+        out.promo_code = promo.code;
+        out.promo_code_id = promo.id;
+      } catch (err) {
+        out.promo_error = err.message;
+      }
+    }
 
     results.push(out);
   }

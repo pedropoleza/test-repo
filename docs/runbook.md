@@ -66,9 +66,9 @@ curl -X POST -H "x-cron-secret: $CRON_SECRET" \
 ⚠️ Operação destrutiva: arquiva 254 promotion codes + deleta 254 rows.
 
 ```bash
-# 1) Cleanup
+# 1) Cleanup (consolidado em /recompute-tier?action=cleanup_pit)
 curl -X POST -H "x-cron-secret: $CRON_SECRET" \
-  "https://test-repo-ebon-nine.vercel.app/api/admin/cleanup-pit-installations"
+  "https://test-repo-ebon-nine.vercel.app/api/admin/recompute-tier?action=cleanup_pit"
 
 # 2) Resync (em batches de 30; loop pra cobrir 255)
 for offset in 0 30 60 90 120 150 180 210 240; do
@@ -82,7 +82,14 @@ done
 
 ```bash
 curl -X POST -H "x-cron-secret: $CRON_SECRET" \
-  "https://test-repo-ebon-nine.vercel.app/api/admin/repair-missing-coupons"
+  "https://test-repo-ebon-nine.vercel.app/api/admin/recompute-tier?action=repair_coupons"
+```
+
+### Setup inicial dos 3 tiers no Stripe (Products + Prices + Coupons indicação)
+
+```bash
+curl -X POST -H "x-cron-secret: $CRON_SECRET" \
+  "https://test-repo-ebon-nine.vercel.app/api/admin/recompute-tier?action=setup_tiers"
 ```
 
 ## Crons

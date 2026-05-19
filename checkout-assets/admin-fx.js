@@ -61,20 +61,51 @@ export function backgroundPulse(originEl) {
     x = r.left + r.width / 2;
     y = r.top + r.height / 2;
   }
+  spawnBgPulse(x, y);
+  triggerHalftone(x, y, "halftone--pulse");
+}
+
+/* Spawna o ripple radial de fundo a partir de (x,y) */
+function spawnBgPulse(x, y, strong = true) {
   const pulse = document.createElement("div");
-  pulse.className = "fx-bg-pulse";
+  pulse.className = strong ? "fx-bg-pulse" : "fx-bg-pulse fx-bg-pulse--soft";
   pulse.style.left = `${x}px`;
   pulse.style.top = `${y}px`;
   document.body.appendChild(pulse);
   setTimeout(() => pulse.remove(), 900);
+}
 
-  // Also flash the halftone
+/* Dispara reação do halftone com origem no ponto (x,y) */
+function triggerHalftone(x, y, cls) {
   const halftone = document.querySelector(".halftone");
-  if (halftone) {
-    halftone.classList.remove("halftone--pulse");
-    void halftone.offsetWidth; // reflow to restart animation
-    halftone.classList.add("halftone--pulse");
-  }
+  if (!halftone) return;
+  const ox = (x / window.innerWidth) * 100;
+  const oy = (y / window.innerHeight) * 100;
+  halftone.style.transformOrigin = `${ox}% ${oy}%`;
+  halftone.classList.remove("halftone--wave", "halftone--pulse");
+  void halftone.offsetWidth; // reflow restart
+  halftone.classList.add(cls);
+  // limpa a classe ao terminar pra não bloquear próximas
+  setTimeout(() => halftone.classList.remove(cls), 1000);
+}
+
+/* ---------- 3b. Halftone reage a QUALQUER clique ---------- */
+let lastReact = 0;
+export function setupHalftoneClickReaction() {
+  if (prefersReduced) return;
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      const now = Date.now();
+      if (now - lastReact < 120) return; // throttle
+      lastReact = now;
+      // Cliques na nav já disparam o pulse forte (tab switch) — evita dobrar
+      if (e.target.closest(".bottom-nav")) return;
+      spawnBgPulse(e.clientX, e.clientY, false);
+      triggerHalftone(e.clientX, e.clientY, "halftone--wave");
+    },
+    { passive: true },
+  );
 }
 
 /* ---------- 4. Toast notifications ---------- */

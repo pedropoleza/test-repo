@@ -856,25 +856,24 @@ body::before {
   50% { opacity: 0.86; }
 }
 
-/* Onda em qualquer clique — transform-origin setado via JS no ponto clicado */
+/* Onda em qualquer clique — sutil, transform-origin no ponto clicado */
 .halftone--wave {
-  animation: halftoneWave 720ms cubic-bezier(.22,1,.36,1) !important;
+  animation: halftoneWave 680ms cubic-bezier(.22,1,.36,1) !important;
 }
 @keyframes halftoneWave {
-  0%   { transform: scale(1);    filter: none; }
-  28%  { transform: scale(1.05); filter: brightness(1.25) saturate(1.3); }
-  100% { transform: scale(1);    filter: none; }
+  0%   { transform: scale(1);     filter: none; }
+  30%  { transform: scale(1.018); filter: brightness(1.1) saturate(1.12); }
+  100% { transform: scale(1);     filter: none; }
 }
 
-/* Pulse mais forte na troca de tab */
+/* Pulse na troca de tab — um pouco mais que o clique, ainda leve */
 .halftone--pulse {
-  animation: halftonePulse 950ms cubic-bezier(.22,1,.36,1) !important;
+  animation: halftonePulse 820ms cubic-bezier(.22,1,.36,1) !important;
 }
 @keyframes halftonePulse {
-  0%   { transform: scale(1)    rotate(0deg);    filter: none; }
-  30%  { transform: scale(1.07) rotate(0.6deg);  filter: brightness(1.5) saturate(1.5); }
-  60%  { transform: scale(0.99) rotate(-0.3deg); filter: brightness(1.1); }
-  100% { transform: scale(1)    rotate(0deg);    filter: none; }
+  0%   { transform: scale(1);     filter: none; }
+  32%  { transform: scale(1.028); filter: brightness(1.18) saturate(1.2); }
+  100% { transform: scale(1);     filter: none; }
 }
 
 /* =====================================================
@@ -886,14 +885,14 @@ body::before {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(21,94,239,0.45) 0%, rgba(21,94,239,0) 70%);
+  background: radial-gradient(circle, rgba(21,94,239,0.22) 0%, rgba(21,94,239,0) 70%);
   transform: translate(-50%, -50%) scale(1);
   pointer-events: none;
-  animation: bgPulse 850ms cubic-bezier(.22,1,.36,1) forwards;
+  animation: bgPulse 760ms cubic-bezier(.22,1,.36,1) forwards;
 }
 @keyframes bgPulse {
-  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
-  100% { transform: translate(-50%, -50%) scale(140); opacity: 0; }
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(90); opacity: 0; }
 }
 /* clique geral — ripple mais sutil + anel definido */
 .fx-bg-pulse--soft {

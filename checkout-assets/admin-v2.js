@@ -17,26 +17,40 @@ const TIER_LABEL = {
 };
 
 /* =====================================================
-   Auth via URL param + cookie
+   Auth — chave em memória (primária) + cookie (persistência)
    ===================================================== */
-function captureKeyFromUrl() {
+let ADMIN_KEY = null;
+
+function captureKey() {
+  // 1) Prioridade: ?k= na URL → memória + cookie
   const p = new URLSearchParams(location.search);
-  const k = p.get("k");
-  if (k) {
-    document.cookie = `${COOKIE_KEY}=${encodeURIComponent(k)}; max-age=86400; path=/; samesite=lax`;
+  const fromUrl = p.get("k");
+  if (fromUrl) {
+    ADMIN_KEY = fromUrl;
     try {
-      const url = new URL(location.href);
-      url.searchParams.delete("k");
-      history.replaceState(null, "", url.toString());
+      document.cookie = `${COOKIE_KEY}=${encodeURIComponent(fromUrl)}; max-age=86400; path=/; samesite=lax`;
     } catch {}
+    return;
   }
+  // 2) Fallback: cookie de sessão anterior
+  ADMIN_KEY = getCookieKey();
 }
-function getKey() {
+function getCookieKey() {
   const m = document.cookie.match(new RegExp("(?:^|;\\s*)" + COOKIE_KEY + "=([^;]+)"));
   return m ? decodeURIComponent(m[1]) : null;
 }
+function cleanUrl() {
+  // Remove ?k= da URL só DEPOIS da auth confirmar (cosmético/segurança)
+  try {
+    const url = new URL(location.href);
+    if (url.searchParams.has("k")) {
+      url.searchParams.delete("k");
+      history.replaceState(null, "", url.toString());
+    }
+  } catch {}
+}
 async function authCheck() {
-  if (!getKey()) return false;
+  if (!ADMIN_KEY) return false;
   try {
     const r = await api("?limit=1");
     return r.ok;
@@ -49,12 +63,11 @@ async function authCheck() {
    API helper
    ===================================================== */
 async function api(qs = "", opts = {}) {
-  const key = getKey();
   return fetch(API + qs, {
     ...opts,
     headers: {
       ...(opts.headers || {}),
-      "x-spark-admin-key": key,
+      "x-spark-admin-key": ADMIN_KEY || "",
       ...(opts.body ? { "content-type": "application/json" } : {}),
     },
   });
@@ -628,11 +641,12 @@ function showLocked() { $("locked").hidden = false; $("app").hidden = true; }
 function showApp() { $("locked").hidden = true; $("app").hidden = false; }
 
 (async function init() {
-  captureKeyFromUrl();
+  captureKey();
   if (!(await authCheck())) {
     showLocked();
     return;
   }
+  cleanUrl();
   showApp();
   setupTabs();
   setupIndicacoes();

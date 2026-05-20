@@ -61,7 +61,6 @@ export function backgroundPulse(originEl) {
     x = r.left + r.width / 2;
     y = r.top + r.height / 2;
   }
-  spawnBgPulse(x, y);
   triggerHalftone(x, y, "halftone--pulse");
 }
 

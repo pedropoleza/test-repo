@@ -5,7 +5,6 @@
 import {
   countUp, attachRipple, attachRippleAll, backgroundPulse, toast,
   progressStart, progressDone, confetti, staggerReveal, moveNavIndicator,
-  setupHalftoneClickReaction,
 } from "./admin-fx.js";
 
 const COOKIE_KEY = "spark_admin_key";
@@ -693,9 +692,6 @@ function showApp() { $("locked").hidden = true; $("app").hidden = false; }
 
   // Ripple em todos os botões primários/ghost
   attachRippleAll(".btn");
-
-  // Halftone reage a qualquer clique na página
-  setupHalftoneClickReaction();
 
   // Initial tab from hash or default
   const hash = location.hash.replace("#", "");

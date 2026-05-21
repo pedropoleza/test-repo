@@ -138,9 +138,8 @@ a { color: inherit; text-decoration: none; }
 @keyframes stepIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
 
 /* =====================================================
-   STEP 1 — hero + plans
+   STEP 1 — checkout focado (head + pills + form)
    ===================================================== */
-.hero { text-align: center; max-width: 680px; margin: 40px auto 56px; }
 .eyebrow {
   display: inline-block;
   padding: 6px 14px;
@@ -149,94 +148,52 @@ a { color: inherit; text-decoration: none; }
   color: var(--blue-dark);
   border-radius: 100px;
   font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
-  margin-bottom: 18px;
-}
-.hero__title {
-  font-size: clamp(38px, 6vw, 66px);
-  font-weight: 900;
-  letter-spacing: -0.03em;
-  line-height: 1.04;
-  margin: 0 0 16px;
+  margin-bottom: 14px;
 }
 .grad { background: var(--grad-blue); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.hero__sub { font-size: 18px; color: var(--text-muted); margin: 0; line-height: 1.5; }
+.checkout-head { text-align: center; max-width: 640px; margin: 28px auto 28px; }
+.checkout-head__title {
+  font-size: clamp(28px, 4.5vw, 44px);
+  font-weight: 900; letter-spacing: -0.03em; line-height: 1.08; margin: 0;
+}
 
-.plans {
+/* Compact plan switcher (pills) */
+.plan-switch {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  perspective: 1400px;
+  gap: 12px;
+  max-width: 720px;
+  margin: 0 auto 28px;
 }
-@media (max-width: 960px) { .plans { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto; } }
-
-.plan {
+@media (max-width: 560px) { .plan-switch { grid-template-columns: 1fr; max-width: 420px; } }
+.plan-pill {
   position: relative;
-  border-radius: var(--radius-xl);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 16px 14px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  transform-style: preserve-3d;
-  transition: box-shadow var(--d), transform 120ms ease-out;
-  overflow: hidden;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer; font: inherit;
+  transition: all var(--d);
+  box-shadow: var(--shadow-sm);
 }
-.plan__inner { padding: 32px 28px; transform: translateZ(40px); transform-style: preserve-3d; }
-.plan__glare {
-  position: absolute; inset: 0;
-  background: radial-gradient(circle at var(--gx, 50%) var(--gy, 0%), rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 45%);
-  opacity: 0; transition: opacity var(--d); pointer-events: none;
-  mix-blend-mode: soft-light;
-}
-.plan:hover { box-shadow: var(--shadow-lg); }
-.plan:hover .plan__glare { opacity: 0.9; }
-.plan--featured {
-  background: linear-gradient(180deg, #ffffff 0%, #f3f7ff 100%);
-  border-color: var(--blue-100);
+.plan-pill:hover { border-color: var(--blue-100); transform: translateY(-2px); }
+.plan-pill.is-active {
+  border-color: var(--blue);
+  background: linear-gradient(180deg, #ffffff, var(--blue-50));
   box-shadow: var(--shadow-blue);
 }
-.plan__badge {
-  position: absolute; top: 18px; right: 18px; z-index: 2;
-  padding: 5px 12px; background: var(--grad-blue); color: white;
-  font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-  border-radius: 100px; box-shadow: var(--shadow-blue);
-  transform: translateZ(60px);
+.plan-pill__name { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: -0.01em; }
+.plan-pill.is-active .plan-pill__name { color: var(--blue-dark); }
+.plan-pill__price { font-size: 18px; font-weight: 800; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.plan-pill__price small { font-size: 12px; font-weight: 600; }
+.plan-pill.is-active .plan-pill__price { color: var(--blue); }
+.plan-pill__badge {
+  position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+  padding: 3px 10px; background: var(--grad-blue); color: white;
+  font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  border-radius: 100px; box-shadow: var(--shadow-blue); white-space: nowrap;
 }
-.plan__head { display: flex; flex-direction: column; gap: 4px; margin-bottom: 18px; }
-.plan__name { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
-.plan__tag { font-size: 13px; color: var(--text-muted); }
-.plan__price { display: flex; align-items: baseline; gap: 4px; }
-.plan__amount { font-size: 48px; font-weight: 900; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-.plan__per { font-size: 18px; color: var(--text-muted); font-weight: 600; }
-.plan__note { font-size: 13px; color: var(--text-faint); margin: 6px 0 20px; }
-.plan__features { list-style: none; margin: 0 0 24px; padding: 20px 0 0; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 11px; }
-.plan__features li { display: flex; align-items: flex-start; gap: 9px; font-size: 14px; color: var(--text-muted); }
-.plan__features li::before {
-  content: ""; flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px;
-  background: var(--grad-blue);
-  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>") center/contain no-repeat;
-  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>") center/contain no-repeat;
-}
-.plan__cta {
-  width: 100%; padding: 14px; border: none; border-radius: var(--radius);
-  background: var(--blue-50); color: var(--blue-dark);
-  font: inherit; font-weight: 700; font-size: 15px; cursor: pointer;
-  transition: all var(--d);
-}
-.plan:hover .plan__cta { background: var(--blue); color: white; box-shadow: var(--shadow-blue); }
-.plan--featured .plan__cta { background: var(--blue); color: white; }
-.plan--featured:hover .plan__cta { background: var(--blue-dark); }
-
-/* =====================================================
-   STEP 2 — form
-   ===================================================== */
-.back-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: var(--surface); border: 1px solid var(--border);
-  color: var(--text-muted); padding: 9px 16px; border-radius: 100px;
-  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
-  margin-bottom: 24px; transition: all var(--d); box-shadow: var(--shadow-sm);
-}
-.back-btn:hover { border-color: var(--blue); color: var(--blue-dark); transform: translateX(-3px); }
 
 .form-layout { display: grid; grid-template-columns: 1fr 380px; gap: 28px; align-items: start; }
 @media (max-width: 980px) { .form-layout { grid-template-columns: 1fr; } }

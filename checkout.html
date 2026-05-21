@@ -55,80 +55,28 @@
     </header>
 
     <main class="checkout">
-      <!-- ===== STEP 1 — Plans (3D tilt) ===== -->
-      <section class="step step--plans" data-step="1">
-        <div class="hero" data-parallax-content data-depth="0.04">
-          <span class="eyebrow">Escolha seu plano</span>
-          <h1 class="hero__title">Cresça com a <span class="grad">SparkLeads</span></h1>
-          <p class="hero__sub">3 níveis, sem fidelidade. Cupom de indicação aplica desconto direto no checkout.</p>
+      <!-- ===== STEP 1 — Checkout focado (seletor compacto + form + summary) ===== -->
+      <section class="step step--form" data-step="1">
+        <div class="checkout-head" data-parallax-content data-depth="0.03">
+          <span class="eyebrow">Finalizar assinatura</span>
+          <h1 class="checkout-head__title">Quase lá <span class="grad">—</span> escolha o plano e pague</h1>
         </div>
 
-        <div class="plans" id="plans">
-          <article class="plan tilt" data-tier="starter" tabindex="0">
-            <div class="plan__glare"></div>
-            <div class="plan__inner">
-              <header class="plan__head">
-                <span class="plan__name">Starter</span>
-                <span class="plan__tag">Pra começar</span>
-              </header>
-              <div class="plan__price"><span class="plan__amount">$79</span><span class="plan__per">/mês</span></div>
-              <div class="plan__note">sem taxa de ativação</div>
-              <ul class="plan__features">
-                <li>Hub de indicações</li>
-                <li>Cupom -$40/mês × 3</li>
-                <li>Suporte por email</li>
-              </ul>
-              <button class="plan__cta" type="button">Selecionar →</button>
-            </div>
-          </article>
-
-          <article class="plan plan--featured tilt" data-tier="growth" tabindex="0">
-            <div class="plan__badge">Mais popular</div>
-            <div class="plan__glare"></div>
-            <div class="plan__inner">
-              <header class="plan__head">
-                <span class="plan__name">Growth</span>
-                <span class="plan__tag">Equilíbrio ideal</span>
-              </header>
-              <div class="plan__price"><span class="plan__amount">$120</span><span class="plan__per">/mês</span></div>
-              <div class="plan__note">+ $99 ativação única</div>
-              <ul class="plan__features">
-                <li>Tudo do Starter</li>
-                <li>Workflows ilimitados</li>
-                <li>Cupom -$50 na 1ª fatura</li>
-                <li>Suporte prioritário</li>
-              </ul>
-              <button class="plan__cta" type="button">Selecionar →</button>
-            </div>
-          </article>
-
-          <article class="plan tilt" data-tier="scale" tabindex="0">
-            <div class="plan__glare"></div>
-            <div class="plan__inner">
-              <header class="plan__head">
-                <span class="plan__name">Scale</span>
-                <span class="plan__tag">Pra agências</span>
-              </header>
-              <div class="plan__price"><span class="plan__amount">$250</span><span class="plan__per">/mês</span></div>
-              <div class="plan__note">+ $199 ativação única</div>
-              <ul class="plan__features">
-                <li>Tudo do Growth</li>
-                <li>Sub-accounts ilimitadas</li>
-                <li>Cupom -$100 na 1ª fatura</li>
-                <li>Account manager dedicado</li>
-              </ul>
-              <button class="plan__cta" type="button">Selecionar →</button>
-            </div>
-          </article>
+        <div class="plan-switch" id="plan-switch" role="tablist">
+          <button class="plan-pill" data-tier="starter" role="tab">
+            <span class="plan-pill__name">Starter</span>
+            <span class="plan-pill__price">$79<small>/mês</small></span>
+          </button>
+          <button class="plan-pill is-active" data-tier="growth" role="tab">
+            <span class="plan-pill__badge">Popular</span>
+            <span class="plan-pill__name">Growth</span>
+            <span class="plan-pill__price">$120<small>/mês</small></span>
+          </button>
+          <button class="plan-pill" data-tier="scale" role="tab">
+            <span class="plan-pill__name">Scale</span>
+            <span class="plan-pill__price">$250<small>/mês</small></span>
+          </button>
         </div>
-      </section>
-
-      <!-- ===== STEP 2 — Form + Stripe ===== -->
-      <section class="step step--form" data-step="2" hidden>
-        <button class="back-btn" id="back-to-plans" type="button">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          Trocar de plano
-        </button>
 
         <div class="form-layout">
           <form id="checkout-form" class="glass-card" novalidate>
@@ -180,8 +128,8 @@
         </div>
       </section>
 
-      <!-- ===== STEP 3 — Success ===== -->
-      <section class="step step--done" data-step="3" hidden>
+      <!-- ===== STEP 2 — Success ===== -->
+      <section class="step step--done" data-step="2" hidden>
         <div class="success glass-card">
           <div class="success__art">
             <svg viewBox="0 0 80 80" width="80" height="80">

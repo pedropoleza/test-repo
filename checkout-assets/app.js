@@ -78,23 +78,43 @@ async function bootStripe() {
   state.stripe = null;
 }
 
-/* --------- Plan picker --------- */
-function setupPlanPicker() {
-  document.querySelectorAll(".plan[data-tier]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      state.tier = btn.dataset.tier;
-      // Pre-fill cupom suggestion (não auto-aplica)
-      const cfg = TIERS[state.tier];
-      $("f-coupon").placeholder = `ex: ${cfg.cupom}`;
+/* --------- Plan selector (pills compactos) --------- */
+function setupPlanSelector() {
+  // Tier inicial: ?tier= da URL ou growth
+  const p = new URLSearchParams(window.location.search);
+  const urlTier = (p.get("tier") || p.get("plan") || "").toLowerCase();
+  state.tier = TIERS[urlTier] ? urlTier : "growth";
+
+  const pills = document.querySelectorAll(".plan-pill[data-tier]");
+  pills.forEach((pill) => {
+    pill.classList.toggle("is-active", pill.dataset.tier === state.tier);
+    pill.addEventListener("click", () => {
+      if (state.tier === pill.dataset.tier) return;
+      state.tier = pill.dataset.tier;
+      pills.forEach((x) => x.classList.toggle("is-active", x === pill));
+      // Cupom aplicado pode não valer mais pro novo tier — revalida
+      revalidateCoupon();
       renderSummary();
-      showStep(2);
-      mountCardElement();
     });
   });
-  $("back-to-plans").addEventListener("click", () => {
-    showStep(1);
-    teardownCardElement();
-  });
+
+  renderSummary();
+  mountCardElement();
+}
+
+function revalidateCoupon() {
+  if (!state.coupon) return;
+  const cfg = TIERS[state.tier];
+  if (state.coupon !== cfg.cupom) {
+    state.couponValid = false;
+    setCouponStatus(
+      `Cupom não vale pra ${cfg.name}. Use ${cfg.cupom}.`,
+      "err",
+    );
+  } else {
+    state.couponValid = true;
+    setCouponStatus(`✓ Cupom ${state.coupon} aplicado`, "ok");
+  }
 }
 
 /* --------- Card element mount --------- */
@@ -300,9 +320,9 @@ async function submitPayment() {
       throw new Error(result.error.message || "Falha no pagamento");
     }
 
-    // 3) Sucesso
+    // Sucesso (step 2 agora)
     $("success-email").textContent = $("f-email").value.trim().toLowerCase();
-    showStep(3);
+    showStep(2);
   } catch (err) {
     console.error("[checkout] error:", err);
     $("card-error").textContent = err.message || "Erro inesperado";
@@ -382,7 +402,7 @@ function setupTilt() {
 (async function init() {
   captureRef();
   await bootStripe();
-  setupPlanPicker();
+  setupPlanSelector();
   setupCouponApply();
   setupForm();
   setupParallax();

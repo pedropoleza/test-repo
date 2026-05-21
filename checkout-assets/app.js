@@ -61,19 +61,21 @@ function captureRef() {
 
 /* --------- Stripe boot --------- */
 async function bootStripe() {
-  // Loads publishable key from server (so no hardcode in repo)
+  // Carrega a publishable key do servidor (sem hardcode no repo).
+  // Resiliente: se falhar, não derruba o resto do init (parallax etc).
   try {
     const r = await fetch("/api/checkout/intent?action=pubkey");
     if (r.ok) {
       const j = await r.json();
-      if (j.publishableKey) {
+      if (j.publishableKey && window.Stripe) {
         state.stripe = Stripe(j.publishableKey);
         return;
       }
     }
   } catch {}
-  // Fallback inline (not safe long term — but Stripe pubkey é seguro mesmo exposto)
-  state.stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+  // Sem key válida (ex: preview local) → checkout de pagamento fica
+  // indisponível, mas a UI/parallax renderiza normalmente.
+  state.stripe = null;
 }
 
 /* --------- Plan picker --------- */
@@ -97,7 +99,7 @@ function setupPlanPicker() {
 
 /* --------- Card element mount --------- */
 function mountCardElement() {
-  if (state.cardElement) return;
+  if (state.cardElement || !state.stripe) return;
   state.elements = state.stripe.elements({
     fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500" }],
   });
@@ -310,6 +312,72 @@ async function submitPayment() {
   }
 }
 
+/* --------- 3D Parallax + tilt --------- */
+const prefersReduced =
+  window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function setupParallax() {
+  if (prefersReduced) return;
+  const layers = Array.from(document.querySelectorAll(".scene [data-depth]"));
+  const content = Array.from(document.querySelectorAll("[data-parallax-content]"));
+  let raf = null;
+  let tx = 0, ty = 0;
+
+  function onMove(e) {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    tx = (e.clientX - cx) / cx; // -1..1
+    ty = (e.clientY - cy) / cy;
+    if (!raf) raf = requestAnimationFrame(apply);
+  }
+  function apply() {
+    raf = null;
+    for (const el of layers) {
+      const d = parseFloat(el.dataset.depth) || 0;
+      el.style.transform = `translate3d(${-tx * d * 60}px, ${-ty * d * 60}px, 0)`;
+    }
+    for (const el of content) {
+      const d = parseFloat(el.dataset.depth) || 0;
+      el.style.transform = `translate3d(${tx * d * 40}px, ${ty * d * 40}px, 0)`;
+    }
+  }
+  window.addEventListener("mousemove", onMove, { passive: true });
+}
+
+function setupTilt() {
+  if (prefersReduced) return;
+  document.querySelectorAll(".tilt, .tilt-soft").forEach((card) => {
+    const soft = card.classList.contains("tilt-soft");
+    const max = soft ? 5 : 10;
+    let raf = null;
+    let rx = 0, ry = 0, gx = 50, gy = 0;
+
+    function onMove(e) {
+      const r = card.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width; // 0..1
+      const py = (e.clientY - r.top) / r.height;
+      ry = (px - 0.5) * max * 2;
+      rx = -(py - 0.5) * max * 2;
+      gx = px * 100;
+      gy = py * 100;
+      if (!raf) raf = requestAnimationFrame(apply);
+    }
+    function apply() {
+      raf = null;
+      card.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.02)`;
+      card.style.setProperty("--gx", `${gx}%`);
+      card.style.setProperty("--gy", `${gy}%`);
+    }
+    function reset() {
+      card.style.transform = "";
+      card.style.setProperty("--gx", "50%");
+      card.style.setProperty("--gy", "0%");
+    }
+    card.addEventListener("mousemove", onMove, { passive: true });
+    card.addEventListener("mouseleave", reset);
+  });
+}
+
 /* --------- Boot --------- */
 (async function init() {
   captureRef();
@@ -317,4 +385,7 @@ async function submitPayment() {
   setupPlanPicker();
   setupCouponApply();
   setupForm();
+  setupParallax();
+  setupTilt();
 })();
+

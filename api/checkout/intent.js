@@ -60,7 +60,7 @@ export default async function handler(req, res) {
     res.setHeader("Cache-Control", "public, max-age=30, s-maxage=60");
     const { data, error } = await db()
       .from("plan_config")
-      .select("tier, name, monthly_usd, activation_usd, indicacao_discount_usd, indicacao_duration, indicacao_months, sort_order")
+      .select("tier, name, monthly_usd, activation_usd, indicacao_discount_usd, indicacao_duration, indicacao_months, discount_type, sort_order")
       .order("sort_order", { ascending: true });
     if (error) return res.status(500).json({ error: "db_error", detail: error.message });
     const plans = {};
@@ -69,13 +69,37 @@ export default async function handler(req, res) {
         name: p.name,
         monthly_usd: Number(p.monthly_usd),
         activation_usd: Number(p.activation_usd),
-        discount_usd: Number(p.indicacao_discount_usd),
+        discount_value: Number(p.indicacao_discount_usd),
+        discount_type: p.discount_type || "amount",
         discount_duration: p.indicacao_duration,
         discount_months: p.indicacao_months,
-        cupom: `INDICACAO_${p.tier.toUpperCase()}`,
       };
     }
     return res.status(200).json({ plans });
+  }
+
+  // GET ?action=validate_coupon&code= → resolve QUALQUER promotion code
+  // ativo no Stripe e devolve o desconto. Sem trava por tier.
+  if (req.method === "GET" && req.query?.action === "validate_coupon") {
+    const code = String(req.query?.code || "").toUpperCase().trim();
+    if (!code) return res.status(400).json({ valid: false, error: "missing_code" });
+    try {
+      const list = await stripeClient().promotionCodes.list({ code, active: true, limit: 1 });
+      const pc = list.data?.[0];
+      if (!pc) return res.status(200).json({ valid: false });
+      const c = pc.coupon || {};
+      return res.status(200).json({
+        valid: true,
+        code: pc.code,
+        amount_off: c.amount_off,    // cents ou null
+        percent_off: c.percent_off,  // ou null
+        currency: c.currency,
+        duration: c.duration,
+        duration_in_months: c.duration_in_months,
+      });
+    } catch (err) {
+      return res.status(200).json({ valid: false, error: err.message });
+    }
   }
 
   if (req.method !== "POST") {
@@ -110,27 +134,28 @@ export default async function handler(req, res) {
   // ref é opcional — locationId do indicador, capturado via URL share
   const ref = body.ref ? String(body.ref).slice(0, 32) : null;
 
-  // Cupom é opcional. Se vier, deve bater com o cupom previsto do tier.
+  // Cupom é opcional e SEM trava por tier — qualquer promotion code
+  // ativo no Stripe é aceito. Stripe valida (restrições, expiração, etc).
   const cupomCode = body.cupomCode
     ? String(body.cupomCode).toUpperCase().trim()
     : null;
-  let couponId = null;
+  let promotionCodeId = null;
   let couponApplied = false;
   if (cupomCode) {
-    if (cupomCode !== cfg.cupomCode) {
-      return res.status(400).json({
-        error: "wrong_coupon_for_tier",
-        message: `O cupom ${cupomCode} não é válido pra ${cfg.name}. Cupom correto: ${cfg.cupomCode}.`,
-      });
+    try {
+      const list = await stripeClient().promotionCodes.list({ code: cupomCode, active: true, limit: 1 });
+      const pc = list.data?.[0];
+      if (!pc) {
+        return res.status(400).json({
+          error: "invalid_coupon",
+          message: `Cupom ${cupomCode} inválido ou inativo.`,
+        });
+      }
+      promotionCodeId = pc.id;
+      couponApplied = true;
+    } catch (err) {
+      return res.status(502).json({ error: "coupon_lookup_failed", message: err.message });
     }
-    couponId = cfg.couponId;
-    if (!couponId) {
-      return res.status(500).json({
-        error: "coupon_not_configured",
-        message: `Cupom do plano ${tier} não configurado`,
-      });
-    }
-    couponApplied = true;
   }
 
   const stripe = stripeClient();
@@ -219,8 +244,8 @@ export default async function handler(req, res) {
       quantity: 1,
     }];
   }
-  if (couponId) {
-    subParams.discounts = [{ coupon: couponId }];
+  if (promotionCodeId) {
+    subParams.discounts = [{ promotion_code: promotionCodeId }];
   }
 
   let subscription;

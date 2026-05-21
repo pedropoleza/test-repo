@@ -622,10 +622,17 @@ function planCardHtml(p) {
       <input class="input" type="number" min="0" step="1" data-f="monthly_usd" value="${Number(p.monthly_usd)}"/></label>
     <label class="field"><span class="field__label">Taxa de ativação (USD)</span>
       <input class="input" type="number" min="0" step="1" data-f="activation_usd" value="${Number(p.activation_usd)}"/></label>
-    <label class="field"><span class="field__label">Desconto indicação (USD)</span>
-      <input class="input" type="number" min="0" step="1" data-f="indicacao_discount_usd" value="${Number(p.indicacao_discount_usd)}"/></label>
     <div class="grid-2">
-      <label class="field"><span class="field__label">Duração desconto</span>
+      <label class="field"><span class="field__label">Tipo de desconto</span>
+        <select class="input" data-f="discount_type">
+          <option value="amount" ${(p.discount_type||"amount")==="amount" ? "selected" : ""}>Valor ($)</option>
+          <option value="percent" ${(p.discount_type)==="percent" ? "selected" : ""}>Percentual (%)</option>
+        </select></label>
+      <label class="field"><span class="field__label">Valor do desconto</span>
+        <input class="input" type="number" min="0" step="1" data-f="indicacao_discount_usd" value="${Number(p.indicacao_discount_usd)}"/></label>
+    </div>
+    <div class="grid-2">
+      <label class="field"><span class="field__label">Duração</span>
         <select class="input" data-f="indicacao_duration">
           <option value="once" ${!isRepeating ? "selected" : ""}>Uma vez (1ª fatura)</option>
           <option value="repeating" ${isRepeating ? "selected" : ""}>Recorrente (X meses)</option>
@@ -633,6 +640,7 @@ function planCardHtml(p) {
       <label class="field"><span class="field__label">Meses (se recorrente)</span>
         <input class="input" type="number" min="1" max="36" step="1" data-f="indicacao_months" value="${p.indicacao_months ?? ""}"/></label>
     </div>
+    <p class="plan-edit__tip">Dica: 100% + recorrente + 3 meses = 3 meses grátis.</p>
     <button class="btn btn--primary" data-save>Salvar ${escapeHtml(p.tier)}</button>
     <div class="field__hint" data-status></div>
   </div>`;
@@ -646,9 +654,10 @@ function wirePlanCard(p) {
     const body = { tier: p.tier };
     card.querySelectorAll("[data-f]").forEach((inp) => {
       let v = inp.value;
-      if (inp.dataset.f === "indicacao_duration") body[inp.dataset.f] = v;
-      else if (inp.dataset.f === "indicacao_months") body[inp.dataset.f] = v === "" ? "" : Number(v);
-      else body[inp.dataset.f] = Number(v);
+      const f = inp.dataset.f;
+      if (f === "indicacao_duration" || f === "discount_type") body[f] = v;
+      else if (f === "indicacao_months") body[f] = v === "" ? "" : Number(v);
+      else body[f] = Number(v);
     });
     btn.disabled = true;
     status.textContent = "Salvando…"; status.dataset.state = "info";

@@ -45,6 +45,7 @@ let state = {
   tier: null,
   coupon: null,
   couponValid: false,
+  couponInfo: null, // { amount_off (cents), percent_off, duration, duration_in_months }
   ref: null,
   stripe: null,
   elements: null,
@@ -103,29 +104,13 @@ function setupPlanSelector() {
       if (state.tier === pill.dataset.tier) return;
       state.tier = pill.dataset.tier;
       pills.forEach((x) => x.classList.toggle("is-active", x === pill));
-      // Cupom aplicado pode não valer mais pro novo tier — revalida
-      revalidateCoupon();
+      // Cupom é plan-agnóstico (validado no Stripe) — só recalcula o resumo
       renderSummary();
     });
   });
 
   renderSummary();
   mountCardElement();
-}
-
-function revalidateCoupon() {
-  if (!state.coupon) return;
-  const cfg = TIERS[state.tier];
-  if (state.coupon !== cfg.cupom) {
-    state.couponValid = false;
-    setCouponStatus(
-      `Cupom não vale pra ${cfg.name}. Use ${cfg.cupom}.`,
-      "err",
-    );
-  } else {
-    state.couponValid = true;
-    setCouponStatus(`✓ Cupom ${state.coupon} aplicado`, "ok");
-  }
 }
 
 /* --------- Card element mount --------- */
@@ -159,33 +144,43 @@ function teardownCardElement() {
   }
 }
 
-/* --------- Coupon validation --------- */
+/* --------- Coupon validation (via Stripe, sem trava por tier) --------- */
 function setupCouponApply() {
-  $("apply-coupon").addEventListener("click", () => {
-    const code = $("f-coupon").value.trim().toUpperCase();
-    if (!code) {
-      state.coupon = null;
-      state.couponValid = false;
-      setCouponStatus("", "");
-      renderSummary();
-      return;
-    }
-    const cfg = TIERS[state.tier];
-    if (code !== cfg.cupom) {
+  $("apply-coupon").addEventListener("click", applyCoupon);
+  $("f-coupon").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); applyCoupon(); }
+  });
+}
+async function applyCoupon() {
+  const code = $("f-coupon").value.trim().toUpperCase();
+  if (!code) {
+    state.coupon = null;
+    state.couponValid = false;
+    state.couponInfo = null;
+    setCouponStatus("", "");
+    renderSummary();
+    return;
+  }
+  setCouponStatus("Validando…", "info");
+  try {
+    const r = await fetch(`/api/checkout/intent?action=validate_coupon&code=${encodeURIComponent(code)}`);
+    const d = await r.json();
+    if (!d.valid) {
       state.coupon = code;
       state.couponValid = false;
-      setCouponStatus(
-        `Esse cupom não é válido pra ${cfg.name}. Cupom correto: ${cfg.cupom}`,
-        "err",
-      );
+      state.couponInfo = null;
+      setCouponStatus("Cupom inválido ou inativo.", "err");
       renderSummary();
       return;
     }
     state.coupon = code;
     state.couponValid = true;
+    state.couponInfo = d; // { amount_off, percent_off, duration, duration_in_months }
     setCouponStatus(`✓ Cupom ${code} aplicado`, "ok");
     renderSummary();
-  });
+  } catch {
+    setCouponStatus("Erro ao validar cupom. Tente de novo.", "err");
+  }
 }
 function setCouponStatus(text, state) {
   const el = $("coupon-status");
@@ -213,20 +208,25 @@ function renderSummary() {
     });
   }
 
+  const firstInvoiceCents = Math.round((cfg.monthlyUsd + cfg.activationUsd) * 100);
   let discountCents = 0;
-  if (state.couponValid && cfg.discountUsd > 0) {
-    discountCents = Math.round(cfg.discountUsd * 100);
-    const durLabel = cfg.discountDuration === "repeating"
-      ? ` (×${cfg.discountMonths || 3} meses)`
-      : "";
-    lines.push({
-      label: `Cupom ${cfg.cupom}${durLabel}`,
-      value: `−$${cfg.discountUsd}.00`,
-      discount: true,
-    });
+  const info = state.couponValid ? state.couponInfo : null;
+
+  if (info) {
+    if (info.percent_off) {
+      discountCents = Math.round(firstInvoiceCents * (info.percent_off / 100));
+    } else if (info.amount_off) {
+      discountCents = Math.min(info.amount_off, firstInvoiceCents);
+    }
+    if (discountCents > 0) {
+      const label = info.percent_off
+        ? `Cupom ${state.coupon} (${info.percent_off}% off)`
+        : `Cupom ${state.coupon}`;
+      lines.push({ label, value: `−${fmtUsd(discountCents)}`, discount: true });
+    }
   }
 
-  const totalCents = Math.round((cfg.monthlyUsd + cfg.activationUsd) * 100) - discountCents;
+  const totalCents = Math.max(0, firstInvoiceCents - discountCents);
   $("summary-total").textContent = fmtUsd(totalCents);
   $("summary-lines").innerHTML = lines
     .map(
@@ -237,13 +237,19 @@ function renderSummary() {
     )
     .join("");
 
-  // Nota de recorrência (dinâmica)
+  // Nota de recorrência (dinâmica, baseada no cupom validado)
   let recurringHtml = "";
   const m = cfg.monthlyUsd;
-  if (state.couponValid && cfg.discountDuration === "repeating") {
-    const months = cfg.discountMonths || 3;
-    const discounted = m - cfg.discountUsd;
-    recurringHtml = `<strong>Primeiros ${months} meses:</strong> $${discounted}/mês. Depois, $${m}/mês recorrente.`;
+  if (info && info.duration === "repeating") {
+    const months = info.duration_in_months || cfg.discountMonths || 3;
+    if (info.percent_off === 100) {
+      recurringHtml = `<strong>${months} ${months === 1 ? "mês" : "meses"} grátis.</strong> Só começa a cobrar $${m}/mês depois disso.`;
+    } else if (info.percent_off) {
+      recurringHtml = `<strong>Primeiros ${months} meses:</strong> ${info.percent_off}% off. Depois, $${m}/mês.`;
+    } else if (info.amount_off) {
+      const disc = (info.amount_off / 100);
+      recurringHtml = `<strong>Primeiros ${months} meses:</strong> $${Math.max(0, m - disc)}/mês. Depois, $${m}/mês.`;
+    }
   } else {
     recurringHtml = `<strong>Recorrência:</strong> $${m}/mês${cfg.activationUsd > 0 ? " a partir do 2º mês" : ""}.`;
   }

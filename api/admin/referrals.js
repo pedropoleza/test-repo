@@ -515,6 +515,12 @@ async function updatePlan(req, res) {
     if (v !== Number(current.indicacao_discount_usd)) discountChanged = true;
     patch.indicacao_discount_usd = v;
   }
+  if (body.discount_type != null) {
+    const t = String(body.discount_type);
+    if (!["amount", "percent"].includes(t)) return res.status(400).json({ error: "invalid_discount_type" });
+    if (t !== (current.discount_type || "amount")) discountChanged = true;
+    patch.discount_type = t;
+  }
   if (body.indicacao_duration != null) {
     const d = String(body.indicacao_duration);
     if (!["once", "repeating"].includes(d)) return res.status(400).json({ error: "invalid_duration" });
@@ -527,25 +533,33 @@ async function updatePlan(req, res) {
     if (m !== current.indicacao_months) discountChanged = true;
     patch.indicacao_months = m;
   }
-  if (Object.keys(patch).length === 0) {
+  if (body.recreate_coupon) discountChanged = true; // força recriação
+  if (Object.keys(patch).length === 0 && !body.recreate_coupon) {
     return res.status(400).json({ error: "no_fields" });
   }
 
-  // Se o desconto/duração mudou, recria o Stripe Coupon (coupons são
+  // Se o desconto/duração/tipo mudou, recria o Stripe Coupon (coupons são
   // imutáveis no Stripe) e arquiva o anterior.
   if (discountChanged) {
     const stripe = stripeClient();
     const amount = patch.indicacao_discount_usd ?? Number(current.indicacao_discount_usd);
     const duration = patch.indicacao_duration ?? current.indicacao_duration;
     const months = patch.indicacao_months ?? current.indicacao_months;
+    const dtype = patch.discount_type ?? (current.discount_type || "amount");
     try {
       const params = {
-        amount_off: Math.round(amount * 100),
         currency: "usd",
         duration,
-        name: `Indicação ${tier} — $${amount} off`,
         metadata: { role: "indicacao", tier, source: "spark-referral-hub" },
       };
+      if (dtype === "percent") {
+        params.percent_off = Math.min(100, Math.max(1, amount));
+        params.name = `Indicação ${tier} — ${params.percent_off}% off`;
+        delete params.currency; // percent coupons não usam currency
+      } else {
+        params.amount_off = Math.round(amount * 100);
+        params.name = `Indicação ${tier} — $${amount} off`;
+      }
       if (duration === "repeating") params.duration_in_months = months || 3;
       const coupon = await stripe.coupons.create(params);
 

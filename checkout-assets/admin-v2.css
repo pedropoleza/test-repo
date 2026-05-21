@@ -1239,3 +1239,5 @@ html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+.plan-edit__tip { font-size: 11px; color: var(--text-faint); margin: 4px 0 12px; }

@@ -27,6 +27,9 @@
   --spring: 600ms cubic-bezier(.34,1.56,.64,1);
 }
 * { box-sizing: border-box; }
+/* [hidden] precisa vencer .pay-overlay{display:flex} etc — senão o
+   overlay invisível (opacity:0) cobre a tela e bloqueia cliques */
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; }
 body {
   margin: 0;

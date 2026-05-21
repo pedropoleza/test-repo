@@ -300,9 +300,9 @@ a { color: inherit; text-decoration: none; }
   transform-style: preserve-3d;
 }
 .pay-btn__logo img {
-  height: 24px; width: auto;
-  /* branco sobre o azul + leve sombra */
-  filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(0,0,0,0.28));
+  height: 30px; width: auto;
+  /* logo natural (círculo ciano + K branco) com leve sombra */
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.28));
   backface-visibility: hidden;
 }
 
@@ -344,16 +344,16 @@ a { color: inherit; text-decoration: none; }
 }
 .pay-overlay.is-in { opacity: 1; }
 .pay-overlay__inner {
-  width: 96px; height: 96px;
+  width: 104px; height: 104px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--blue);
-  border-radius: 24px;
-  box-shadow: var(--shadow-blue);
+  background: var(--surface);
+  border-radius: 26px;
+  box-shadow: var(--shadow-lg);
   perspective: 700px;
 }
 .pay-overlay__logo {
-  height: 44px; width: auto;
-  filter: brightness(0) invert(1) drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+  height: 64px; width: auto;
+  filter: drop-shadow(0 4px 10px rgba(21,94,239,0.25));
   animation: logoSpin360 1100ms ease-in-out infinite;
   backface-visibility: hidden;
 }

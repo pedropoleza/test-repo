@@ -138,7 +138,6 @@ function mountCardElement() {
   state.cardElement.mount("#card-element");
   state.cardElement.on("change", (ev) => {
     $("card-error").textContent = ev.error?.message || "";
-    updateSubmitState();
   });
 }
 function teardownCardElement() {
@@ -257,21 +256,20 @@ function renderSummary() {
 }
 
 /* --------- Form validation / submit --------- */
-function updateSubmitState() {
-  const ok =
-    state.tier &&
-    $("f-name").value.trim().length > 2 &&
-    /^\S+@\S+\.\S+$/.test($("f-email").value.trim()) &&
-    $("f-phone").value.trim().length >= 8 &&
-    $("f-company").value.trim().length > 1 &&
-    state.cardElement;
-  $("submit-pay").disabled = !ok;
+// Botão sempre disponível; validação acontece no submit.
+// Required: nome, email, telefone. Opcional: empresa, cupom.
+function validateRequired() {
+  const name = $("f-name").value.trim();
+  const email = $("f-email").value.trim();
+  const phone = $("f-phone").value.trim();
+  const missing = [];
+  if (name.length < 2) missing.push("nome");
+  if (!/^\S+@\S+\.\S+$/.test(email)) missing.push("email");
+  if (phone.replace(/\D/g, "").length < 8) missing.push("telefone");
+  return missing;
 }
 
 function setupForm() {
-  ["f-name", "f-email", "f-phone", "f-company"].forEach((id) => {
-    $(id).addEventListener("input", updateSubmitState);
-  });
   $("checkout-form").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     await submitPayment();
@@ -303,12 +301,20 @@ function setLoading(on) {
 }
 
 async function submitPayment() {
+  $("card-error").textContent = "";
+  // Valida campos base (nome/email/telefone)
+  const missing = validateRequired();
+  if (missing.length) {
+    $("card-error").textContent = `Preencha: ${missing.join(", ")}.`;
+    const focusId = { nome: "f-name", email: "f-email", telefone: "f-phone" }[missing[0]];
+    $(focusId)?.focus();
+    return;
+  }
   if (!state.stripe || !state.cardElement) {
     $("card-error").textContent = "Pagamento indisponível. Recarregue a página.";
     return;
   }
   setLoading(true);
-  $("card-error").textContent = "";
 
   try {
     const intentBody = {

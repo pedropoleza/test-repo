@@ -93,6 +93,9 @@ export default async function handler(req, res) {
   const name = String(body.name || "").trim().slice(0, 120);
   if (!name) return res.status(400).json({ error: "missing_name" });
 
+  const phone = String(body.phone || "").trim().slice(0, 40);
+  const company = String(body.company || "").trim().slice(0, 120);
+
   // ref é opcional — locationId do indicador, capturado via URL share
   const ref = body.ref ? String(body.ref).slice(0, 32) : null;
 
@@ -148,9 +151,11 @@ export default async function handler(req, res) {
       customer = await stripe.customers.create({
         email,
         name,
+        phone: phone || undefined,
         metadata: {
           source: "spark-checkout",
           indicador_ref: ref || "",
+          company_name: company || "",
         },
       });
     } catch (err) {
@@ -158,14 +163,17 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "customer_create_failed", message: err.message });
     }
   } else {
-    // Atualiza metadata com ref se ainda não tem
-    if (ref && !customer.metadata?.indicador_ref) {
-      try {
-        await stripe.customers.update(customer.id, {
-          metadata: { ...customer.metadata, indicador_ref: ref },
-        });
-      } catch {}
-    }
+    // Atualiza dados (phone/company/ref) no customer existente
+    try {
+      await stripe.customers.update(customer.id, {
+        phone: phone || customer.phone || undefined,
+        metadata: {
+          ...customer.metadata,
+          indicador_ref: ref || customer.metadata?.indicador_ref || "",
+          company_name: company || customer.metadata?.company_name || "",
+        },
+      });
+    } catch {}
   }
 
   // 2) Subscription with default_incomplete payment
@@ -183,6 +191,8 @@ export default async function handler(req, res) {
       indicador_ref: ref || "",
       indicado_email: email,
       indicado_name: name,
+      indicado_phone: phone || "",
+      indicado_company: company || "",
       tier_purchased: tier,
       cupom_code: cupomCode || "",
       activation_paid: cfg.activationUsd > 0 ? "true" : "false",

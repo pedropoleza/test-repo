@@ -55,22 +55,44 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: -8%;
   will-change: transform;
-  transition: transform 200ms cubic-bezier(.2,.6,.3,1);
+  /* parallax do mouse aplicado via --px/--py (JS); animação contínua
+     soma por cima via wrapper. */
+  transition: transform 220ms cubic-bezier(.2,.6,.3,1);
 }
+/* Aurora: drift + leve rotação contínua, sempre vivo (sem mouse) */
 .layer--aurora {
   background:
     radial-gradient(38% 38% at 22% 28%, rgba(21,94,239,0.16) 0%, transparent 70%),
     radial-gradient(42% 42% at 82% 22%, rgba(79,140,255,0.13) 0%, transparent 70%),
     radial-gradient(45% 45% at 70% 82%, rgba(21,94,239,0.10) 0%, transparent 70%);
-  filter: blur(36px);
-  animation: auroraDrift 26s ease-in-out infinite;
+  filter: blur(40px);
+  animation: auroraDrift 32s ease-in-out infinite;
 }
 @keyframes auroraDrift {
-  0%,100% { transform: translate(0,0) scale(1); }
-  33% { transform: translate(2%,-2%) scale(1.05); }
-  66% { transform: translate(-2%,2%) scale(0.97); }
+  0%   { transform: translate(0,0) scale(1) rotate(0deg); }
+  25%  { transform: translate(2.5%,-2%) scale(1.06) rotate(1deg); }
+  50%  { transform: translate(0,2.5%) scale(1.02) rotate(0deg); }
+  75%  { transform: translate(-2.5%,-1%) scale(1.05) rotate(-1deg); }
+  100% { transform: translate(0,0) scale(1) rotate(0deg); }
 }
-.layer--halftone { width: 116%; height: 116%; }
+/* segunda camada de aurora pra dar profundidade em loop (offset de fase) */
+.layer--aurora::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(30% 30% at 60% 40%, rgba(79,140,255,0.10) 0%, transparent 70%),
+    radial-gradient(34% 34% at 30% 70%, rgba(21,94,239,0.08) 0%, transparent 70%);
+  filter: blur(30px);
+  animation: auroraDrift 44s ease-in-out infinite reverse;
+}
+.layer--halftone {
+  width: 116%; height: 116%;
+  animation: halftoneSway 30s ease-in-out infinite;
+}
+@keyframes halftoneSway {
+  0%,100% { transform: translate(0,0); }
+  50% { transform: translate(-1.5%, -1%); }
+}
 
 /* Floating glass shapes */
 .shape {
@@ -84,21 +106,25 @@ a { color: inherit; text-decoration: none; }
   will-change: transform;
   transition: transform 240ms cubic-bezier(.2,.6,.3,1);
 }
-.shape--1 { width: 200px; height: 200px; left: 6%; top: 18%; transform: rotate(-12deg); animation: floatY 9s ease-in-out infinite; }
-.shape--2 { width: 130px; height: 130px; right: 9%; top: 26%; border-radius: 50%; animation: floatY 11s ease-in-out infinite reverse; }
-.shape--3 { width: 160px; height: 160px; right: 16%; bottom: 12%; transform: rotate(18deg); animation: floatY 13s ease-in-out infinite; }
+/* rotate estático via propriedade `rotate`; floatY via `transform`;
+   parallax do mouse via `translate` — 3 propriedades independentes que
+   compõem sem conflito. */
+.shape--1 { width: 200px; height: 200px; left: 6%; top: 18%; rotate: -12deg; animation: floatY 11s ease-in-out infinite; }
+.shape--2 { width: 130px; height: 130px; right: 9%; top: 26%; border-radius: 50%; animation: floatY 14s ease-in-out infinite reverse; }
+.shape--3 { width: 160px; height: 160px; right: 16%; bottom: 12%; rotate: 18deg; animation: floatY 16s ease-in-out infinite; }
 .shape--ring {
   width: 240px; height: 240px; left: 12%; bottom: 8%;
   border-radius: 50%;
   background: none;
   border: 14px solid rgba(21,94,239,0.10);
   box-shadow: none; backdrop-filter: none;
-  animation: floatY 15s ease-in-out infinite reverse;
+  animation: floatY 19s ease-in-out infinite reverse, ringSpin 60s linear infinite;
 }
 @keyframes floatY {
-  0%,100% { translate: 0 0; }
-  50% { translate: 0 -22px; }
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-22px); }
 }
+@keyframes ringSpin { to { rotate: 360deg; } }
 
 /* =====================================================
    TOPBAR
@@ -250,9 +276,84 @@ a { color: inherit; text-decoration: none; }
 .btn--ghost:hover:not(:disabled) { border-color: var(--blue); color: var(--blue-dark); }
 .btn--full { width: 100%; }
 .btn--xl { padding: 17px 28px; font-size: 16px; }
-.btn__spin svg { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
 .legal { font-size: 12px; color: var(--text-faint); text-align: center; margin: 16px 0 0; }
+
+/* dois campos lado a lado (telefone + empresa) */
+.field-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 520px) { .field-row2 { grid-template-columns: 1fr; gap: 0; } }
+
+/* =====================================================
+   PAY BUTTON — microinteração de marca (logo girando)
+   ===================================================== */
+.pay-btn { position: relative; overflow: hidden; perspective: 600px; }
+.pay-btn__text {
+  display: inline-flex; align-items: center; gap: 9px;
+  transition: opacity 280ms ease, transform 280ms ease;
+}
+.pay-btn__logo {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transform-style: preserve-3d;
+}
+.pay-btn__logo img {
+  height: 24px; width: auto;
+  /* branco sobre o azul + leve sombra */
+  filter: brightness(0) invert(1) drop-shadow(0 2px 5px rgba(0,0,0,0.28));
+  backface-visibility: hidden;
+}
+
+/* Hover só em pointer fino (desktop) */
+@media (hover: hover) and (pointer: fine) {
+  .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__text { opacity: 0; transform: scale(0.96); }
+  .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__logo { opacity: 1; }
+  .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__logo img {
+    animation: logoSpin360 1200ms ease-in-out;
+  }
+}
+
+/* Loading — logo branca girando em loop infinito */
+.pay-btn.is-loading .pay-btn__text { opacity: 0; }
+.pay-btn.is-loading .pay-btn__logo { opacity: 1; }
+.pay-btn.is-loading .pay-btn__logo img {
+  animation: logoSpin360 1100ms ease-in-out infinite;
+}
+/* fallback: logo não carregou → mantém texto, nunca mostra logo */
+.pay-btn.no-logo .pay-btn__logo { display: none; }
+.pay-btn.no-logo.is-loading .pay-btn__text { opacity: 1; }
+
+@keyframes logoSpin360 {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(360deg); }
+}
+
+/* =====================================================
+   PAY OVERLAY — transição full-screen (desktop) com logo girando
+   ===================================================== */
+.pay-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(244, 247, 252, 0.82);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  opacity: 0;
+  transition: opacity 360ms ease;
+}
+.pay-overlay.is-in { opacity: 1; }
+.pay-overlay__inner {
+  width: 96px; height: 96px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--blue);
+  border-radius: 24px;
+  box-shadow: var(--shadow-blue);
+  perspective: 700px;
+}
+.pay-overlay__logo {
+  height: 44px; width: auto;
+  filter: brightness(0) invert(1) drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+  animation: logoSpin360 1100ms ease-in-out infinite;
+  backface-visibility: hidden;
+}
 
 /* Summary */
 .summary { position: sticky; top: 24px; }

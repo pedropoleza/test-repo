@@ -262,12 +262,14 @@ function updateSubmitState() {
     state.tier &&
     $("f-name").value.trim().length > 2 &&
     /^\S+@\S+\.\S+$/.test($("f-email").value.trim()) &&
+    $("f-phone").value.trim().length >= 8 &&
+    $("f-company").value.trim().length > 1 &&
     state.cardElement;
   $("submit-pay").disabled = !ok;
 }
 
 function setupForm() {
-  ["f-name", "f-email"].forEach((id) => {
+  ["f-name", "f-email", "f-phone", "f-company"].forEach((id) => {
     $(id).addEventListener("input", updateSubmitState);
   });
   $("checkout-form").addEventListener("submit", async (ev) => {
@@ -276,21 +278,45 @@ function setupForm() {
   });
 }
 
+// Desktop = pointer fino + hover real (sem isso, sem overlay full-screen)
+const isDesktopPointer =
+  window.matchMedia &&
+  window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+function setLoading(on) {
+  const btn = $("submit-pay");
+  const overlay = $("pay-overlay");
+  if (on) {
+    btn.classList.add("is-loading");
+    btn.disabled = true;
+    // Overlay full-screen só no desktop (mobile: só a logo no botão gira)
+    if (isDesktopPointer && !prefersReduced) {
+      overlay.hidden = false;
+      requestAnimationFrame(() => overlay.classList.add("is-in"));
+    }
+  } else {
+    btn.classList.remove("is-loading");
+    btn.disabled = false;
+    overlay.classList.remove("is-in");
+    setTimeout(() => { overlay.hidden = true; }, 380);
+  }
+}
+
 async function submitPayment() {
-  const submitBtn = $("submit-pay");
-  const label = $("submit-label");
-  const spinner = $("submit-spinner");
-  submitBtn.disabled = true;
-  label.textContent = "Processando…";
-  spinner.hidden = false;
+  if (!state.stripe || !state.cardElement) {
+    $("card-error").textContent = "Pagamento indisponível. Recarregue a página.";
+    return;
+  }
+  setLoading(true);
   $("card-error").textContent = "";
 
   try {
-    // 1) Pede ao backend pra criar Subscription + PaymentIntent
     const intentBody = {
       tier: state.tier,
       email: $("f-email").value.trim().toLowerCase(),
       name: $("f-name").value.trim(),
+      phone: $("f-phone").value.trim(),
+      company: $("f-company").value.trim(),
       cupomCode: state.couponValid ? state.coupon : null,
       ref: state.ref || null,
     };
@@ -305,31 +331,37 @@ async function submitPayment() {
     }
     state.clientSecret = data.clientSecret;
 
-    // 2) Confirma o cartão com Stripe Elements
     const result = await state.stripe.confirmCardPayment(state.clientSecret, {
       payment_method: {
         card: state.cardElement,
         billing_details: {
           name: $("f-name").value.trim(),
           email: $("f-email").value.trim().toLowerCase(),
+          phone: $("f-phone").value.trim(),
         },
       },
     });
-
     if (result.error) {
       throw new Error(result.error.message || "Falha no pagamento");
     }
 
-    // Sucesso (step 2 agora)
+    // Sucesso — mantém a logo girando um instante e revela
     $("success-email").textContent = $("f-email").value.trim().toLowerCase();
-    showStep(2);
+    setTimeout(() => { setLoading(false); showStep(2); }, isDesktopPointer ? 500 : 0);
   } catch (err) {
     console.error("[checkout] error:", err);
     $("card-error").textContent = err.message || "Erro inesperado";
-    label.textContent = "Finalizar pagamento";
-    spinner.hidden = true;
-    submitBtn.disabled = false;
+    setLoading(false);
   }
+}
+
+/* Fallback: se a logo do botão não carregar, mantém o texto */
+function setupLogoFallback() {
+  const img = $("pay-btn-logo-img");
+  if (!img) return;
+  img.addEventListener("error", () => {
+    $("submit-pay").classList.add("no-logo");
+  });
 }
 
 /* --------- 3D Parallax + tilt --------- */
@@ -352,13 +384,15 @@ function setupParallax() {
   }
   function apply() {
     raf = null;
+    // usa a propriedade `translate` (não `transform`) pra compor com as
+    // animações CSS contínuas (auroraDrift/floatY/halftoneSway no transform)
     for (const el of layers) {
       const d = parseFloat(el.dataset.depth) || 0;
-      el.style.transform = `translate3d(${-tx * d * 60}px, ${-ty * d * 60}px, 0)`;
+      el.style.translate = `${-tx * d * 60}px ${-ty * d * 60}px`;
     }
     for (const el of content) {
       const d = parseFloat(el.dataset.depth) || 0;
-      el.style.transform = `translate3d(${tx * d * 40}px, ${ty * d * 40}px, 0)`;
+      el.style.translate = `${tx * d * 40}px ${ty * d * 40}px`;
     }
   }
   window.addEventListener("mousemove", onMove, { passive: true });
@@ -407,5 +441,6 @@ function setupTilt() {
   setupForm();
   setupParallax();
   setupTilt();
+  setupLogoFallback();
 })();
 

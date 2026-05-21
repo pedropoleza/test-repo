@@ -89,6 +89,16 @@
               <span class="field__label">Email</span>
               <input class="field__input" type="email" id="f-email" required autocomplete="email" />
             </label>
+            <div class="field-row2">
+              <label class="field">
+                <span class="field__label">Telefone</span>
+                <input class="field__input" type="tel" id="f-phone" required autocomplete="tel" inputmode="tel" />
+              </label>
+              <label class="field">
+                <span class="field__label">Nome da empresa</span>
+                <input class="field__input" type="text" id="f-company" required autocomplete="organization" />
+              </label>
+            </div>
             <label class="field">
               <span class="field__label">Cupom de indicação <small>opcional</small></span>
               <div class="field__group">
@@ -102,10 +112,13 @@
             <div id="card-element" class="card-input"></div>
             <div class="field__status field__status--card" id="card-error"></div>
 
-            <button type="submit" class="btn btn--primary btn--xl btn--full" id="submit-pay" disabled>
-              <span id="submit-label">Finalizar pagamento</span>
-              <span class="btn__spin" id="submit-spinner" hidden>
-                <svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="50 100"/></svg>
+            <button type="submit" class="btn btn--primary btn--xl btn--full pay-btn" id="submit-pay" disabled>
+              <span class="pay-btn__text">
+                Finalizar Pagamento
+                <svg class="pay-btn__arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </span>
+              <span class="pay-btn__logo" aria-hidden="true">
+                <img src="https://assets.cdn.filesafe.space/efZEjK6PqtPGDHqB2vV6/media/6830ef82dc1ab5df548b4253.png" alt="" id="pay-btn-logo-img" />
               </span>
             </button>
             <p class="legal">Pagamento processado pelo Stripe. Cancele quando quiser.</p>
@@ -143,6 +156,13 @@
         </div>
       </section>
     </main>
+
+    <!-- Overlay de transição (logo girando) — desktop only, durante processamento -->
+    <div class="pay-overlay" id="pay-overlay" hidden aria-hidden="true">
+      <div class="pay-overlay__inner">
+        <img class="pay-overlay__logo" src="https://assets.cdn.filesafe.space/efZEjK6PqtPGDHqB2vV6/media/6830ef82dc1ab5df548b4253.png" alt="" />
+      </div>
+    </div>
 
     <script type="module" src="/checkout-assets/app.js"></script>
   </body>

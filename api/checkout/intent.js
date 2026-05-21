@@ -78,16 +78,35 @@ export default async function handler(req, res) {
     return res.status(200).json({ plans });
   }
 
-  // GET ?action=validate_coupon&code= → resolve QUALQUER promotion code
-  // ativo no Stripe e devolve o desconto. Sem trava por tier.
+  // GET ?action=validate_coupon&code=&tier= → resolve QUALQUER promotion
+  // code ativo no Stripe e devolve o desconto. Se `tier` for passado e o
+  // coupon tiver applies_to.products, valida que casa com o produto do tier
+  // (evita usar SPARKOFFSTARTER no Growth). Devolve indicador_location se
+  // o promo code carregar essa metadata (cupons per-plano por subaccount).
   if (req.method === "GET" && req.query?.action === "validate_coupon") {
     const code = String(req.query?.code || "").toUpperCase().trim();
+    const tier = String(req.query?.tier || "").toLowerCase().trim();
     if (!code) return res.status(400).json({ valid: false, error: "missing_code" });
     try {
       const list = await stripeClient().promotionCodes.list({ code, active: true, limit: 1 });
       const pc = list.data?.[0];
       if (!pc) return res.status(200).json({ valid: false });
       const c = pc.coupon || {};
+
+      // Trava por produto: se o coupon restringe applies_to.products e
+      // estamos validando contra um tier específico, confere o product_id.
+      const restrictProducts = c.applies_to?.products || null;
+      if (tier && restrictProducts?.length) {
+        const cfg = await loadPlan(tier);
+        if (cfg?.productId && !restrictProducts.includes(cfg.productId)) {
+          return res.status(200).json({
+            valid: false,
+            wrong_plan: true,
+            message: "Este cupom não é válido para este plano.",
+          });
+        }
+      }
+
       return res.status(200).json({
         valid: true,
         code: pc.code,
@@ -96,6 +115,7 @@ export default async function handler(req, res) {
         currency: c.currency,
         duration: c.duration,
         duration_in_months: c.duration_in_months,
+        indicador_location: pc.metadata?.indicador_location || pc.metadata?.location_id || null,
       });
     } catch (err) {
       return res.status(200).json({ valid: false, error: err.message });
@@ -141,6 +161,9 @@ export default async function handler(req, res) {
     : null;
   let promotionCodeId = null;
   let couponApplied = false;
+  // Quando o cupom é per-plano de uma subaccount (SPARKOFF*), o promo code
+  // carrega metadata.indicador_location — registra a indicação automaticamente.
+  let couponIndicadorLocation = null;
   if (cupomCode) {
     try {
       const list = await stripeClient().promotionCodes.list({ code: cupomCode, active: true, limit: 1 });
@@ -151,12 +174,25 @@ export default async function handler(req, res) {
           message: `Cupom ${cupomCode} inválido ou inativo.`,
         });
       }
+      // Trava por produto antes de criar a subscription (mensagem limpa).
+      const restrictProducts = pc.coupon?.applies_to?.products || null;
+      if (restrictProducts?.length && !restrictProducts.includes(cfg.productId)) {
+        return res.status(400).json({
+          error: "coupon_wrong_plan",
+          message: `O cupom ${cupomCode} não é válido para o plano ${cfg.name}.`,
+        });
+      }
       promotionCodeId = pc.id;
       couponApplied = true;
+      couponIndicadorLocation = pc.metadata?.indicador_location || pc.metadata?.location_id || null;
     } catch (err) {
       return res.status(502).json({ error: "coupon_lookup_failed", message: err.message });
     }
   }
+
+  // ref efetivo: o que veio do cupom tem prioridade (é a fonte confiável de
+  // quem indicou); senão usa o ?ref= da URL share.
+  const effectiveRef = couponIndicadorLocation || ref;
 
   const stripe = stripeClient();
 
@@ -179,7 +215,7 @@ export default async function handler(req, res) {
         phone: phone || undefined,
         metadata: {
           source: "spark-checkout",
-          indicador_ref: ref || "",
+          indicador_ref: effectiveRef || "",
           company_name: company || "",
         },
       });
@@ -194,7 +230,7 @@ export default async function handler(req, res) {
         phone: phone || customer.phone || undefined,
         metadata: {
           ...customer.metadata,
-          indicador_ref: ref || customer.metadata?.indicador_ref || "",
+          indicador_ref: effectiveRef || customer.metadata?.indicador_ref || "",
           company_name: company || customer.metadata?.company_name || "",
         },
       });
@@ -221,7 +257,7 @@ export default async function handler(req, res) {
     expand: ["latest_invoice.payment_intent"],
     metadata: {
       source: "spark-checkout",
-      indicador_ref: ref || "",
+      indicador_ref: effectiveRef || "",
       indicado_email: email,
       indicado_name: name,
       indicado_phone: phone || "",
@@ -276,7 +312,7 @@ export default async function handler(req, res) {
     customer_id: customer.id,
     coupon_applied: couponApplied,
     activation: cfg.activationUsd > 0,
-    ref: ref || null,
+    ref: effectiveRef || null,
     amount_due_cents: invoice?.amount_due,
   });
 

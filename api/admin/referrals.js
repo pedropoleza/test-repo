@@ -24,7 +24,7 @@ import { timingSafeEqual } from "node:crypto";
 import { db } from "../../lib/server/db.js";
 import { recomputeTier } from "../../lib/server/tier-discount.js";
 import { ensureInstallation } from "../../lib/server/provision.js";
-import { stripeClient } from "../../lib/server/stripe-coupon.js";
+import { stripeClient, ensureLocationPlanCoupons } from "../../lib/server/stripe-coupon.js";
 import { log } from "../../lib/server/log.js";
 import { audit } from "../../lib/server/audit.js";
 import { levels as TIERS } from "../../src/config/tiers.js";
@@ -78,6 +78,7 @@ export default async function handler(req, res) {
     if (action === "bulk_recompute") return bulkRecompute(req, res);
     if (action === "bulk_sync")      return bulkSync(req, res);
     if (action === "update_plan")    return updatePlan(req, res);
+    if (action === "backfill_plan_coupons") return backfillPlanCoupons(req, res);
     return createReferral(req, res);
   }
   if (req.method === "PATCH")  return updateReferral(req, res);
@@ -561,6 +562,11 @@ async function updatePlan(req, res) {
         params.name = `Indicação ${tier} — $${amount} off`;
       }
       if (duration === "repeating") params.duration_in_months = months || 3;
+      // Restringe o cupom ao produto do plano → SPARKOFF<TIER> só funciona
+      // no tier correspondente (Stripe rejeita em outros produtos).
+      if (current.product_id) {
+        params.applies_to = { products: [current.product_id] };
+      }
       const coupon = await stripe.coupons.create(params);
 
       // Promotion code legível (arquiva o antigo se existir mesmo code)
@@ -601,6 +607,70 @@ async function updatePlan(req, res) {
   });
 
   return res.status(200).json({ ok: true, tier, updated: patch, coupon_recreated: discountChanged });
+}
+
+/* ============ BACKFILL per-plan promo codes ============ */
+/**
+ * Cria os 3 promotion codes per-plano (SPARKOFF*) pra installations que
+ * ainda não têm plan_coupons. Processa em lote (limit configurável) pra
+ * caber no maxDuration da função. Idempotente — pode chamar várias vezes.
+ *
+ * POST ?action=backfill_plan_coupons  body: { limit?: number }
+ */
+async function backfillPlanCoupons(req, res) {
+  let body;
+  try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {}; }
+  catch { body = {}; }
+  const limit = Math.min(Number(body.limit) || 25, 60);
+
+  // Carrega os coupon_ids compartilhados (com applies_to product).
+  const { data: plans, error: planErr } = await db()
+    .from("plan_config").select("tier, coupon_id");
+  if (planErr) return res.status(500).json({ error: "db_error", detail: planErr.message });
+  const planCouponIds = {};
+  for (const p of plans || []) if (p.coupon_id) planCouponIds[p.tier] = p.coupon_id;
+  if (!Object.keys(planCouponIds).length) {
+    return res.status(400).json({ error: "no_plan_coupons", message: "plan_config sem coupon_id" });
+  }
+
+  // Locations ainda sem plan_coupons.
+  const { data: rows, error: rowErr } = await db()
+    .from("installations")
+    .select("location_id, location_name")
+    .is("plan_coupons", null)
+    .limit(limit);
+  if (rowErr) return res.status(500).json({ error: "db_error", detail: rowErr.message });
+
+  let processed = 0, created = 0, failed = 0;
+  for (const row of rows || []) {
+    processed++;
+    try {
+      const codes = await ensureLocationPlanCoupons(row.location_id, row.location_name, planCouponIds);
+      if (codes && Object.keys(codes).length) {
+        await db().from("installations").update({ plan_coupons: codes }).eq("location_id", row.location_id);
+        created++;
+      } else {
+        failed++;
+      }
+    } catch (err) {
+      failed++;
+      log.warn("backfill.location_failed", { location: row.location_id, error: err.message });
+    }
+  }
+
+  // Quantas ainda faltam?
+  const { count: remaining } = await db()
+    .from("installations").select("location_id", { count: "exact", head: true }).is("plan_coupons", null);
+
+  await audit({
+    eventType: "admin.backfill_plan_coupons",
+    actor: "admin",
+    resourceType: "installations",
+    summary: `Backfill cupons per-plano: ${created} criados, ${failed} falhas, ${remaining ?? "?"} restantes`,
+    data: { processed, created, failed, remaining },
+  });
+
+  return res.status(200).json({ ok: true, processed, created, failed, remaining: remaining ?? null, done: (remaining ?? 0) === 0 });
 }
 
 /* ============ CREATE referral ============ */

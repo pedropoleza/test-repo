@@ -176,7 +176,87 @@ async function onPaymentSucceeded(event) {
     console.error("[stripe-webhook] payment_succeeded update:", error);
     return null;
   }
+
+  // Se nenhuma referral existente casou, tenta AUTO-CRIAR a partir da
+  // metadata da subscription (checkout próprio Spark). Assim, usar um
+  // cupom per-plano (SPARKOFF*) registra a indicação na location do
+  // indicador sem precisar de adição manual no /admin.
+  if ((!data || data.length === 0) && subId) {
+    const autoLoc = await autoCreateReferralFromSub(subId, {
+      customerId,
+      couponId,
+    });
+    if (autoLoc) return { indicadorLocations: [autoLoc] };
+  }
+
   return { indicadorLocations: (data || []).map((r) => r.indicador_location).filter(Boolean) };
+}
+
+/**
+ * Cria uma referral a partir da metadata de uma subscription do checkout
+ * Spark. Idempotente: se já existe referral pra essa subscription, não
+ * duplica. Retorna o indicador_location se criou (ou já existia), senão null.
+ */
+async function autoCreateReferralFromSub(subId, { customerId, couponId }) {
+  let sub;
+  try {
+    sub = await stripeClient().subscriptions.retrieve(subId);
+  } catch (err) {
+    console.warn("[stripe-webhook] sub retrieve failed:", err.message);
+    return null;
+  }
+  const m = sub?.metadata || {};
+  if (m.source !== "spark-checkout") return null;
+
+  const indicadorLocation = (m.indicador_ref || "").trim();
+  const indicadoEmail = (m.indicado_email || "").trim().toLowerCase();
+  const tier = (m.tier_purchased || "").trim().toLowerCase() || null;
+  if (!indicadorLocation || !indicadoEmail) return null;
+  if (!/^[A-Za-z0-9]{15,30}$/.test(indicadorLocation)) return null;
+
+  // Só registra se o indicador existir como installation.
+  const { data: install } = await db()
+    .from("installations")
+    .select("location_id")
+    .eq("location_id", indicadorLocation)
+    .maybeSingle();
+  if (!install) {
+    console.info("[stripe-webhook] auto-referral skipped, unknown indicador:", indicadorLocation);
+    return null;
+  }
+
+  // Idempotência: já existe referral pra essa subscription?
+  const { data: dup } = await db()
+    .from("referrals")
+    .select("id")
+    .eq("stripe_subscription_id", subId)
+    .maybeSingle();
+  if (dup) return indicadorLocation;
+
+  const insert = {
+    indicador_location: indicadorLocation,
+    indicado_email: indicadoEmail,
+    indicado_name: (m.indicado_name || "").slice(0, 200) || indicadoEmail,
+    tier_purchased: ["starter", "growth", "scale"].includes(tier) ? tier : null,
+    cupom_code: (m.cupom_code || "").slice(0, 40) || null,
+    coupon_used: couponId || null,
+    activation_paid: m.activation_paid === "true",
+    status: "paid",
+    first_payment_at: new Date().toISOString(),
+    stripe_customer_id: customerId || null,
+    stripe_subscription_id: subId,
+  };
+
+  const { error: insErr } = await db().from("referrals").insert(insert);
+  if (insErr) {
+    if (insErr.code === "23505" || /duplicate/i.test(insErr.message || "")) {
+      return indicadorLocation;
+    }
+    console.error("[stripe-webhook] auto-referral insert failed:", insErr.message);
+    return null;
+  }
+  console.info("[stripe-webhook] auto-created referral:", indicadoEmail, "→", indicadorLocation, tier || "");
+  return indicadorLocation;
 }
 
 async function onPaymentFailed(event) {

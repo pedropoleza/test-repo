@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   let row;
   const { data, error } = await db()
     .from("installations")
-    .select("coupon_code, location_name")
+    .select("coupon_code, location_name, plan_coupons")
     .eq("location_id", locationId)
     .maybeSingle();
   if (error) {
@@ -79,21 +79,43 @@ export default async function handler(req, res) {
     const sep = url.includes("?") ? "&" : "?";
     return `${url}${sep}prefilled_promo_code=${encodeURIComponent(row.coupon_code)}`;
   };
+  // Cupons per-plano (SPARKOFFSTARTER/GROWTH/SCALE) dessa subaccount.
+  // Cada um só funciona no plano do nome e já registra a indicação.
+  const planCoupons = row.plan_coupons || {};
+
+  // URL do checkout próprio Spark (não Stripe-hosted). Cada plano com o
+  // cupom per-plano prefilled — usar = registro automático da indicação.
+  const checkoutBase = process.env.CHECKOUT_BASE_URL || "/checkout";
+  const buildCheckoutUrl = (tier) => {
+    const code = planCoupons[tier];
+    const params = new URLSearchParams({ tier });
+    if (code) params.set("cupom", code);
+    else params.set("ref", locationId);
+    const sep = checkoutBase.includes("?") ? "&" : "?";
+    return `${checkoutBase}${sep}${params.toString()}`;
+  };
+
   const tiers = {
     starter: {
       name: "Spark Starter",
       price_usd: 79,
-      url: buildTierUrl("STRIPE_LINK_STARTER"),
+      cupom: planCoupons.starter || null,
+      url: buildCheckoutUrl("starter"),
+      link: buildTierUrl("STRIPE_LINK_STARTER"),
     },
     growth: {
       name: "Spark Growth",
       price_usd: 120,
-      url: buildTierUrl("STRIPE_LINK_GROWTH"),
+      cupom: planCoupons.growth || null,
+      url: buildCheckoutUrl("growth"),
+      link: buildTierUrl("STRIPE_LINK_GROWTH"),
     },
     scale: {
       name: "Spark Scale",
       price_usd: 250,
-      url: buildTierUrl("STRIPE_LINK_SCALE"),
+      cupom: planCoupons.scale || null,
+      url: buildCheckoutUrl("scale"),
+      link: buildTierUrl("STRIPE_LINK_SCALE"),
     },
   };
 
@@ -101,6 +123,7 @@ export default async function handler(req, res) {
     locationId,
     locationName: row.location_name,
     couponCode: row.coupon_code,
+    planCoupons,
     shareUrl,
     tiers,
   });

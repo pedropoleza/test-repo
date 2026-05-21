@@ -104,8 +104,10 @@ function setupPlanSelector() {
       if (state.tier === pill.dataset.tier) return;
       state.tier = pill.dataset.tier;
       pills.forEach((x) => x.classList.toggle("is-active", x === pill));
-      // Cupom é plan-agnóstico (validado no Stripe) — só recalcula o resumo
-      renderSummary();
+      // Cupons per-plano são restritos por produto — revalida contra o
+      // novo tier. Se não houver cupom, só recalcula o resumo.
+      if (state.coupon) applyCoupon();
+      else renderSummary();
     });
   });
 
@@ -163,24 +165,37 @@ async function applyCoupon() {
   }
   setCouponStatus("Validando…", "info");
   try {
-    const r = await fetch(`/api/checkout/intent?action=validate_coupon&code=${encodeURIComponent(code)}`);
+    const tierParam = state.tier ? `&tier=${encodeURIComponent(state.tier)}` : "";
+    const r = await fetch(`/api/checkout/intent?action=validate_coupon&code=${encodeURIComponent(code)}${tierParam}`);
     const d = await r.json();
     if (!d.valid) {
       state.coupon = code;
       state.couponValid = false;
       state.couponInfo = null;
-      setCouponStatus("Cupom inválido ou inativo.", "err");
+      setCouponStatus(d.wrong_plan ? "Cupom não é válido para este plano." : "Cupom inválido ou inativo.", "err");
       renderSummary();
       return;
     }
     state.coupon = code;
     state.couponValid = true;
-    state.couponInfo = d; // { amount_off, percent_off, duration, duration_in_months }
+    state.couponInfo = d; // { amount_off, percent_off, duration, duration_in_months, indicador_location }
+    // Cupom per-plano carrega quem indicou — usa como ref se não veio na URL.
+    if (d.indicador_location && !state.ref) state.ref = d.indicador_location;
     setCouponStatus(`✓ Cupom ${code} aplicado`, "ok");
     renderSummary();
   } catch {
     setCouponStatus("Erro ao validar cupom. Tente de novo.", "err");
   }
+}
+
+/* Prefill do cupom via URL (?cupom= / ?coupon= / ?prefilled_promo_code=). */
+function prefillCouponFromUrl() {
+  const p = new URLSearchParams(window.location.search);
+  const code = (p.get("cupom") || p.get("coupon") || p.get("prefilled_promo_code") || "").trim();
+  if (!code) return;
+  const input = $("f-coupon");
+  if (input) input.value = code.toUpperCase();
+  applyCoupon();
 }
 function setCouponStatus(text, state) {
   const el = $("coupon-status");
@@ -447,6 +462,7 @@ function setupTilt() {
   await Promise.all([bootStripe(), loadPlans()]);
   setupPlanSelector();
   setupCouponApply();
+  prefillCouponFromUrl();
   setupForm();
   setupParallax();
   setupTilt();

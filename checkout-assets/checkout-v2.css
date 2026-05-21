@@ -296,50 +296,46 @@ a { color: inherit; text-decoration: none; }
 .pay-btn { position: relative; overflow: hidden; }
 .pay-btn__text {
   display: inline-flex; align-items: center; gap: 9px;
-  transition: opacity 240ms ease, transform 320ms cubic-bezier(.34,1.56,.64,1);
+  transition: opacity 260ms ease;
 }
 .pay-btn__text .pay-btn__arrow { transition: transform 300ms cubic-bezier(.34,1.56,.64,1); }
+.pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__text .pay-btn__arrow { transform: translateX(3px); }
 .pay-btn__logo {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0; pointer-events: none;
-  perspective: 700px;
+  opacity: 0;
+  transform: scale(0.82);
+  pointer-events: none;
+  perspective: 800px;
+  transition: opacity 260ms ease, transform 320ms cubic-bezier(.22,1,.36,1);
 }
 .pay-btn__logo img {
   height: 34px; width: auto;
-  /* logo limpa, sem fundo/contorno — só uma sombra sutil pra dar relevo */
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.30));
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.28));
   backface-visibility: hidden;
   transform-style: preserve-3d;
 }
 
-/* Hover só em pointer fino (desktop) */
+/* Hover (pointer fino): crossfade texto→logo + 1 spin suave */
 @media (hover: hover) and (pointer: fine) {
-  .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__text { opacity: 0; transform: scale(0.9); }
-  .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__logo { opacity: 1; }
+  .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__text { opacity: 0; }
+  .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__logo { opacity: 1; transform: scale(1); }
   .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__logo img {
-    animation: logoFlipIn 1100ms cubic-bezier(.3,1.3,.5,1);
+    animation: logoSpin 1100ms cubic-bezier(.45,.05,.55,.95);
   }
 }
 
-/* Loading — logo flip contínuo (sem fundo) */
+/* Loading: crossfade + spin contínuo linear (steady, profissional) */
 .pay-btn.is-loading .pay-btn__text { opacity: 0; }
-.pay-btn.is-loading .pay-btn__logo { opacity: 1; }
+.pay-btn.is-loading .pay-btn__logo { opacity: 1; transform: scale(1); }
 .pay-btn.is-loading .pay-btn__logo img {
-  animation: logoFlipLoop 1200ms cubic-bezier(.5,0,.5,1) infinite;
+  animation: logoSpin 1000ms linear infinite;
 }
 /* fallback: logo não carregou → mantém texto, nunca mostra logo */
 .pay-btn.no-logo .pay-btn__logo { display: none; }
 .pay-btn.no-logo.is-loading .pay-btn__text { opacity: 1; }
 
-/* entrada com flip + leve overshoot de escala (mais interessante) */
-@keyframes logoFlipIn {
-  0%   { transform: rotateY(-180deg) scale(0.5); }
-  55%  { transform: rotateY(25deg) scale(1.12); }
-  75%  { transform: rotateY(-8deg) scale(0.98); }
-  100% { transform: rotateY(0deg) scale(1); }
-}
-@keyframes logoFlipLoop {
+@keyframes logoSpin {
   from { transform: rotateY(0deg); }
   to   { transform: rotateY(360deg); }
 }
@@ -364,7 +360,7 @@ a { color: inherit; text-decoration: none; }
 .pay-overlay__logo {
   height: 84px; width: auto;
   filter: drop-shadow(0 8px 22px rgba(21,94,239,0.30));
-  animation: logoFlipLoop 1200ms cubic-bezier(.5,0,.5,1) infinite;
+  animation: logoSpin 1000ms linear infinite;
   backface-visibility: hidden;
 }
 

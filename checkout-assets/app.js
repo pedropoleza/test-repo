@@ -378,30 +378,32 @@ function setupParallax() {
   if (prefersReduced) return;
   const layers = Array.from(document.querySelectorAll(".scene [data-depth]"));
   const content = Array.from(document.querySelectorAll("[data-parallax-content]"));
-  let raf = null;
-  let tx = 0, ty = 0;
+  // alvo (mouse) + posição atual (lerp) → glide contínuo e suave
+  let tgX = 0, tgY = 0;   // -1..1
+  let curX = 0, curY = 0;
 
   function onMove(e) {
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight / 2;
-    tx = (e.clientX - cx) / cx; // -1..1
-    ty = (e.clientY - cy) / cy;
-    if (!raf) raf = requestAnimationFrame(apply);
+    tgX = (e.clientX - cx) / cx;
+    tgY = (e.clientY - cy) / cy;
   }
-  function apply() {
-    raf = null;
-    // usa a propriedade `translate` (não `transform`) pra compor com as
-    // animações CSS contínuas (auroraDrift/floatY/halftoneSway no transform)
+  function tick() {
+    // lerp suave (0.07 = bem fluido)
+    curX += (tgX - curX) * 0.07;
+    curY += (tgY - curY) * 0.07;
     for (const el of layers) {
       const d = parseFloat(el.dataset.depth) || 0;
-      el.style.translate = `${-tx * d * 60}px ${-ty * d * 60}px`;
+      el.style.translate = `${(-curX * d * 70).toFixed(2)}px ${(-curY * d * 70).toFixed(2)}px`;
     }
     for (const el of content) {
       const d = parseFloat(el.dataset.depth) || 0;
-      el.style.translate = `${tx * d * 40}px ${ty * d * 40}px`;
+      el.style.translate = `${(curX * d * 45).toFixed(2)}px ${(curY * d * 45).toFixed(2)}px`;
     }
+    requestAnimationFrame(tick);
   }
   window.addEventListener("mousemove", onMove, { passive: true });
+  requestAnimationFrame(tick);
 }
 
 function setupTilt() {

@@ -305,22 +305,10 @@ a { color: inherit; text-decoration: none; }
   opacity: 0; pointer-events: none;
   perspective: 700px;
 }
-/* disco branco atrás da logo — separa o ciano do azul do botão */
-.pay-btn__logo::before {
-  content: "";
-  position: absolute;
-  width: 48px; height: 48px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 6px 18px rgba(8,28,80,0.28), inset 0 0 0 1px rgba(21,94,239,0.06);
-  transform: scale(0.3);
-  opacity: 0;
-  transition: transform 380ms cubic-bezier(.34,1.56,.64,1), opacity 240ms ease;
-}
 .pay-btn__logo img {
-  position: relative;
-  height: 36px; width: auto;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.18));
+  height: 34px; width: auto;
+  /* logo limpa, sem fundo/contorno — só uma sombra sutil pra dar relevo */
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.30));
   backface-visibility: hidden;
   transform-style: preserve-3d;
 }
@@ -329,16 +317,14 @@ a { color: inherit; text-decoration: none; }
 @media (hover: hover) and (pointer: fine) {
   .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__text { opacity: 0; transform: scale(0.9); }
   .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__logo { opacity: 1; }
-  .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__logo::before { transform: scale(1); opacity: 1; }
   .pay-btn:hover:not(:disabled):not(.is-loading):not(.no-logo) .pay-btn__logo img {
     animation: logoFlipIn 1100ms cubic-bezier(.3,1.3,.5,1);
   }
 }
 
-/* Loading — disco branco + logo flip contínuo */
+/* Loading — logo flip contínuo (sem fundo) */
 .pay-btn.is-loading .pay-btn__text { opacity: 0; }
 .pay-btn.is-loading .pay-btn__logo { opacity: 1; }
-.pay-btn.is-loading .pay-btn__logo::before { transform: scale(1); opacity: 1; }
 .pay-btn.is-loading .pay-btn__logo img {
   animation: logoFlipLoop 1200ms cubic-bezier(.5,0,.5,1) infinite;
 }
@@ -372,17 +358,13 @@ a { color: inherit; text-decoration: none; }
 }
 .pay-overlay.is-in { opacity: 1; }
 .pay-overlay__inner {
-  width: 104px; height: 104px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--surface);
-  border-radius: 26px;
-  box-shadow: var(--shadow-lg);
-  perspective: 700px;
+  perspective: 800px;
 }
 .pay-overlay__logo {
-  height: 64px; width: auto;
-  filter: drop-shadow(0 4px 10px rgba(21,94,239,0.25));
-  animation: logoSpin360 1100ms ease-in-out infinite;
+  height: 84px; width: auto;
+  filter: drop-shadow(0 8px 22px rgba(21,94,239,0.30));
+  animation: logoFlipLoop 1200ms cubic-bezier(.5,0,.5,1) infinite;
   backface-visibility: hidden;
 }
 

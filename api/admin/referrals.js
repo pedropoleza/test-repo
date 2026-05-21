@@ -24,6 +24,7 @@ import { timingSafeEqual } from "node:crypto";
 import { db } from "../../lib/server/db.js";
 import { recomputeTier } from "../../lib/server/tier-discount.js";
 import { ensureInstallation } from "../../lib/server/provision.js";
+import { stripeClient } from "../../lib/server/stripe-coupon.js";
 import { log } from "../../lib/server/log.js";
 import { audit } from "../../lib/server/audit.js";
 import { levels as TIERS } from "../../src/config/tiers.js";
@@ -69,12 +70,14 @@ export default async function handler(req, res) {
       case "activity":         return activityFeed(req, res);
       case "cupons":           return cuponsList(req, res);
       case "pending":          return pendingQueue(req, res);
+      case "plans":            return getPlans(req, res);
       default:                 return listReferrals(req, res);
     }
   }
   if (req.method === "POST") {
     if (action === "bulk_recompute") return bulkRecompute(req, res);
     if (action === "bulk_sync")      return bulkSync(req, res);
+    if (action === "update_plan")    return updatePlan(req, res);
     return createReferral(req, res);
   }
   if (req.method === "PATCH")  return updateReferral(req, res);
@@ -464,6 +467,126 @@ async function pendingQueue(_req, res) {
   out.recent_disqualified = q3 || [];
 
   return res.status(200).json(out);
+}
+
+/* ============ PLANS — get + update (preços editáveis) ============ */
+async function getPlans(_req, res) {
+  const { data, error } = await db()
+    .from("plan_config")
+    .select("*")
+    .order("sort_order", { ascending: true });
+  if (error) return res.status(500).json({ error: "db_error", detail: error.message });
+  return res.status(200).json({ plans: data || [] });
+}
+
+async function updatePlan(req, res) {
+  let body;
+  try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {}; }
+  catch { return res.status(400).json({ error: "invalid_json" }); }
+
+  const tier = String(body.tier || "").toLowerCase();
+  if (!["starter", "growth", "scale"].includes(tier)) {
+    return res.status(400).json({ error: "invalid_tier" });
+  }
+
+  // Lê config atual
+  const { data: current, error: readErr } = await db()
+    .from("plan_config").select("*").eq("tier", tier).maybeSingle();
+  if (readErr) return res.status(500).json({ error: "db_error", detail: readErr.message });
+  if (!current) return res.status(404).json({ error: "plan_not_found" });
+
+  // Campos editáveis + validação
+  const patch = {};
+  if (body.name != null) patch.name = String(body.name).slice(0, 80);
+  if (body.monthly_usd != null) {
+    const v = Number(body.monthly_usd);
+    if (!(v >= 0 && v <= 100000)) return res.status(400).json({ error: "invalid_monthly" });
+    patch.monthly_usd = v;
+  }
+  if (body.activation_usd != null) {
+    const v = Number(body.activation_usd);
+    if (!(v >= 0 && v <= 100000)) return res.status(400).json({ error: "invalid_activation" });
+    patch.activation_usd = v;
+  }
+  let discountChanged = false;
+  if (body.indicacao_discount_usd != null) {
+    const v = Number(body.indicacao_discount_usd);
+    if (!(v >= 0 && v <= 100000)) return res.status(400).json({ error: "invalid_discount" });
+    if (v !== Number(current.indicacao_discount_usd)) discountChanged = true;
+    patch.indicacao_discount_usd = v;
+  }
+  if (body.indicacao_duration != null) {
+    const d = String(body.indicacao_duration);
+    if (!["once", "repeating"].includes(d)) return res.status(400).json({ error: "invalid_duration" });
+    if (d !== current.indicacao_duration) discountChanged = true;
+    patch.indicacao_duration = d;
+  }
+  if (body.indicacao_months != null) {
+    const m = body.indicacao_months === "" ? null : Number(body.indicacao_months);
+    if (m !== null && !(m >= 1 && m <= 36)) return res.status(400).json({ error: "invalid_months" });
+    if (m !== current.indicacao_months) discountChanged = true;
+    patch.indicacao_months = m;
+  }
+  if (Object.keys(patch).length === 0) {
+    return res.status(400).json({ error: "no_fields" });
+  }
+
+  // Se o desconto/duração mudou, recria o Stripe Coupon (coupons são
+  // imutáveis no Stripe) e arquiva o anterior.
+  if (discountChanged) {
+    const stripe = stripeClient();
+    const amount = patch.indicacao_discount_usd ?? Number(current.indicacao_discount_usd);
+    const duration = patch.indicacao_duration ?? current.indicacao_duration;
+    const months = patch.indicacao_months ?? current.indicacao_months;
+    try {
+      const params = {
+        amount_off: Math.round(amount * 100),
+        currency: "usd",
+        duration,
+        name: `Indicação ${tier} — $${amount} off`,
+        metadata: { role: "indicacao", tier, source: "spark-referral-hub" },
+      };
+      if (duration === "repeating") params.duration_in_months = months || 3;
+      const coupon = await stripe.coupons.create(params);
+
+      // Promotion code legível (arquiva o antigo se existir mesmo code)
+      const code = `INDICACAO_${tier.toUpperCase()}`;
+      try {
+        const existing = await stripe.promotionCodes.list({ code, limit: 5 });
+        for (const pc of existing.data || []) {
+          if (pc.active) await stripe.promotionCodes.update(pc.id, { active: false });
+        }
+      } catch {}
+      try {
+        await stripe.promotionCodes.create({ coupon: coupon.id, code, metadata: { role: "indicacao", tier } });
+      } catch (e) {
+        log.warn("update_plan.promo_recreate_failed", { tier, error: e.message });
+      }
+
+      // arquiva coupon antigo (best-effort)
+      if (current.coupon_id) {
+        try { await stripe.coupons.del(current.coupon_id); } catch {}
+      }
+      patch.coupon_id = coupon.id;
+    } catch (err) {
+      return res.status(502).json({ error: "stripe_coupon_failed", message: err.message });
+    }
+  }
+
+  patch.updated_at = new Date().toISOString();
+  const { error: updErr } = await db().from("plan_config").update(patch).eq("tier", tier);
+  if (updErr) return res.status(500).json({ error: "db_error", detail: updErr.message });
+
+  await audit({
+    eventType: "admin.plan_updated",
+    actor: "admin",
+    resourceType: "plan",
+    resourceId: tier,
+    summary: `Plano ${tier} atualizado` + (discountChanged ? " (cupom recriado)" : ""),
+    data: patch,
+  });
+
+  return res.status(200).json({ ok: true, tier, updated: patch, coupon_recreated: discountChanged });
 }
 
 /* ============ CREATE referral ============ */

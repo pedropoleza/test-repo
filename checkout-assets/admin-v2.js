@@ -594,6 +594,81 @@ async function loadCupons() {
 }
 
 /* =====================================================
+   TAB: PLANOS (editar preços)
+   ===================================================== */
+TAB_LOADERS.planos = loadPlanos;
+async function loadPlanos() {
+  const root = $("plan-edit-grid");
+  root.innerHTML = '<div class="empty">Carregando…</div>';
+  try {
+    const r = await api("?action=plans");
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "erro");
+    const plans = d.plans || [];
+    root.innerHTML = plans.map(planCardHtml).join("");
+    plans.forEach(wirePlanCard);
+  } catch (err) {
+    root.innerHTML = `<div class="empty">Erro: ${escapeHtml(err.message)}</div>`;
+  }
+}
+function planCardHtml(p) {
+  const isRepeating = p.indicacao_duration === "repeating";
+  return `<div class="plan-edit" data-tier="${escapeHtml(p.tier)}">
+    <div class="plan-edit__head">
+      <h3>${escapeHtml(p.name)}</h3>
+      <span class="plan-edit__tier">${escapeHtml(p.tier)}</span>
+    </div>
+    <label class="field"><span class="field__label">Mensalidade (USD)</span>
+      <input class="input" type="number" min="0" step="1" data-f="monthly_usd" value="${Number(p.monthly_usd)}"/></label>
+    <label class="field"><span class="field__label">Taxa de ativação (USD)</span>
+      <input class="input" type="number" min="0" step="1" data-f="activation_usd" value="${Number(p.activation_usd)}"/></label>
+    <label class="field"><span class="field__label">Desconto indicação (USD)</span>
+      <input class="input" type="number" min="0" step="1" data-f="indicacao_discount_usd" value="${Number(p.indicacao_discount_usd)}"/></label>
+    <div class="grid-2">
+      <label class="field"><span class="field__label">Duração desconto</span>
+        <select class="input" data-f="indicacao_duration">
+          <option value="once" ${!isRepeating ? "selected" : ""}>Uma vez (1ª fatura)</option>
+          <option value="repeating" ${isRepeating ? "selected" : ""}>Recorrente (X meses)</option>
+        </select></label>
+      <label class="field"><span class="field__label">Meses (se recorrente)</span>
+        <input class="input" type="number" min="1" max="36" step="1" data-f="indicacao_months" value="${p.indicacao_months ?? ""}"/></label>
+    </div>
+    <button class="btn btn--primary" data-save>Salvar ${escapeHtml(p.tier)}</button>
+    <div class="field__hint" data-status></div>
+  </div>`;
+}
+function wirePlanCard(p) {
+  const card = document.querySelector(`.plan-edit[data-tier="${p.tier}"]`);
+  if (!card) return;
+  const btn = card.querySelector("[data-save]");
+  const status = card.querySelector("[data-status]");
+  btn.addEventListener("click", async () => {
+    const body = { tier: p.tier };
+    card.querySelectorAll("[data-f]").forEach((inp) => {
+      let v = inp.value;
+      if (inp.dataset.f === "indicacao_duration") body[inp.dataset.f] = v;
+      else if (inp.dataset.f === "indicacao_months") body[inp.dataset.f] = v === "" ? "" : Number(v);
+      else body[inp.dataset.f] = Number(v);
+    });
+    btn.disabled = true;
+    status.textContent = "Salvando…"; status.dataset.state = "info";
+    try {
+      const r = await api("?action=update_plan", { method: "POST", body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) { status.textContent = d.message || d.error || "erro"; status.dataset.state = "err"; }
+      else {
+        status.textContent = "✓ Salvo" + (d.coupon_recreated ? " (cupom recriado)" : "");
+        status.dataset.state = "ok";
+        toast(`Plano ${p.tier} atualizado`, { type: "success" });
+      }
+    } catch (err) {
+      status.textContent = err.message; status.dataset.state = "err";
+    }
+    btn.disabled = false;
+  });
+}
+
+/* =====================================================
    TAB: OPS
    ===================================================== */
 function setupOps() {
@@ -695,7 +770,7 @@ function showApp() { $("locked").hidden = true; $("app").hidden = false; }
 
   // Initial tab from hash or default
   const hash = location.hash.replace("#", "");
-  const validTabs = ["indicacoes", "inicio", "locations", "ranking", "atividade", "cupons", "ops"];
+  const validTabs = ["indicacoes", "inicio", "locations", "ranking", "atividade", "cupons", "planos", "ops"];
   const initial = validTabs.includes(hash) ? hash : "indicacoes";
   // força o switch (currentTab começa null)
   switchTo(initial, document.querySelector(`.nav-btn[data-go="${initial}"]`));

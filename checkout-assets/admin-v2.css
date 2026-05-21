@@ -758,6 +758,36 @@ select.input { cursor: pointer; appearance: none; -webkit-appearance: none; back
 }
 
 /* =====================================================
+   Plan edit grid
+   ===================================================== */
+.plan-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+@media (max-width: 980px) { .plan-edit-grid { grid-template-columns: 1fr; } }
+.plan-edit {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+.plan-edit__head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 16px;
+}
+.plan-edit__head h3 { margin: 0; font-size: 17px; font-weight: 800; }
+.plan-edit__tier {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--blue-dark);
+  background: var(--blue-50); padding: 3px 9px; border-radius: 100px;
+}
+.plan-edit .btn { margin-top: 6px; }
+
+/* =====================================================
    Operations grid
    ===================================================== */
 .op-grid {

@@ -295,6 +295,19 @@
           <div class="cupom-cards" id="cupons-global"></div>
         </section>
 
+        <!-- Tab: PLANOS -->
+        <section class="tab" data-tab="planos" hidden>
+          <div class="page-head">
+            <div>
+              <h1>Planos e preços</h1>
+              <p>Edite mensalidade, taxa de ativação e desconto de indicação. O checkout cobra com base nesses valores. Mudar o desconto recria o cupom no Stripe.</p>
+            </div>
+          </div>
+          <div class="plan-edit-grid" id="plan-edit-grid">
+            <div class="empty">Carregando…</div>
+          </div>
+        </section>
+
         <!-- Tab: OPERAÇÕES -->
         <section class="tab" data-tab="ops" hidden>
           <div class="page-head">
@@ -357,6 +370,10 @@
         <button class="nav-btn" data-go="cupons" role="tab">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6V4l-4 4 4 4v-4h14M4 12v4h14v4l4-4-4-4v4H4z"/></svg>
           <span>Cupons</span>
+        </button>
+        <button class="nav-btn" data-go="planos" role="tab">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          <span>Planos</span>
         </button>
         <button class="nav-btn" data-go="ops" role="tab">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>

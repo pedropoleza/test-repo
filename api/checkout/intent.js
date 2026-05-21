@@ -22,45 +22,30 @@
  * (Card Element é o ÚNICO componente Stripe na página, embedded).
  */
 import { stripeClient } from "../../lib/server/stripe-coupon.js";
+import { db } from "../../lib/server/db.js";
 import { log } from "../../lib/server/log.js";
 
-// Mapping tier → { monthly_price_id, activation_price_id?, coupon_id }
-// Resolvido em runtime via env vars (preenchidas pelo setup_tiers).
-function tierConfig(tierId) {
-  const cfg = {
-    starter: {
-      monthlyUsd: 79,
-      activationUsd: 0,
-      monthlyPriceEnv: "STRIPE_PRICE_STARTER_MONTHLY",
-      activationPriceEnv: null,
-      couponEnv: "STRIPE_COUPON_INDICACAO_STARTER",
-      cupomCode: "INDICACAO_STARTER",
-      name: "Spark Starter",
-    },
-    growth: {
-      monthlyUsd: 120,
-      activationUsd: 99,
-      monthlyPriceEnv: "STRIPE_PRICE_GROWTH_MONTHLY",
-      activationPriceEnv: "STRIPE_PRICE_GROWTH_ACTIVATION",
-      couponEnv: "STRIPE_COUPON_INDICACAO_GROWTH",
-      cupomCode: "INDICACAO_GROWTH",
-      name: "Spark Growth",
-    },
-    scale: {
-      monthlyUsd: 250,
-      activationUsd: 199,
-      monthlyPriceEnv: "STRIPE_PRICE_SCALE_MONTHLY",
-      activationPriceEnv: "STRIPE_PRICE_SCALE_ACTIVATION",
-      couponEnv: "STRIPE_COUPON_INDICACAO_SCALE",
-      cupomCode: "INDICACAO_SCALE",
-      name: "Spark Scale",
-    },
+// Carrega config do plano de plan_config (fonte de verdade editável
+// pelo /admin). Retorna o shape usado pelo handler ou null.
+async function loadPlan(tierId) {
+  const { data, error } = await db()
+    .from("plan_config")
+    .select("tier, name, monthly_usd, activation_usd, indicacao_discount_usd, indicacao_duration, indicacao_months, product_id, coupon_id")
+    .eq("tier", tierId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return {
+    name: data.name,
+    monthlyUsd: Number(data.monthly_usd),
+    activationUsd: Number(data.activation_usd),
+    productId: data.product_id,
+    couponId: data.coupon_id,
+    cupomCode: `INDICACAO_${tierId.toUpperCase()}`,
   };
-  return cfg[tierId] || null;
 }
 
 export default async function handler(req, res) {
-  // GET ?action=pubkey → devolve publishable key pro front montar Stripe.js
+  // GET ?action=pubkey → publishable key pro front montar Stripe.js
   if (req.method === "GET" && req.query?.action === "pubkey") {
     const pk = process.env.STRIPE_PUBLISHABLE_KEY;
     if (!pk) {
@@ -68,6 +53,29 @@ export default async function handler(req, res) {
     }
     res.setHeader("Cache-Control", "public, max-age=3600");
     return res.status(200).json({ publishableKey: pk });
+  }
+
+  // GET ?action=plans → config atual dos planos (preços editáveis no /admin)
+  if (req.method === "GET" && req.query?.action === "plans") {
+    res.setHeader("Cache-Control", "public, max-age=30, s-maxage=60");
+    const { data, error } = await db()
+      .from("plan_config")
+      .select("tier, name, monthly_usd, activation_usd, indicacao_discount_usd, indicacao_duration, indicacao_months, sort_order")
+      .order("sort_order", { ascending: true });
+    if (error) return res.status(500).json({ error: "db_error", detail: error.message });
+    const plans = {};
+    for (const p of data || []) {
+      plans[p.tier] = {
+        name: p.name,
+        monthly_usd: Number(p.monthly_usd),
+        activation_usd: Number(p.activation_usd),
+        discount_usd: Number(p.indicacao_discount_usd),
+        discount_duration: p.indicacao_duration,
+        discount_months: p.indicacao_months,
+        cupom: `INDICACAO_${p.tier.toUpperCase()}`,
+      };
+    }
+    return res.status(200).json({ plans });
   }
 
   if (req.method !== "POST") {
@@ -83,8 +91,11 @@ export default async function handler(req, res) {
   }
 
   const tier = String(body.tier || "").toLowerCase();
-  const cfg = tierConfig(tier);
+  const cfg = await loadPlan(tier);
   if (!cfg) return res.status(400).json({ error: "invalid_tier" });
+  if (!cfg.productId) {
+    return res.status(500).json({ error: "plan_missing_product", message: `Plano ${tier} sem product_id configurado` });
+  }
 
   const email = String(body.email || "").trim().toLowerCase();
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
@@ -112,26 +123,15 @@ export default async function handler(req, res) {
         message: `O cupom ${cupomCode} não é válido pra ${cfg.name}. Cupom correto: ${cfg.cupomCode}.`,
       });
     }
-    couponId = process.env[cfg.couponEnv];
+    couponId = cfg.couponId;
     if (!couponId) {
       return res.status(500).json({
-        error: "coupon_env_missing",
-        message: `${cfg.couponEnv} não configurado no servidor`,
+        error: "coupon_not_configured",
+        message: `Cupom do plano ${tier} não configurado`,
       });
     }
     couponApplied = true;
   }
-
-  const monthlyPriceId = process.env[cfg.monthlyPriceEnv];
-  if (!monthlyPriceId) {
-    return res.status(500).json({
-      error: "price_env_missing",
-      message: `${cfg.monthlyPriceEnv} não configurado no servidor`,
-    });
-  }
-  const activationPriceId = cfg.activationPriceEnv
-    ? process.env[cfg.activationPriceEnv]
-    : null;
 
   const stripe = stripeClient();
 
@@ -176,10 +176,18 @@ export default async function handler(req, res) {
     } catch {}
   }
 
-  // 2) Subscription with default_incomplete payment
+  // 2) Subscription com price_data INLINE — cobra o valor atual do
+  //    plan_config (editável no /admin), não um Price fixo do Stripe.
   const subParams = {
     customer: customer.id,
-    items: [{ price: monthlyPriceId }],
+    items: [{
+      price_data: {
+        currency: "usd",
+        product: cfg.productId,
+        unit_amount: Math.round(cfg.monthlyUsd * 100),
+        recurring: { interval: "month" },
+      },
+    }],
     payment_behavior: "default_incomplete",
     payment_settings: {
       save_default_payment_method: "on_subscription",
@@ -196,10 +204,20 @@ export default async function handler(req, res) {
       tier_purchased: tier,
       cupom_code: cupomCode || "",
       activation_paid: cfg.activationUsd > 0 ? "true" : "false",
+      monthly_usd: String(cfg.monthlyUsd),
+      activation_usd: String(cfg.activationUsd),
     },
   };
-  if (activationPriceId) {
-    subParams.add_invoice_items = [{ price: activationPriceId, quantity: 1 }];
+  // Taxa de ativação (one-time) na primeira fatura, via price_data inline
+  if (cfg.activationUsd > 0) {
+    subParams.add_invoice_items = [{
+      price_data: {
+        currency: "usd",
+        product: cfg.productId,
+        unit_amount: Math.round(cfg.activationUsd * 100),
+      },
+      quantity: 1,
+    }];
   }
   if (couponId) {
     subParams.discounts = [{ coupon: couponId }];

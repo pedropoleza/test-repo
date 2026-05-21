@@ -5,29 +5,40 @@
 
 const STRIPE_PUBLISHABLE_KEY = "pk_live_REPLACEME"; // populated at runtime via /api endpoint
 
-const TIERS = {
-  starter: {
-    name: "Spark Starter",
-    monthlyUsd: 79,
-    activationUsd: 0,
-    cupom: "INDICACAO_STARTER",
-    recurringNote: "$79/mês a partir do 4º mês",
-  },
-  growth: {
-    name: "Spark Growth",
-    monthlyUsd: 120,
-    activationUsd: 99,
-    cupom: "INDICACAO_GROWTH",
-    recurringNote: "$120/mês recorrente",
-  },
-  scale: {
-    name: "Spark Scale",
-    monthlyUsd: 250,
-    activationUsd: 199,
-    cupom: "INDICACAO_SCALE",
-    recurringNote: "$250/mês recorrente",
-  },
+// Config dos planos — populada de /api/checkout/intent?action=plans.
+// Fallback hardcoded só pra render inicial caso a API demore/falhe.
+let TIERS = {
+  starter: { name: "Spark Starter", monthlyUsd: 79, activationUsd: 0, discountUsd: 40, discountDuration: "repeating", discountMonths: 3, cupom: "INDICACAO_STARTER" },
+  growth:  { name: "Spark Growth", monthlyUsd: 120, activationUsd: 99, discountUsd: 50, discountDuration: "once", discountMonths: null, cupom: "INDICACAO_GROWTH" },
+  scale:   { name: "Spark Scale", monthlyUsd: 250, activationUsd: 199, discountUsd: 100, discountDuration: "once", discountMonths: null, cupom: "INDICACAO_SCALE" },
 };
+
+async function loadPlans() {
+  try {
+    const r = await fetch("/api/checkout/intent?action=plans");
+    if (!r.ok) return;
+    const { plans } = await r.json();
+    if (!plans) return;
+    for (const tier of Object.keys(plans)) {
+      const p = plans[tier];
+      TIERS[tier] = {
+        name: p.name,
+        monthlyUsd: p.monthly_usd,
+        activationUsd: p.activation_usd,
+        discountUsd: p.discount_usd,
+        discountDuration: p.discount_duration,
+        discountMonths: p.discount_months,
+        cupom: p.cupom,
+      };
+    }
+    // Atualiza os pills com os preços reais
+    document.querySelectorAll(".plan-pill[data-tier]").forEach((pill) => {
+      const t = TIERS[pill.dataset.tier];
+      const priceEl = pill.querySelector(".plan-pill__price");
+      if (t && priceEl) priceEl.innerHTML = `$${t.monthlyUsd}<small>/mês</small>`;
+    });
+  } catch {}
+}
 
 let state = {
   step: 1,
@@ -203,32 +214,19 @@ function renderSummary() {
   }
 
   let discountCents = 0;
-  if (state.couponValid) {
-    if (state.tier === "starter") {
-      discountCents = 4000;
-      lines.push({
-        label: "Cupom INDICACAO_STARTER (×3 meses)",
-        value: `−$40.00`,
-        discount: true,
-      });
-    } else if (state.tier === "growth") {
-      discountCents = 5000;
-      lines.push({
-        label: "Cupom INDICACAO_GROWTH",
-        value: `−$50.00`,
-        discount: true,
-      });
-    } else if (state.tier === "scale") {
-      discountCents = 10000;
-      lines.push({
-        label: "Cupom INDICACAO_SCALE",
-        value: `−$100.00`,
-        discount: true,
-      });
-    }
+  if (state.couponValid && cfg.discountUsd > 0) {
+    discountCents = Math.round(cfg.discountUsd * 100);
+    const durLabel = cfg.discountDuration === "repeating"
+      ? ` (×${cfg.discountMonths || 3} meses)`
+      : "";
+    lines.push({
+      label: `Cupom ${cfg.cupom}${durLabel}`,
+      value: `−$${cfg.discountUsd}.00`,
+      discount: true,
+    });
   }
 
-  const totalCents = (cfg.monthlyUsd + cfg.activationUsd) * 100 - discountCents;
+  const totalCents = Math.round((cfg.monthlyUsd + cfg.activationUsd) * 100) - discountCents;
   $("summary-total").textContent = fmtUsd(totalCents);
   $("summary-lines").innerHTML = lines
     .map(
@@ -239,18 +237,15 @@ function renderSummary() {
     )
     .join("");
 
-  // Recurring note
+  // Nota de recorrência (dinâmica)
   let recurringHtml = "";
-  if (state.tier === "starter") {
-    if (state.couponValid) {
-      recurringHtml = `<strong>Próximos 2 meses:</strong> $39/mês. Depois disso, $79/mês recorrente.`;
-    } else {
-      recurringHtml = `<strong>Recorrência:</strong> $79/mês todos os meses.`;
-    }
-  } else if (state.tier === "growth") {
-    recurringHtml = `<strong>Recorrência:</strong> $120/mês a partir do 2º mês.`;
-  } else if (state.tier === "scale") {
-    recurringHtml = `<strong>Recorrência:</strong> $250/mês a partir do 2º mês.`;
+  const m = cfg.monthlyUsd;
+  if (state.couponValid && cfg.discountDuration === "repeating") {
+    const months = cfg.discountMonths || 3;
+    const discounted = m - cfg.discountUsd;
+    recurringHtml = `<strong>Primeiros ${months} meses:</strong> $${discounted}/mês. Depois, $${m}/mês recorrente.`;
+  } else {
+    recurringHtml = `<strong>Recorrência:</strong> $${m}/mês${cfg.activationUsd > 0 ? " a partir do 2º mês" : ""}.`;
   }
   $("summary-recurring").innerHTML = recurringHtml;
 }
@@ -443,7 +438,7 @@ function setupTilt() {
 /* --------- Boot --------- */
 (async function init() {
   captureRef();
-  await bootStripe();
+  await Promise.all([bootStripe(), loadPlans()]);
   setupPlanSelector();
   setupCouponApply();
   setupForm();

@@ -296,7 +296,7 @@ async function locationDetail(req, res) {
       stats.qualified++;
       if (r.tier_purchased === "starter") mrr += 79;
       else if (r.tier_purchased === "growth") mrr += 120;
-      else if (r.tier_purchased === "scale") mrr += 250;
+      else if (r.tier_purchased === "scale") mrr += 199;
     } else if (r.status === "paid") stats.paid++;
     else if (r.status === "pending") stats.pending++;
     else stats.invalid++;
@@ -336,7 +336,7 @@ async function leaderboard(req, res) {
   const mrr = {};
   for (const r of rows || []) {
     counts[r.indicador_location] = (counts[r.indicador_location] || 0) + 1;
-    const price = r.tier_purchased === "starter" ? 79 : r.tier_purchased === "growth" ? 120 : r.tier_purchased === "scale" ? 250 : 0;
+    const price = r.tier_purchased === "starter" ? 79 : r.tier_purchased === "growth" ? 120 : r.tier_purchased === "scale" ? 199 : 0;
     mrr[r.indicador_location] = (mrr[r.indicador_location] || 0) + price;
   }
 

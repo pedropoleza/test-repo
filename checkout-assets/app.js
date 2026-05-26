@@ -8,9 +8,9 @@ const STRIPE_PUBLISHABLE_KEY = "pk_live_REPLACEME"; // populated at runtime via 
 // Config dos planos — populada de /api/checkout/intent?action=plans.
 // Fallback hardcoded só pra render inicial caso a API demore/falhe.
 let TIERS = {
-  starter: { name: "Spark Starter", monthlyUsd: 79, activationUsd: 0, discountUsd: 40, discountDuration: "repeating", discountMonths: 3, cupom: "INDICACAO_STARTER" },
-  growth:  { name: "Spark Growth", monthlyUsd: 120, activationUsd: 99, discountUsd: 50, discountDuration: "once", discountMonths: null, cupom: "INDICACAO_GROWTH" },
-  scale:   { name: "Spark Scale", monthlyUsd: 250, activationUsd: 199, discountUsd: 100, discountDuration: "once", discountMonths: null, cupom: "INDICACAO_SCALE" },
+  starter: { name: "Spark Starter", monthlyUsd: 79, activationUsd: 0, discountUsd: 20, discountDuration: "repeating", discountMonths: 3, cupom: "INDICACAO_STARTER" },
+  growth:  { name: "Spark Growth", monthlyUsd: 120, activationUsd: 80, discountUsd: 50, discountDuration: "once", discountMonths: null, cupom: "INDICACAO_GROWTH" },
+  scale:   { name: "Spark Scale", monthlyUsd: 199, activationUsd: 100, discountUsd: 50, discountDuration: "once", discountMonths: null, cupom: "INDICACAO_SCALE" },
 };
 
 async function loadPlans() {

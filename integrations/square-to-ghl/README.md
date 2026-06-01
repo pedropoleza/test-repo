@@ -38,10 +38,11 @@ Defina no host do n8n (ex.: `docker-compose.yml`, arquivo `.env`, ou systemd):
 | `SQUARE_SIGNATURE_KEY` | Signature Key da *subscription* de webhook do Square | `wbhk_xxx...` |
 | `SQUARE_NOTIFICATION_URL` | URL **EXATA** registrada no Square (o HMAC depende disso) | `https://n8n.SEUDOMINIO.com/webhook/square-payment` |
 | `SQUARE_ACCESS_TOKEN` | Access Token de produção (enriquecimento via API) | `EAAA...` |
-| `GHL_INBOUND_WEBHOOK_URL` | URL do trigger Inbound Webhook do workflow no GHL | `https://services.leadconnectorhq.com/hooks/.../webhook-trigger/...` |
-| `WHATSAPP_API_URL` | Endpoint HTTP do seu provedor de WhatsApp | _(a definir — ver nota)_ |
-| `WHATSAPP_TOKEN` | Token/credencial do provedor de WhatsApp | _(a definir)_ |
-| `WHATSAPP_TO` | Número de destino das notificações de erro | `+55119...` |
+| `GHL_INBOUND_WEBHOOK_URL` | URL do trigger Inbound Webhook do workflow no GHL | `https://services.leadconnectorhq.com/hooks/qz19EgcgJfyjdVg8krSz/webhook-trigger/NW1kxy9XpPFB88pv9HdN` |
+
+> **Notificação de erro (WhatsApp): adiada.** Conforme combinado, os envios de
+> alerta foram removidos do workflow por enquanto. Quando quiser reativar, me
+> diga o provedor e eu adiciono o nó + as variáveis `WHATSAPP_*`.
 
 Exemplo (docker-compose, serviço n8n):
 
@@ -50,10 +51,7 @@ environment:
   - SQUARE_SIGNATURE_KEY=${SQUARE_SIGNATURE_KEY}
   - SQUARE_NOTIFICATION_URL=https://n8n.SEUDOMINIO.com/webhook/square-payment
   - SQUARE_ACCESS_TOKEN=${SQUARE_ACCESS_TOKEN}
-  - GHL_INBOUND_WEBHOOK_URL=${GHL_INBOUND_WEBHOOK_URL}
-  - WHATSAPP_API_URL=${WHATSAPP_API_URL}
-  - WHATSAPP_TOKEN=${WHATSAPP_TOKEN}
-  - WHATSAPP_TO=${WHATSAPP_TO}
+  - GHL_INBOUND_WEBHOOK_URL=https://services.leadconnectorhq.com/hooks/qz19EgcgJfyjdVg8krSz/webhook-trigger/NW1kxy9XpPFB88pv9HdN
 ```
 
 > Os valores sensíveis devem estar no `.env` (fora do versionamento), não no YAML.
@@ -68,14 +66,12 @@ o WhatsApp e o Postgres (já usa credencial).
 Como combinado, o workflow **não tem URLs/segredos hardcoded** — ele lê das
 variáveis acima. Para entrar no ar você só precisa preencher:
 
-1. `SQUARE_NOTIFICATION_URL` ← seu **URL_PUBLICA_N8N** + `/webhook/square-payment`
-2. `GHL_INBOUND_WEBHOOK_URL` ← URL gerada pelo trigger Inbound Webhook do GHL
-3. `WHATSAPP_API_URL` / `WHATSAPP_TOKEN` / `WHATSAPP_TO` ← seu provedor de WhatsApp
+1. `SQUARE_NOTIFICATION_URL` ← seu **URL_PUBLICA_N8N** + `/webhook/square-payment` _(pendente)_
+2. `GHL_INBOUND_WEBHOOK_URL` ← ✅ **fornecido** (já registrado acima)
 
-> **Sobre o WhatsApp:** sua resposta ("stevo mesmo") não corresponde a um provedor
-> conhecido. Deixei o nó **"Notificar WhatsApp (genérico)"** como um HTTP POST
-> parametrizado. Me diga o provedor real (Meta WhatsApp Cloud API, Twilio,
-> Evolution API, ou outro endpoint HTTP) e eu ajusto o corpo/headers exatos.
+> **Notificação de WhatsApp:** adiada a pedido. Quando quiser reativar, informe o
+> provedor (Meta WhatsApp Cloud API, Twilio, Evolution API, ou outro endpoint
+> HTTP) e eu readiciono o nó de alerta + variáveis `WHATSAPP_*`.
 
 ---
 
@@ -193,8 +189,7 @@ importar). Funcionamento:
 5. **E-mail inexistente no GHL:** simule um pagamento/contato cujo e-mail não esteja
    no GHL. Esperado (política escolhida): **apenas notifica para revisão manual**,
    sem criar contato novo.
-6. Force um erro (ex.: token inválido temporário) e confirme que chega a
-   **notificação de WhatsApp** do branch de erro.
+6. _(Notificação de erro adiada — sem etapa de WhatsApp por enquanto.)_
 
 ---
 
@@ -204,7 +199,7 @@ importar). Funcionamento:
 Webhook (POST /square-payment, Raw Body ON)
   → Responder 200 (imediato)
   → Validar assinatura HMAC
-  → IF assinatura válida?  ── false ─→ Alerta assinatura inválida ─→ Notificar WhatsApp
+  → IF assinatura válida?  ── false ─→ (para)   [TODO: notificação de erro]
        │ true
   → IF type == payment.updated
   → IF status == COMPLETED
@@ -215,6 +210,4 @@ Webhook (POST /square-payment, Raw Body ON)
        │ true                                                                          │
   → Montar JSON limpo  ←───────────────────────────────────────────────────────────┘
   → POST → Inbound Webhook GHL
-
-Error Trigger → Alerta erro de execução → Notificar WhatsApp
 ```

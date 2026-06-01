@@ -67,7 +67,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [-940, 300],
-      "notes": "true -> segue. false -> notifica (assinatura inválida = possível fraude/má configuração) e PARA."
+      "notes": "true -> segue. false -> PARA (assinatura inválida = possível fraude/má configuração). [TODO: notificação de erro adicionada depois.]"
     },
     {
       "parameters": {
@@ -276,65 +276,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1480, 300],
-      "notes": "Envia o JSON limpo ao Inbound Webhook do GHL. URL via variável de ambiente GHL_INBOUND_WEBHOOK_URL. O MATCH por e-mail/telefone e a decisão 'achou? aplica tag : notifica' acontecem DENTRO do workflow do GHL."
-    },
-    {
-      "parameters": {
-        "language": "javaScript",
-        "mode": "runOnceForAllItems",
-        "jsCode": "// Mensagem de alerta para assinatura inválida. NÃO inclui PII/body completo.\nreturn [{ json: { alertMessage: '[Square->GHL] ALERTA: webhook recebido com assinatura HMAC INVÁLIDA. Verifique SQUARE_SIGNATURE_KEY / SQUARE_NOTIFICATION_URL ou possível requisição forjada.' } }];\n"
-      },
-      "id": "11111111-1111-1111-1111-111111111116",
-      "name": "Alerta: assinatura inválida",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [-720, 480],
-      "notes": "Monta a mensagem (sem PII) para o canal de erro."
-    },
-    {
-      "parameters": {},
-      "id": "11111111-1111-1111-1111-111111111117",
-      "name": "Error Trigger",
-      "type": "n8n-nodes-base.errorTrigger",
-      "typeVersion": 1,
-      "position": [-720, 720],
-      "notes": "Dispara em qualquer erro de execução do workflow (ex.: falha no enriquecimento, falha no POST ao GHL)."
-    },
-    {
-      "parameters": {
-        "language": "javaScript",
-        "mode": "runOnceForAllItems",
-        "jsCode": "// Mensagem de alerta para erro de execução. Apenas metadados, sem PII.\nconst e = $json.execution || {};\nconst wf = $json.workflow || {};\nconst msg = (e.error && e.error.message) ? e.error.message : 'erro desconhecido';\nreturn [{ json: { alertMessage: `[Square->GHL] ERRO no workflow \"${wf.name || ''}\" (execução ${e.id || ''}): ${msg}` } }];\n"
-      },
-      "id": "11111111-1111-1111-1111-111111111118",
-      "name": "Alerta: erro de execução",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [-500, 720],
-      "notes": "Monta a mensagem (sem PII) a partir dos metadados do Error Trigger."
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $env.WHATSAPP_API_URL }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}" },
-            { "name": "Content-Type", "value": "application/json" }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ to: $env.WHATSAPP_TO, message: $json.alertMessage }) }}",
-        "options": {}
-      },
-      "id": "11111111-1111-1111-1111-111111111119",
-      "name": "Notificar WhatsApp (genérico)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [-220, 600],
-      "notes": "NÓ GENÉRICO de WhatsApp via HTTP. Parametrizado por WHATSAPP_API_URL, WHATSAPP_TOKEN, WHATSAPP_TO (variáveis de ambiente). Ajuste o corpo conforme o provedor real (Meta Cloud API / Twilio / Evolution / outro)."
+      "notes": "Envia o JSON limpo ao Inbound Webhook do GHL. URL via variável de ambiente GHL_INBOUND_WEBHOOK_URL (valor concreto no README). O MATCH por e-mail/telefone e a decisão 'achou? aplica tag : notifica' acontecem DENTRO do workflow do GHL."
     }
   ],
   "connections": {
@@ -350,7 +292,7 @@
     "IF assinatura válida?": {
       "main": [
         [{ "node": "IF type == payment.updated", "type": "main", "index": 0 }],
-        [{ "node": "Alerta: assinatura inválida", "type": "main", "index": 0 }]
+        []
       ]
     },
     "IF type == payment.updated": {
@@ -385,15 +327,6 @@
     },
     "Montar JSON limpo": {
       "main": [[{ "node": "POST -> Inbound Webhook GHL", "type": "main", "index": 0 }]]
-    },
-    "Alerta: assinatura inválida": {
-      "main": [[{ "node": "Notificar WhatsApp (genérico)", "type": "main", "index": 0 }]]
-    },
-    "Error Trigger": {
-      "main": [[{ "node": "Alerta: erro de execução", "type": "main", "index": 0 }]]
-    },
-    "Alerta: erro de execução": {
-      "main": [[{ "node": "Notificar WhatsApp (genérico)", "type": "main", "index": 0 }]]
     }
   },
   "active": false,
@@ -402,6 +335,6 @@
   },
   "pinData": {},
   "meta": {
-    "description": "Square payment.updated -> validação HMAC -> filtros (COMPLETED, amount>0) -> idempotência (Postgres UNIQUE event_id) -> enriquecimento condicional via Square API -> POST JSON limpo ao Inbound Webhook do GHL. Erros/assinatura inválida -> notificação WhatsApp. Segredos e URLs via variáveis de ambiente."
+    "description": "Square payment.updated -> validação HMAC -> filtros (COMPLETED, amount>0) -> idempotência (Postgres UNIQUE event_id) -> enriquecimento condicional via Square API -> POST JSON limpo ao Inbound Webhook do GHL. Segredos e URLs via variáveis de ambiente. Notificação de erro (WhatsApp) adiada — a ser adicionada depois."
   }
 }

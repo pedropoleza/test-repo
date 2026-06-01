@@ -1,0 +1,220 @@
+# Integração Square → n8n → GoHighLevel (confirmação de pagamento)
+
+Quando um pagamento é **concluído** no Square, o n8n valida, filtra, garante
+idempotência, enriquece (se necessário) e repassa um JSON limpo ao **Inbound
+Webhook** do GHL, que faz o match por e-mail/telefone e aplica a tag
+**"Pagamento concluído - Square"**.
+
+```
+Square (Payment Link) → webhook payment.updated → n8n (self-hosted) → Inbound Webhook GHL
+```
+
+Arquivo do workflow pronto para importar: [`n8n-workflow.json`](./n8n-workflow.json)
+
+---
+
+## ⚠️ AÇÃO DE SEGURANÇA IMEDIATA
+
+No chat desta tarefa foram colados os **segredos de PRODUÇÃO** da aplicação
+Square (Production Application ID e **Production Application secret**). Trate-os
+como **comprometidos** e **rotacione** o *Application secret* no Square Developer
+Dashboard (Credentials → regenerate). Esses valores **não** são usados por esta
+integração e **não** estão neste repositório. O workflow usa apenas:
+
+- **Square Access Token (produção)** — para enriquecimento via Square API.
+- **Square Webhook Signature Key** — para validar o HMAC.
+
+Nenhum dos dois deve ser colado em chat nem hardcoded. Eles entram como
+**variáveis de ambiente / credenciais do n8n** (ver abaixo).
+
+---
+
+## 1) Variáveis de ambiente do n8n
+
+Defina no host do n8n (ex.: `docker-compose.yml`, arquivo `.env`, ou systemd):
+
+| Variável | Descrição | Exemplo |
+|---|---|---|
+| `SQUARE_SIGNATURE_KEY` | Signature Key da *subscription* de webhook do Square | `wbhk_xxx...` |
+| `SQUARE_NOTIFICATION_URL` | URL **EXATA** registrada no Square (o HMAC depende disso) | `https://n8n.SEUDOMINIO.com/webhook/square-payment` |
+| `SQUARE_ACCESS_TOKEN` | Access Token de produção (enriquecimento via API) | `EAAA...` |
+| `GHL_INBOUND_WEBHOOK_URL` | URL do trigger Inbound Webhook do workflow no GHL | `https://services.leadconnectorhq.com/hooks/.../webhook-trigger/...` |
+| `WHATSAPP_API_URL` | Endpoint HTTP do seu provedor de WhatsApp | _(a definir — ver nota)_ |
+| `WHATSAPP_TOKEN` | Token/credencial do provedor de WhatsApp | _(a definir)_ |
+| `WHATSAPP_TO` | Número de destino das notificações de erro | `+55119...` |
+
+Exemplo (docker-compose, serviço n8n):
+
+```yaml
+environment:
+  - SQUARE_SIGNATURE_KEY=${SQUARE_SIGNATURE_KEY}
+  - SQUARE_NOTIFICATION_URL=https://n8n.SEUDOMINIO.com/webhook/square-payment
+  - SQUARE_ACCESS_TOKEN=${SQUARE_ACCESS_TOKEN}
+  - GHL_INBOUND_WEBHOOK_URL=${GHL_INBOUND_WEBHOOK_URL}
+  - WHATSAPP_API_URL=${WHATSAPP_API_URL}
+  - WHATSAPP_TOKEN=${WHATSAPP_TOKEN}
+  - WHATSAPP_TO=${WHATSAPP_TO}
+```
+
+> Os valores sensíveis devem estar no `.env` (fora do versionamento), não no YAML.
+
+**Alternativa mais segura para o Access Token:** em vez de `$env.SQUARE_ACCESS_TOKEN`
+no header, crie uma credencial **Header Auth** no n8n
+(`Authorization: Bearer <token>`) e selecione-a nos nós HTTP do Square. Idem para
+o WhatsApp e o Postgres (já usa credencial).
+
+### ⏳ Valores que ainda preciso de você
+
+Como combinado, o workflow **não tem URLs/segredos hardcoded** — ele lê das
+variáveis acima. Para entrar no ar você só precisa preencher:
+
+1. `SQUARE_NOTIFICATION_URL` ← seu **URL_PUBLICA_N8N** + `/webhook/square-payment`
+2. `GHL_INBOUND_WEBHOOK_URL` ← URL gerada pelo trigger Inbound Webhook do GHL
+3. `WHATSAPP_API_URL` / `WHATSAPP_TOKEN` / `WHATSAPP_TO` ← seu provedor de WhatsApp
+
+> **Sobre o WhatsApp:** sua resposta ("stevo mesmo") não corresponde a um provedor
+> conhecido. Deixei o nó **"Notificar WhatsApp (genérico)"** como um HTTP POST
+> parametrizado. Me diga o provedor real (Meta WhatsApp Cloud API, Twilio,
+> Evolution API, ou outro endpoint HTTP) e eu ajusto o corpo/headers exatos.
+
+---
+
+## 2) Tabela de idempotência (Postgres)
+
+A idempotência é **persistente** (sobrevive a restart) usando uma tabela com
+**UNIQUE em `event_id`**. Rode uma vez no banco do n8n (ou em outro Postgres):
+
+```sql
+CREATE TABLE IF NOT EXISTS square_processed_events (
+  event_id     TEXT PRIMARY KEY,          -- UNIQUE garante a idempotência
+  payment_id   TEXT,
+  processed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+No nó **"Idempotência (INSERT ON CONFLICT)"**, selecione/ajuste a credencial
+Postgres (substitua `REPLACE_WITH_POSTGRES_CREDENTIAL_ID` pela credencial real ao
+importar). Funcionamento:
+
+- Evento novo → `INSERT ... RETURNING` devolve 1 linha → fluxo segue.
+- Reenvio/duplicado → `ON CONFLICT DO NOTHING` → 0 linhas → o nó não emite itens
+  e o fluxo **para naturalmente** (a tag não é reaplicada).
+
+---
+
+## 3) Importar o workflow no n8n
+
+1. n8n → **Workflows** → menu **⋮** → **Import from File** → selecione `n8n-workflow.json`.
+2. Abra o nó **"Idempotência (INSERT ON CONFLICT)"** e selecione a credencial Postgres.
+3. (Opcional) Troque os `$env` do Access Token por uma credencial **Header Auth**.
+4. Confira as variáveis de ambiente (seção 1) e **reinicie** o n8n para carregá-las.
+5. Em **Settings** do workflow, defina este mesmo workflow (ou um dedicado) como
+   **Error Workflow** se quiser que o `Error Trigger` capture erros de outros fluxos
+   também — para erros deste fluxo, o `Error Trigger` interno já funciona.
+6. **Ative** o workflow (toggle no topo).
+
+---
+
+## 4) Passo a passo MANUAL (cliques que VOCÊ executa)
+
+### A. Square Developer Dashboard
+1. Acesse o **Developer Dashboard** → sua aplicação (PRODUÇÃO).
+2. **Webhooks → Subscriptions → Add endpoint**:
+   - **Notification URL** = `https://SEUDOMINIO/webhook/square-payment`
+     (deve ser **idêntica** a `SQUARE_NOTIFICATION_URL`).
+   - **API version** = recente (ex.: `2025-01-23`).
+   - **Events** = marque **apenas** `payment.updated`.
+3. Salve e **copie a Signature Key** → coloque em `SQUARE_SIGNATURE_KEY`.
+4. (Recomendado) Use **"Send test event"** depois de tudo configurado.
+
+### B. GoHighLevel (Location `qz19EgcgJfyjdVg8krSz`)
+1. **Automation → Workflows → Create Workflow** (em branco).
+2. **Add Trigger → Inbound Webhook** → **copie a URL** → coloque em `GHL_INBOUND_WEBHOOK_URL`.
+   - Dica: clique em **"Test"/"Capture"** e dispare um evento do n8n para o GHL
+     aprender o schema (os campos do JSon limpo aparecem para mapear).
+3. **Match do contato:** adicione uma ação de busca/condição usando o campo
+   **`email`** do payload como chave (e **`phone`** como fallback). No GHL, o
+   trigger Inbound Webhook + "If/Else" permite ramificar:
+   - **Contato encontrado** → **Add Tag** = `Pagamento concluído - Square`.
+     - (Opcional) **Remove Tag** de pendência (ex.: `Pagamento pendente`).
+     - (Opcional) **Update Opportunity** → estágio "Pago".
+   - **Contato NÃO encontrado** → **(política escolhida: apenas notificar)** →
+     enviar notificação interna ao time para revisão manual. **Não** criar contato.
+4. Referencie os campos recebidos no GHL como `{{inboundWebhookRequest.email}}`,
+   `{{inboundWebhookRequest.phone}}`, `{{inboundWebhookRequest.payment_id}}`, etc.
+   (o nome exato do token aparece após o "Capture").
+5. **Publique** o workflow.
+
+---
+
+## 5) Schema do JSON limpo enviado ao GHL
+
+```json
+{
+  "event": "square_payment_completed",
+  "payment_status": "COMPLETED",
+  "payment_provider": "Square",
+  "payment_id": "...",
+  "order_id": "...",
+  "amount": "199.00",
+  "currency": "USD",
+  "receipt_url": "...",
+  "email": "...",
+  "phone": "...",
+  "paid_at": "...",
+  "last_square_event_id": "..."
+}
+```
+
+> `amount_money.amount` vem em **centavos** no Square; o workflow divide por 100
+> antes de enviar (`amount`).
+
+---
+
+## 6) Segurança aplicada
+
+- ✅ Access Token e Signature Key como **variáveis de ambiente / credenciais** do n8n (nunca hardcoded).
+- ✅ Validação HMAC-SHA256 com **comparação em tempo constante** (`crypto.timingSafeEqual`).
+- ✅ HMAC sobre o **raw body** (não o JSON parseado) + `notification_url` exata.
+- ✅ **HTTPS obrigatório** (Square e GHL exigem; o domínio do n8n deve ter TLS).
+- ✅ **Não logamos** o body completo com PII; as notificações usam apenas metadados.
+- ✅ **Idempotência persistente** por `event_id` (UNIQUE no Postgres).
+- ✅ **Resposta 2xx imediata** ao Square (nó "Responder 200") antes do processamento.
+
+---
+
+## 7) Plano de teste em produção (com cautela)
+
+1. **Pagamento real de valor mínimo** pelo Payment Link (`https://square.link/u/27jVIA45`).
+2. No n8n, confira a execução: webhook recebido e **assinatura válida** (IF segue pelo `true`).
+3. No GHL, confirme a tag **"Pagamento concluído - Square"** no contato correto (match por e-mail).
+4. **Reenvie o mesmo evento** pelo Square Dashboard (Webhooks → evento → Resend).
+   - Esperado: idempotência detecta `event_id` repetido → **não duplica** a tag.
+5. **E-mail inexistente no GHL:** simule um pagamento/contato cujo e-mail não esteja
+   no GHL. Esperado (política escolhida): **apenas notifica para revisão manual**,
+   sem criar contato novo.
+6. Force um erro (ex.: token inválido temporário) e confirme que chega a
+   **notificação de WhatsApp** do branch de erro.
+
+---
+
+## Resumo do fluxo do workflow
+
+```
+Webhook (POST /square-payment, Raw Body ON)
+  → Responder 200 (imediato)
+  → Validar assinatura HMAC
+  → IF assinatura válida?  ── false ─→ Alerta assinatura inválida ─→ Notificar WhatsApp
+       │ true
+  → IF type == payment.updated
+  → IF status == COMPLETED
+  → IF amount > 0
+  → Idempotência (INSERT ON CONFLICT)   (duplicado ⇒ para)
+  → Normalizar payload
+  → IF e-mail presente? ── false ─→ GET payment → GET customer → Consolidar contato ─┐
+       │ true                                                                          │
+  → Montar JSON limpo  ←───────────────────────────────────────────────────────────┘
+  → POST → Inbound Webhook GHL
+
+Error Trigger → Alerta erro de execução → Notificar WhatsApp
+```

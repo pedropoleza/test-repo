@@ -1,0 +1,407 @@
+{
+  "name": "Square -> GHL | Pagamento concluído (payment.updated)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "square-payment",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "11111111-1111-1111-1111-111111111101",
+      "name": "Webhook Square (POST /square-payment)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1600, 300],
+      "webhookId": "square-payment-webhook",
+      "notes": "Trigger do Square. 'Raw Body' LIGADO: a assinatura HMAC do Square é calculada sobre os BYTES crus do corpo. O corpo cru fica em binary.data (base64). responseMode=responseNode para que o nó 'Responder 200' devolva a resposta imediatamente."
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "11111111-1111-1111-1111-111111111102",
+      "name": "Responder 200 (imediato)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [-1380, 300],
+      "notes": "Devolve HTTP 200 ANTES do processamento pesado para o Square não reenviar o evento. O fluxo continua de forma assíncrona a partir daqui."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// === Validação de assinatura HMAC-SHA256 do Square (tempo constante) ===\n// string_to_sign = notification_url EXATA registrada no Square + RAW body\n// hmac = Base64( HMAC_SHA256(signature_key, string_to_sign) )\n// Compara com o header x-square-hmacsha256-signature.\nconst crypto = require('crypto');\n\nconst item = $input.first();\nconst headers = item.json.headers || {};\n\n// --- 1) Recuperar o RAW body (NUNCA usar o JSON já parseado para o HMAC) ---\n// Com 'Raw Body' ligado no Webhook, o corpo cru vem em binary.data (base64).\nlet rawBody;\nif (item.binary && item.binary.data && item.binary.data.data) {\n  rawBody = Buffer.from(item.binary.data.data, 'base64').toString('utf8');\n} else {\n  // Fallback (pode divergir dos bytes originais — apenas última instância).\n  rawBody = JSON.stringify(item.json.body);\n}\n\n// --- 2) Segredos e URL via variáveis de ambiente (NUNCA hardcoded) ---\nconst signatureKey = $env.SQUARE_SIGNATURE_KEY;\n// URL EXATA registrada no Square Developer Dashboard, ex.:\n// https://n8n.seudominio.com/webhook/square-payment\nconst notificationUrl = $env.SQUARE_NOTIFICATION_URL;\n\nif (!signatureKey || !notificationUrl) {\n  throw new Error('Faltam variáveis de ambiente SQUARE_SIGNATURE_KEY e/ou SQUARE_NOTIFICATION_URL.');\n}\n\n// --- 3) Calcular HMAC e comparar em tempo constante ---\nconst received = headers['x-square-hmacsha256-signature'] || '';\nconst expected = crypto\n  .createHmac('sha256', signatureKey)\n  .update(notificationUrl + rawBody)\n  .digest('base64');\n\nlet valid = false;\ntry {\n  const a = Buffer.from(expected);\n  const b = Buffer.from(received);\n  valid = a.length === b.length && crypto.timingSafeEqual(a, b);\n} catch (e) {\n  valid = false;\n}\n\n// IMPORTANTE: não devolvemos o body completo em log. Passamos adiante para os filtros.\nreturn [{ json: { valid, body: item.json.body } }];\n"
+      },
+      "id": "11111111-1111-1111-1111-111111111103",
+      "name": "Validar assinatura HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1160, 300],
+      "notes": "HMAC-SHA256 sobre (notification_url EXATA + raw body), base64, comparação em tempo constante com x-square-hmacsha256-signature. Segredos vêm de variáveis de ambiente."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-111111111104",
+      "name": "IF assinatura válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-940, 300],
+      "notes": "true -> segue. false -> notifica (assinatura inválida = possível fraude/má configuração) e PARA."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-type",
+              "leftValue": "={{ $json.body.type }}",
+              "rightValue": "payment.updated",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-111111111105",
+      "name": "IF type == payment.updated",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-720, 240],
+      "notes": "Só processa 'payment.updated'. NÃO tratamos 'payment.created' como pago. Outros tipos: PARA silenciosamente."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-status",
+              "leftValue": "={{ $json.body.data.object.payment.status }}",
+              "rightValue": "COMPLETED",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-111111111106",
+      "name": "IF status == COMPLETED",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-500, 240],
+      "notes": "Só prossegue com pagamento COMPLETED. Qualquer outro status: PARA."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-amount",
+              "leftValue": "={{ $json.body.data.object.payment.amount_money.amount }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-111111111107",
+      "name": "IF amount > 0",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-280, 240],
+      "notes": "amount_money.amount vem em CENTAVOS. Exige > 0. Pagamentos de valor zero: PARA."
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO square_processed_events (event_id, payment_id, processed_at)\nVALUES ($1, $2, now())\nON CONFLICT (event_id) DO NOTHING\nRETURNING event_id;",
+        "options": {
+          "queryReplacement": "={{ $json.body.event_id }},={{ $json.body.data.object.payment.id }}"
+        }
+      },
+      "id": "11111111-1111-1111-1111-111111111108",
+      "name": "Idempotência (INSERT ON CONFLICT)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [-60, 240],
+      "notes": "IDEMPOTÊNCIA PERSISTENTE. Tabela com UNIQUE(event_id). INSERT ... ON CONFLICT DO NOTHING RETURNING event_id.\n- Se inseriu (evento novo): retorna 1 linha -> o fluxo continua.\n- Se já existia (duplicado/reenvio): retorna 0 linhas -> n8n não emite itens e o fluxo PARA naturalmente (sem duplicar a tag).\nUse uma credencial Postgres do n8n (a mesma instância de DB serve). DDL no README.",
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_WITH_POSTGRES_CREDENTIAL_ID",
+          "name": "Postgres n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Normaliza o payload para um formato plano usado pelo resto do fluxo.\nconst body = $json.body;\nconst payment = body.data.object.payment;\nreturn [{\n  json: {\n    event_id: body.event_id,\n    payment,\n    email: payment.buyer_email_address || null,\n    phone: null // telefone não vem no objeto payment; será buscado no enriquecimento se necessário\n  }\n}];\n"
+      },
+      "id": "11111111-1111-1111-1111-111111111109",
+      "name": "Normalizar payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [160, 240],
+      "notes": "Achata os dados: event_id, objeto payment, email (se veio no webhook) e phone (null por enquanto)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose", "version": 2 },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "c-email-present",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-111111111110",
+      "name": "IF e-mail já presente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [380, 240],
+      "notes": "true -> vai direto montar o JSON. false -> enriquecimento via Square API (busca payment e, se houver, o customer)."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://connect.squareup.com/v2/payments/{{ $json.payment.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SQUARE_ACCESS_TOKEN }}" },
+            { "name": "Square-Version", "value": "2025-01-23" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-111111111111",
+      "name": "Square API: GET payment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [600, 420],
+      "notes": "Enriquecimento. Authorization: Bearer {{$env.SQUARE_ACCESS_TOKEN}} (variável de ambiente, NUNCA hardcoded). Square-Version recente. Retorna { payment: {...} } com buyer_email_address e customer_id."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://connect.squareup.com/v2/customers/{{ $json.payment.customer_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SQUARE_ACCESS_TOKEN }}" },
+            { "name": "Square-Version", "value": "2025-01-23" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-111111111112",
+      "name": "Square API: GET customer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [820, 420],
+      "onError": "continueRegularOutput",
+      "notes": "Busca o customer vinculado (se houver customer_id) para extrair e-mail/telefone. onError=continue: se não houver customer_id ou a chamada falhar, o fluxo segue e usamos o que tivermos."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Consolida e-mail/telefone a partir do enriquecimento.\n// Ordem de preferência: customer > payment.\nconst norm = $('Normalizar payload').item.json;\nconst pay = $('Square API: GET payment').item.json.payment || norm.payment;\n\nlet customer = null;\ntry { customer = $('Square API: GET customer').item.json.customer || null; } catch (e) { customer = null; }\n\nconst email = (customer && customer.email_address) || pay.buyer_email_address || null;\nconst phone = (customer && customer.phone_number) || null;\n\nreturn [{\n  json: {\n    event_id: norm.event_id,\n    payment: pay,\n    email,\n    phone\n  }\n}];\n"
+      },
+      "id": "11111111-1111-1111-1111-111111111113",
+      "name": "Consolidar contato (enriquecido)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 420],
+      "notes": "Resolve e-mail/telefone definitivos. Converge depois no mesmo nó 'Montar JSON limpo' que a rota sem enriquecimento."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Monta o JSON limpo enviado ao Inbound Webhook do GHL.\nconst src = $json; // { event_id, payment, email, phone }\nconst p = src.payment;\n\n// amount vem em CENTAVOS no Square -> dividir por 100.\nconst amount = (Number(p.amount_money.amount) / 100).toFixed(2);\n\nreturn [{\n  json: {\n    event: 'square_payment_completed',\n    payment_status: 'COMPLETED',\n    payment_provider: 'Square',\n    payment_id: p.id,\n    order_id: p.order_id || null,\n    amount,                                   // ex.: \"199.00\"\n    currency: p.amount_money.currency,\n    receipt_url: p.receipt_url || null,\n    email: src.email,                         // chave de match no GHL\n    phone: src.phone,                         // fallback de match\n    paid_at: p.updated_at || p.created_at,\n    last_square_event_id: src.event_id\n  }\n}];\n"
+      },
+      "id": "11111111-1111-1111-1111-111111111114",
+      "name": "Montar JSON limpo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1260, 300],
+      "notes": "Schema final para o GHL. amount já convertido de centavos para unidade monetária."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GHL_INBOUND_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-111111111115",
+      "name": "POST -> Inbound Webhook GHL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1480, 300],
+      "notes": "Envia o JSON limpo ao Inbound Webhook do GHL. URL via variável de ambiente GHL_INBOUND_WEBHOOK_URL. O MATCH por e-mail/telefone e a decisão 'achou? aplica tag : notifica' acontecem DENTRO do workflow do GHL."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Mensagem de alerta para assinatura inválida. NÃO inclui PII/body completo.\nreturn [{ json: { alertMessage: '[Square->GHL] ALERTA: webhook recebido com assinatura HMAC INVÁLIDA. Verifique SQUARE_SIGNATURE_KEY / SQUARE_NOTIFICATION_URL ou possível requisição forjada.' } }];\n"
+      },
+      "id": "11111111-1111-1111-1111-111111111116",
+      "name": "Alerta: assinatura inválida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-720, 480],
+      "notes": "Monta a mensagem (sem PII) para o canal de erro."
+    },
+    {
+      "parameters": {},
+      "id": "11111111-1111-1111-1111-111111111117",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-720, 720],
+      "notes": "Dispara em qualquer erro de execução do workflow (ex.: falha no enriquecimento, falha no POST ao GHL)."
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Mensagem de alerta para erro de execução. Apenas metadados, sem PII.\nconst e = $json.execution || {};\nconst wf = $json.workflow || {};\nconst msg = (e.error && e.error.message) ? e.error.message : 'erro desconhecido';\nreturn [{ json: { alertMessage: `[Square->GHL] ERRO no workflow \"${wf.name || ''}\" (execução ${e.id || ''}): ${msg}` } }];\n"
+      },
+      "id": "11111111-1111-1111-1111-111111111118",
+      "name": "Alerta: erro de execução",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-500, 720],
+      "notes": "Monta a mensagem (sem PII) a partir dos metadados do Error Trigger."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WHATSAPP_API_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.WHATSAPP_TOKEN }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ to: $env.WHATSAPP_TO, message: $json.alertMessage }) }}",
+        "options": {}
+      },
+      "id": "11111111-1111-1111-1111-111111111119",
+      "name": "Notificar WhatsApp (genérico)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-220, 600],
+      "notes": "NÓ GENÉRICO de WhatsApp via HTTP. Parametrizado por WHATSAPP_API_URL, WHATSAPP_TOKEN, WHATSAPP_TO (variáveis de ambiente). Ajuste o corpo conforme o provedor real (Meta Cloud API / Twilio / Evolution / outro)."
+    }
+  ],
+  "connections": {
+    "Webhook Square (POST /square-payment)": {
+      "main": [[{ "node": "Responder 200 (imediato)", "type": "main", "index": 0 }]]
+    },
+    "Responder 200 (imediato)": {
+      "main": [[{ "node": "Validar assinatura HMAC", "type": "main", "index": 0 }]]
+    },
+    "Validar assinatura HMAC": {
+      "main": [[{ "node": "IF assinatura válida?", "type": "main", "index": 0 }]]
+    },
+    "IF assinatura válida?": {
+      "main": [
+        [{ "node": "IF type == payment.updated", "type": "main", "index": 0 }],
+        [{ "node": "Alerta: assinatura inválida", "type": "main", "index": 0 }]
+      ]
+    },
+    "IF type == payment.updated": {
+      "main": [[{ "node": "IF status == COMPLETED", "type": "main", "index": 0 }], []]
+    },
+    "IF status == COMPLETED": {
+      "main": [[{ "node": "IF amount > 0", "type": "main", "index": 0 }], []]
+    },
+    "IF amount > 0": {
+      "main": [[{ "node": "Idempotência (INSERT ON CONFLICT)", "type": "main", "index": 0 }], []]
+    },
+    "Idempotência (INSERT ON CONFLICT)": {
+      "main": [[{ "node": "Normalizar payload", "type": "main", "index": 0 }]]
+    },
+    "Normalizar payload": {
+      "main": [[{ "node": "IF e-mail já presente?", "type": "main", "index": 0 }]]
+    },
+    "IF e-mail já presente?": {
+      "main": [
+        [{ "node": "Montar JSON limpo", "type": "main", "index": 0 }],
+        [{ "node": "Square API: GET payment", "type": "main", "index": 0 }]
+      ]
+    },
+    "Square API: GET payment": {
+      "main": [[{ "node": "Square API: GET customer", "type": "main", "index": 0 }]]
+    },
+    "Square API: GET customer": {
+      "main": [[{ "node": "Consolidar contato (enriquecido)", "type": "main", "index": 0 }]]
+    },
+    "Consolidar contato (enriquecido)": {
+      "main": [[{ "node": "Montar JSON limpo", "type": "main", "index": 0 }]]
+    },
+    "Montar JSON limpo": {
+      "main": [[{ "node": "POST -> Inbound Webhook GHL", "type": "main", "index": 0 }]]
+    },
+    "Alerta: assinatura inválida": {
+      "main": [[{ "node": "Notificar WhatsApp (genérico)", "type": "main", "index": 0 }]]
+    },
+    "Error Trigger": {
+      "main": [[{ "node": "Alerta: erro de execução", "type": "main", "index": 0 }]]
+    },
+    "Alerta: erro de execução": {
+      "main": [[{ "node": "Notificar WhatsApp (genérico)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "description": "Square payment.updated -> validação HMAC -> filtros (COMPLETED, amount>0) -> idempotência (Postgres UNIQUE event_id) -> enriquecimento condicional via Square API -> POST JSON limpo ao Inbound Webhook do GHL. Erros/assinatura inválida -> notificação WhatsApp. Segredos e URLs via variáveis de ambiente."
+  }
+}

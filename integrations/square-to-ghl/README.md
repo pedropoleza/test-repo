@@ -75,22 +75,34 @@ variáveis acima. Para entrar no ar você só precisa preencher:
 
 ---
 
-## 2) Tabela de idempotência (Postgres)
+## 2) Tabela de idempotência (Supabase Postgres — JÁ CRIADA)
 
 A idempotência é **persistente** (sobrevive a restart) usando uma tabela com
-**UNIQUE em `event_id`**. Rode uma vez no banco do n8n (ou em outro Postgres):
+**PK em `event_id`**. As tabelas já foram criadas no projeto Supabase
+**`spark-referral-hub`** (`mumdhdiliejulkblwhuw`), em um **schema isolado
+`square_ghl`** (não exposto via API, RLS ligado), sem interferir no schema `public`:
+
+- `square_ghl.processed_events` — idempotência (PK `event_id`).
+- `square_ghl.payment_forward_log` — auditoria opcional, **sem PII**.
+
+DDL aplicada (referência):
 
 ```sql
-CREATE TABLE IF NOT EXISTS square_processed_events (
-  event_id     TEXT PRIMARY KEY,          -- UNIQUE garante a idempotência
-  payment_id   TEXT,
-  processed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+create schema if not exists square_ghl;
+
+create table if not exists square_ghl.processed_events (
+  event_id     text primary key,           -- PK garante a idempotência
+  payment_id   text,
+  processed_at timestamptz not null default now()
 );
+alter table square_ghl.processed_events enable row level security;
 ```
 
-No nó **"Idempotência (INSERT ON CONFLICT)"**, selecione/ajuste a credencial
-Postgres (substitua `REPLACE_WITH_POSTGRES_CREDENTIAL_ID` pela credencial real ao
-importar). Funcionamento:
+No nó **"Idempotência (INSERT ON CONFLICT)"**, crie/selecione uma credencial
+**Postgres do n8n apontando para o Supabase** (host do projeto, porta `5432`
+direta ou `6543` pooler, database `postgres`, user/senha do banco) e substitua
+`REPLACE_WITH_POSTGRES_CREDENTIAL_ID`. O nó já insere em
+`square_ghl.processed_events`. Funcionamento:
 
 - Evento novo → `INSERT ... RETURNING` devolve 1 linha → fluxo segue.
 - Reenvio/duplicado → `ON CONFLICT DO NOTHING` → 0 linhas → o nó não emite itens

@@ -141,7 +141,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO square_processed_events (event_id, payment_id, processed_at)\nVALUES ($1, $2, now())\nON CONFLICT (event_id) DO NOTHING\nRETURNING event_id;",
+        "query": "INSERT INTO square_ghl.processed_events (event_id, payment_id, processed_at)\nVALUES ($1, $2, now())\nON CONFLICT (event_id) DO NOTHING\nRETURNING event_id;",
         "options": {
           "queryReplacement": "={{ $json.body.event_id }},={{ $json.body.data.object.payment.id }}"
         }
@@ -151,11 +151,11 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.5,
       "position": [-60, 240],
-      "notes": "IDEMPOTÊNCIA PERSISTENTE. Tabela com UNIQUE(event_id). INSERT ... ON CONFLICT DO NOTHING RETURNING event_id.\n- Se inseriu (evento novo): retorna 1 linha -> o fluxo continua.\n- Se já existia (duplicado/reenvio): retorna 0 linhas -> n8n não emite itens e o fluxo PARA naturalmente (sem duplicar a tag).\nUse uma credencial Postgres do n8n (a mesma instância de DB serve). DDL no README.",
+      "notes": "IDEMPOTÊNCIA PERSISTENTE em square_ghl.processed_events (Supabase, schema isolado, PK em event_id). INSERT ... ON CONFLICT DO NOTHING RETURNING event_id.\n- Se inseriu (evento novo): retorna 1 linha -> o fluxo continua.\n- Se já existia (duplicado/reenvio): retorna 0 linhas -> n8n não emite itens e o fluxo PARA naturalmente (sem duplicar a tag).\nUse uma credencial Postgres do n8n apontando para o Supabase (conexão direta/pooler). Tabela já criada no projeto mumdhdiliejulkblwhuw.",
       "credentials": {
         "postgres": {
           "id": "REPLACE_WITH_POSTGRES_CREDENTIAL_ID",
-          "name": "Postgres n8n"
+          "name": "Supabase Postgres (spark-referral-hub)"
         }
       }
     },

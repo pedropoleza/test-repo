@@ -140,27 +140,6 @@
     },
     {
       "parameters": {
-        "operation": "executeQuery",
-        "query": "INSERT INTO square_ghl.processed_events (event_id, payment_id, processed_at)\nVALUES ($1, $2, now())\nON CONFLICT (event_id) DO NOTHING\nRETURNING event_id;",
-        "options": {
-          "queryReplacement": "={{ $json.body.event_id }},={{ $json.body.data.object.payment.id }}"
-        }
-      },
-      "id": "11111111-1111-1111-1111-111111111108",
-      "name": "Idempotência (INSERT ON CONFLICT)",
-      "type": "n8n-nodes-base.postgres",
-      "typeVersion": 2.5,
-      "position": [-60, 240],
-      "notes": "IDEMPOTÊNCIA PERSISTENTE em square_ghl.processed_events (Supabase, schema isolado, PK em event_id). INSERT ... ON CONFLICT DO NOTHING RETURNING event_id.\n- Se inseriu (evento novo): retorna 1 linha -> o fluxo continua.\n- Se já existia (duplicado/reenvio): retorna 0 linhas -> n8n não emite itens e o fluxo PARA naturalmente (sem duplicar a tag).\nUse uma credencial Postgres do n8n apontando para o Supabase (conexão direta/pooler). Tabela já criada no projeto mumdhdiliejulkblwhuw.",
-      "credentials": {
-        "postgres": {
-          "id": "REPLACE_WITH_POSTGRES_CREDENTIAL_ID",
-          "name": "Supabase Postgres (spark-referral-hub)"
-        }
-      }
-    },
-    {
-      "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
         "jsCode": "// Normaliza o payload para um formato plano usado pelo resto do fluxo.\nconst body = $json.body;\nconst payment = body.data.object.payment;\nreturn [{\n  json: {\n    event_id: body.event_id,\n    payment,\n    email: payment.buyer_email_address || null,\n    phone: null // telefone não vem no objeto payment; será buscado no enriquecimento se necessário\n  }\n}];\n"
@@ -302,10 +281,7 @@
       "main": [[{ "node": "IF amount > 0", "type": "main", "index": 0 }], []]
     },
     "IF amount > 0": {
-      "main": [[{ "node": "Idempotência (INSERT ON CONFLICT)", "type": "main", "index": 0 }], []]
-    },
-    "Idempotência (INSERT ON CONFLICT)": {
-      "main": [[{ "node": "Normalizar payload", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Normalizar payload", "type": "main", "index": 0 }], []]
     },
     "Normalizar payload": {
       "main": [[{ "node": "IF e-mail já presente?", "type": "main", "index": 0 }]]
@@ -335,6 +311,6 @@
   },
   "pinData": {},
   "meta": {
-    "description": "Square payment.updated -> validação HMAC -> filtros (COMPLETED, amount>0) -> idempotência (Postgres UNIQUE event_id) -> enriquecimento condicional via Square API -> POST JSON limpo ao Inbound Webhook do GHL. Segredos e URLs via variáveis de ambiente. Notificação de erro (WhatsApp) adiada — a ser adicionada depois."
+    "description": "Square payment.updated -> validação HMAC -> filtros (COMPLETED, amount>0) -> enriquecimento condicional via Square API -> POST JSON limpo ao Inbound Webhook do GHL. Idempotência delegada ao GHL: Create/Update Contact faz upsert por e-mail/telefone e Add Tag é naturalmente idempotente. Segredos e URLs via variáveis de ambiente. Notificação de erro (WhatsApp) adiada."
   }
 }

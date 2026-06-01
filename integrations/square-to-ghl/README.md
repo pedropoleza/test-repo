@@ -58,8 +58,7 @@ environment:
 
 **Alternativa mais segura para o Access Token:** em vez de `$env.SQUARE_ACCESS_TOKEN`
 no header, crie uma credencial **Header Auth** no n8n
-(`Authorization: Bearer <token>`) e selecione-a nos nós HTTP do Square. Idem para
-o WhatsApp e o Postgres (já usa credencial).
+(`Authorization: Bearer <token>`) e selecione-a nos nós HTTP do Square.
 
 ### ⏳ Valores que ainda preciso de você
 
@@ -75,51 +74,36 @@ variáveis acima. Para entrar no ar você só precisa preencher:
 
 ---
 
-## 2) Tabela de idempotência (Supabase Postgres — JÁ CRIADA)
+## 2) Idempotência — delegada ao GHL (sem banco externo)
 
-A idempotência é **persistente** (sobrevive a restart) usando uma tabela com
-**PK em `event_id`**. As tabelas já foram criadas no projeto Supabase
-**`spark-referral-hub`** (`mumdhdiliejulkblwhuw`), em um **schema isolado
-`square_ghl`** (não exposto via API, RLS ligado), sem interferir no schema `public`:
+**Não há store externa de idempotência.** O n8n não usa mais Supabase/Postgres.
+A deduplicação fica a cargo do próprio GHL, porque para este caso de uso ela é
+natural:
 
-- `square_ghl.processed_events` — idempotência (PK `event_id`).
-- `square_ghl.payment_forward_log` — auditoria opcional, **sem PII**.
+- **Contato:** a action **Create/Update Contact** do GHL faz **upsert por
+  e-mail/telefone** → não cria contato duplicado se já existir.
+- **Tag:** **Add Tag** é idempotente → reaplicar uma tag que já existe é no-op.
 
-DDL aplicada (referência):
+Logo, se o Square reenviar o mesmo `payment.updated`, o estado final no GHL é o
+mesmo (contato atualizado + tag presente).
 
-```sql
-create schema if not exists square_ghl;
-
-create table if not exists square_ghl.processed_events (
-  event_id     text primary key,           -- PK garante a idempotência
-  payment_id   text,
-  processed_at timestamptz not null default now()
-);
-alter table square_ghl.processed_events enable row level security;
-```
-
-No nó **"Idempotência (INSERT ON CONFLICT)"**, crie/selecione uma credencial
-**Postgres do n8n apontando para o Supabase** (host do projeto, porta `5432`
-direta ou `6543` pooler, database `postgres`, user/senha do banco) e substitua
-`REPLACE_WITH_POSTGRES_CREDENTIAL_ID`. O nó já insere em
-`square_ghl.processed_events`. Funcionamento:
-
-- Evento novo → `INSERT ... RETURNING` devolve 1 linha → fluxo segue.
-- Reenvio/duplicado → `ON CONFLICT DO NOTHING` → 0 linhas → o nó não emite itens
-  e o fluxo **para naturalmente** (a tag não é reaplicada).
+> ⚠️ **Atenção a efeitos colaterais não-idempotentes no workflow do GHL.** Se você
+> adicionar ações que **não** são naturais a reprocessar (ex.: *enviar e-mail/SMS
+> de confirmação*, *mover oportunidade de estágio*, *incrementar contador*,
+> *disparar Slack*), um reenvio do Square faria essas ações **duas vezes**. Se
+> esse for o caso, reative uma trava de idempotência (posso readicionar o nó de
+> store por `event_id`/`payment_id` quando quiser).
 
 ---
 
 ## 3) Importar o workflow no n8n
 
-1. n8n → **Workflows** → menu **⋮** → **Import from File** → selecione `n8n-workflow.json`.
-2. Abra o nó **"Idempotência (INSERT ON CONFLICT)"** e selecione a credencial Postgres.
-3. (Opcional) Troque os `$env` do Access Token por uma credencial **Header Auth**.
-4. Confira as variáveis de ambiente (seção 1) e **reinicie** o n8n para carregá-las.
-5. Em **Settings** do workflow, defina este mesmo workflow (ou um dedicado) como
-   **Error Workflow** se quiser que o `Error Trigger` capture erros de outros fluxos
-   também — para erros deste fluxo, o `Error Trigger` interno já funciona.
-6. **Ative** o workflow (toggle no topo).
+1. n8n → **Workflows** → menu **⋮** → **Import from File** → selecione `n8n-workflow.json` (ou cole o JSON com Ctrl+V no editor).
+2. (Opcional) Troque os `$env` do Access Token por uma credencial **Header Auth**.
+3. Confira as variáveis de ambiente (seção 1) e **reinicie** o n8n para carregá-las.
+4. **Ative** o workflow (toggle no topo).
+
+> Não há mais nó de banco/idempotência para configurar — a deduplicação é feita no GHL (seção 2).
 
 ---
 
@@ -140,14 +124,15 @@ direta ou `6543` pooler, database `postgres`, user/senha do banco) e substitua
 2. **Add Trigger → Inbound Webhook** → **copie a URL** → coloque em `GHL_INBOUND_WEBHOOK_URL`.
    - Dica: clique em **"Test"/"Capture"** e dispare um evento do n8n para o GHL
      aprender o schema (os campos do JSon limpo aparecem para mapear).
-3. **Match do contato:** adicione uma ação de busca/condição usando o campo
-   **`email`** do payload como chave (e **`phone`** como fallback). No GHL, o
-   trigger Inbound Webhook + "If/Else" permite ramificar:
-   - **Contato encontrado** → **Add Tag** = `Pagamento concluído - Square`.
+3. **Contato + tag (upsert):** logo após o trigger, adicione a ação
+   **Create/Update Contact** mapeando **`email`** (chave de match) e **`phone`**
+   (fallback) a partir do payload. Essa ação faz **upsert**: se o contato já
+   existe, atualiza; se não existe, cria — sem duplicar.
+   - Em seguida, **Add Tag** = `Pagamento concluído - Square`.
      - (Opcional) **Remove Tag** de pendência (ex.: `Pagamento pendente`).
      - (Opcional) **Update Opportunity** → estágio "Pago".
-   - **Contato NÃO encontrado** → **(política escolhida: apenas notificar)** →
-     enviar notificação interna ao time para revisão manual. **Não** criar contato.
+   > Como Create/Update Contact é upsert e Add Tag é idempotente, não é preciso
+   > tratar "match não encontrado" separadamente nem usar store de idempotência.
 4. Referencie os campos recebidos no GHL como `{{inboundWebhookRequest.email}}`,
    `{{inboundWebhookRequest.phone}}`, `{{inboundWebhookRequest.payment_id}}`, etc.
    (o nome exato do token aparece após o "Capture").
@@ -186,7 +171,7 @@ direta ou `6543` pooler, database `postgres`, user/senha do banco) e substitua
 - ✅ HMAC sobre o **raw body** (não o JSON parseado) + `notification_url` exata.
 - ✅ **HTTPS obrigatório** (Square e GHL exigem; o domínio do n8n deve ter TLS).
 - ✅ **Não logamos** o body completo com PII; as notificações usam apenas metadados.
-- ✅ **Idempotência persistente** por `event_id` (UNIQUE no Postgres).
+- ✅ **Idempotência** delegada ao GHL (upsert de contato + Add Tag idempotente).
 - ✅ **Resposta 2xx imediata** ao Square (nó "Responder 200") antes do processamento.
 
 ---
@@ -197,10 +182,10 @@ direta ou `6543` pooler, database `postgres`, user/senha do banco) e substitua
 2. No n8n, confira a execução: webhook recebido e **assinatura válida** (IF segue pelo `true`).
 3. No GHL, confirme a tag **"Pagamento concluído - Square"** no contato correto (match por e-mail).
 4. **Reenvie o mesmo evento** pelo Square Dashboard (Webhooks → evento → Resend).
-   - Esperado: idempotência detecta `event_id` repetido → **não duplica** a tag.
-5. **E-mail inexistente no GHL:** simule um pagamento/contato cujo e-mail não esteja
-   no GHL. Esperado (política escolhida): **apenas notifica para revisão manual**,
-   sem criar contato novo.
+   - Esperado: o GHL faz upsert do mesmo contato e a tag continua única →
+     **sem duplicar** contato nem tag.
+5. **E-mail inexistente no GHL:** simule um pagamento cujo e-mail não esteja no GHL.
+   Esperado: a action **Create/Update Contact** **cria** o contato e aplica a tag.
 6. _(Notificação de erro adiada — sem etapa de WhatsApp por enquanto.)_
 
 ---
@@ -216,10 +201,9 @@ Webhook (POST /square-payment, Raw Body ON)
   → IF type == payment.updated
   → IF status == COMPLETED
   → IF amount > 0
-  → Idempotência (INSERT ON CONFLICT)   (duplicado ⇒ para)
   → Normalizar payload
   → IF e-mail presente? ── false ─→ GET payment → GET customer → Consolidar contato ─┐
        │ true                                                                          │
   → Montar JSON limpo  ←───────────────────────────────────────────────────────────┘
-  → POST → Inbound Webhook GHL
+  → POST → Inbound Webhook GHL   (GHL: Create/Update Contact [upsert] → Add Tag)
 ```

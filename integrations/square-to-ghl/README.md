@@ -36,7 +36,7 @@ Defina no host do n8n (ex.: `docker-compose.yml`, arquivo `.env`, ou systemd):
 | Variável | Descrição | Exemplo |
 |---|---|---|
 | `SQUARE_SIGNATURE_KEY` | Signature Key da *subscription* de webhook do Square | `wbhk_xxx...` |
-| `SQUARE_NOTIFICATION_URL` | URL **EXATA** registrada no Square (o HMAC depende disso) | `https://n8n.SEUDOMINIO.com/webhook/square-payment` |
+| `SQUARE_NOTIFICATION_URL` | URL **EXATA** registrada no Square (o HMAC depende disso) | `https://n8n.sparkleads.pro/webhook/square-payment` |
 | `SQUARE_ACCESS_TOKEN` | Access Token de produção (enriquecimento via API) | `EAAA...` |
 | `GHL_INBOUND_WEBHOOK_URL` | URL do trigger Inbound Webhook do workflow no GHL | `https://services.leadconnectorhq.com/hooks/qz19EgcgJfyjdVg8krSz/webhook-trigger/NW1kxy9XpPFB88pv9HdN` |
 
@@ -49,7 +49,7 @@ Exemplo (docker-compose, serviço n8n):
 ```yaml
 environment:
   - SQUARE_SIGNATURE_KEY=${SQUARE_SIGNATURE_KEY}
-  - SQUARE_NOTIFICATION_URL=https://n8n.SEUDOMINIO.com/webhook/square-payment
+  - SQUARE_NOTIFICATION_URL=https://n8n.sparkleads.pro/webhook/square-payment
   - SQUARE_ACCESS_TOKEN=${SQUARE_ACCESS_TOKEN}
   - GHL_INBOUND_WEBHOOK_URL=https://services.leadconnectorhq.com/hooks/qz19EgcgJfyjdVg8krSz/webhook-trigger/NW1kxy9XpPFB88pv9HdN
 ```
@@ -65,7 +65,7 @@ no header, crie uma credencial **Header Auth** no n8n
 Como combinado, o workflow **não tem URLs/segredos hardcoded** — ele lê das
 variáveis acima. Para entrar no ar você só precisa preencher:
 
-1. `SQUARE_NOTIFICATION_URL` ← seu **URL_PUBLICA_N8N** + `/webhook/square-payment` _(pendente)_
+1. `SQUARE_NOTIFICATION_URL` ← ✅ **fornecido**: `https://n8n.sparkleads.pro/webhook/square-payment`
 2. `GHL_INBOUND_WEBHOOK_URL` ← ✅ **fornecido** (já registrado acima)
 
 > **Notificação de WhatsApp:** adiada a pedido. Quando quiser reativar, informe o
@@ -112,7 +112,7 @@ mesmo (contato atualizado + tag presente).
 ### A. Square Developer Dashboard
 1. Acesse o **Developer Dashboard** → sua aplicação (PRODUÇÃO).
 2. **Webhooks → Subscriptions → Add endpoint**:
-   - **Notification URL** = `https://SEUDOMINIO/webhook/square-payment`
+   - **Notification URL** = `https://n8n.sparkleads.pro/webhook/square-payment`
      (deve ser **idêntica** a `SQUARE_NOTIFICATION_URL`).
    - **API version** = recente (ex.: `2025-01-23`).
    - **Events** = marque **apenas** `payment.updated`.

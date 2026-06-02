@@ -125,9 +125,10 @@ mesmo (contato atualizado + tag presente).
    - Dica: clique em **"Test"/"Capture"** e dispare um evento do n8n para o GHL
      aprender o schema (os campos do JSon limpo aparecem para mapear).
 3. **Contato + tag (upsert):** logo após o trigger, adicione a ação
-   **Create/Update Contact** mapeando **`email`** (chave de match) e **`phone`**
-   (fallback) a partir do payload. Essa ação faz **upsert**: se o contato já
-   existe, atualiza; se não existe, cria — sem duplicar.
+   **Create/Update Contact** mapeando **`email`** (chave de match), **`phone`**
+   (fallback) e, para contatos novos, **`first_name`** / **`last_name`** a partir
+   do payload. Essa ação faz **upsert**: se o contato já existe, atualiza; se não
+   existe, cria — sem duplicar.
    - Em seguida, **Add Tag** = `Pagamento concluído - Square`.
      - (Opcional) **Remove Tag** de pendência (ex.: `Pagamento pendente`).
      - (Opcional) **Update Opportunity** → estágio "Pago".
@@ -152,8 +153,11 @@ mesmo (contato atualizado + tag presente).
   "amount": "199.00",
   "currency": "USD",
   "receipt_url": "...",
-  "email": "...",
-  "phone": "...",
+  "email": "...",          // chave de match no GHL
+  "phone": "...",          // fallback de match
+  "first_name": "...",     // p/ criar contato novo
+  "last_name": "...",
+  "full_name": "...",
   "paid_at": "...",
   "last_square_event_id": "..."
 }
@@ -161,6 +165,12 @@ mesmo (contato atualizado + tag presente).
 
 > `amount_money.amount` vem em **centavos** no Square; o workflow divide por 100
 > antes de enviar (`amount`).
+>
+> **De onde vêm `email`/`phone`/nome:** o webhook `payment.updated` **não** traz
+> esses dados de forma confiável. O workflow os obtém **enriquecendo via Square
+> API** — `GET /v2/orders/{order_id}` (recipient do fulfillment) e, se houver
+> `customer_id`, `GET /v2/customers/{id}` (e-mail, telefone e nome). Por isso o
+> **Access Token de produção** é necessário.
 
 ---
 
@@ -202,8 +212,9 @@ Webhook (POST /square-payment, Raw Body ON)
   → IF status == COMPLETED
   → IF amount > 0
   → Normalizar payload
-  → IF e-mail presente? ── false ─→ GET payment → GET customer → Consolidar contato ─┐
-       │ true                                                                          │
-  → Montar JSON limpo  ←───────────────────────────────────────────────────────────┘
+  → Square API: GET order  (recipient do fulfillment)
+  → Square API: GET customer  (e-mail/telefone/nome; onError=continue)
+  → Consolidar contato  (email/phone/nome: customer > order recipient > buyer_email)
+  → Montar JSON limpo
   → POST → Inbound Webhook GHL   (GHL: Create/Update Contact [upsert] → Add Tag)
 ```

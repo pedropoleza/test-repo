@@ -153,31 +153,29 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": { "caseSensitive": true, "typeValidation": "loose", "version": 2 },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "c-email-present",
-              "leftValue": "={{ $json.email }}",
-              "rightValue": "",
-              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
-            }
+        "method": "GET",
+        "url": "=https://connect.squareup.com/v2/orders/{{ $json.payment.order_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $env.SQUARE_ACCESS_TOKEN }}" },
+            { "name": "Square-Version", "value": "2025-01-23" }
           ]
         },
         "options": {}
       },
       "id": "11111111-1111-1111-1111-111111111110",
-      "name": "IF e-mail já presente?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [380, 240],
-      "notes": "true -> vai direto montar o JSON. false -> enriquecimento via Square API (busca payment e, se houver, o customer)."
+      "name": "Square API: GET order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [600, 240],
+      "onError": "continueRegularOutput",
+      "notes": "ENRIQUECIMENTO (fonte principal de contato). O webhook payment.updated NÃO traz e-mail/telefone confiáveis. O checkout do Payment Link guarda os dados do comprador no ORDER (fulfillment.recipient) e/ou vincula um customer_id. Buscamos o order pelo order_id do webhook. Authorization via $env (nunca hardcoded). onError=continue para não derrubar o fluxo se o order não for encontrado."
     },
     {
       "parameters": {
         "method": "GET",
-        "url": "=https://connect.squareup.com/v2/payments/{{ $json.payment.id }}",
+        "url": "=https://connect.squareup.com/v2/customers/{{ $json.order.customer_id }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -188,51 +186,31 @@
         "options": {}
       },
       "id": "11111111-1111-1111-1111-111111111111",
-      "name": "Square API: GET payment",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [600, 420],
-      "notes": "Enriquecimento. Authorization: Bearer {{$env.SQUARE_ACCESS_TOKEN}} (variável de ambiente, NUNCA hardcoded). Square-Version recente. Retorna { payment: {...} } com buyer_email_address e customer_id."
-    },
-    {
-      "parameters": {
-        "method": "GET",
-        "url": "=https://connect.squareup.com/v2/customers/{{ $json.payment.customer_id }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            { "name": "Authorization", "value": "=Bearer {{ $env.SQUARE_ACCESS_TOKEN }}" },
-            { "name": "Square-Version", "value": "2025-01-23" }
-          ]
-        },
-        "options": {}
-      },
-      "id": "11111111-1111-1111-1111-111111111112",
       "name": "Square API: GET customer",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [820, 420],
+      "position": [820, 240],
       "onError": "continueRegularOutput",
-      "notes": "Busca o customer vinculado (se houver customer_id) para extrair e-mail/telefone. onError=continue: se não houver customer_id ou a chamada falhar, o fluxo segue e usamos o que tivermos."
+      "notes": "Fallback/complemento: se o order tiver customer_id, busca o Customer para pegar e-mail, telefone e NOME (given_name/family_name). onError=continue: se não houver customer_id (URL .../undefined) ou falhar, o fluxo segue e usamos order recipient / buyer_email_address."
     },
     {
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "// Consolida e-mail/telefone a partir do enriquecimento.\n// Ordem de preferência: customer > payment.\nconst norm = $('Normalizar payload').item.json;\nconst pay = $('Square API: GET payment').item.json.payment || norm.payment;\n\nlet customer = null;\ntry { customer = $('Square API: GET customer').item.json.customer || null; } catch (e) { customer = null; }\n\nconst email = (customer && customer.email_address) || pay.buyer_email_address || null;\nconst phone = (customer && customer.phone_number) || null;\n\nreturn [{\n  json: {\n    event_id: norm.event_id,\n    payment: pay,\n    email,\n    phone\n  }\n}];\n"
+        "jsCode": "// Consolida contato (e-mail/telefone/nome) a partir do enriquecimento.\n// Ordem de preferência: Customer > Order fulfillment recipient > payment.buyer_email_address.\nconst norm = $('Normalizar payload').item.json;\nconst payment = norm.payment;\n\nlet order = {};\ntry { order = $('Square API: GET order').item.json.order || {}; } catch (e) { order = {}; }\n\nlet customer = null;\ntry { customer = $('Square API: GET customer').item.json.customer || null; } catch (e) { customer = null; }\n\n// O recipient pode estar em pickup_details, shipment_details ou delivery_details de qualquer fulfillment.\nlet recipient = null;\nif (Array.isArray(order.fulfillments)) {\n  for (const f of order.fulfillments) {\n    const r = (f.pickup_details && f.pickup_details.recipient)\n           || (f.shipment_details && f.shipment_details.recipient)\n           || (f.delivery_details && f.delivery_details.recipient);\n    if (r) { recipient = r; break; }\n  }\n}\n\nconst email = (customer && customer.email_address)\n           || (recipient && recipient.email_address)\n           || payment.buyer_email_address\n           || null;\nconst phone = (customer && customer.phone_number)\n           || (recipient && recipient.phone_number)\n           || null;\nconst first_name = (customer && customer.given_name) || null;\nconst last_name  = (customer && customer.family_name) || null;\nconst full_name  = [first_name, last_name].filter(Boolean).join(' ')\n           || (recipient && recipient.display_name)\n           || null;\n\nreturn [{ json: { event_id: norm.event_id, payment, email, phone, first_name, last_name, full_name } }];\n"
       },
-      "id": "11111111-1111-1111-1111-111111111113",
-      "name": "Consolidar contato (enriquecido)",
+      "id": "11111111-1111-1111-1111-111111111112",
+      "name": "Consolidar contato",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1040, 420],
-      "notes": "Resolve e-mail/telefone definitivos. Converge depois no mesmo nó 'Montar JSON limpo' que a rota sem enriquecimento."
+      "position": [1040, 240],
+      "notes": "Resolve e-mail/telefone/nome definitivos a partir de Customer + Order recipient + payment. Esses são os dados que o GHL usa para match (e-mail/telefone) e para criar o contato (nome)."
     },
     {
       "parameters": {
         "language": "javaScript",
         "mode": "runOnceForAllItems",
-        "jsCode": "// Monta o JSON limpo enviado ao Inbound Webhook do GHL.\nconst src = $json; // { event_id, payment, email, phone }\nconst p = src.payment;\n\n// amount vem em CENTAVOS no Square -> dividir por 100.\nconst amount = (Number(p.amount_money.amount) / 100).toFixed(2);\n\nreturn [{\n  json: {\n    event: 'square_payment_completed',\n    payment_status: 'COMPLETED',\n    payment_provider: 'Square',\n    payment_id: p.id,\n    order_id: p.order_id || null,\n    amount,                                   // ex.: \"199.00\"\n    currency: p.amount_money.currency,\n    receipt_url: p.receipt_url || null,\n    email: src.email,                         // chave de match no GHL\n    phone: src.phone,                         // fallback de match\n    paid_at: p.updated_at || p.created_at,\n    last_square_event_id: src.event_id\n  }\n}];\n"
+        "jsCode": "// Monta o JSON limpo enviado ao Inbound Webhook do GHL.\nconst src = $json; // { event_id, payment, email, phone, first_name, last_name, full_name }\nconst p = src.payment;\n\n// amount vem em CENTAVOS no Square -> dividir por 100.\nconst amount = (Number(p.amount_money.amount) / 100).toFixed(2);\n\nreturn [{\n  json: {\n    event: 'square_payment_completed',\n    payment_status: 'COMPLETED',\n    payment_provider: 'Square',\n    payment_id: p.id,\n    order_id: p.order_id || null,\n    amount,                                   // ex.: \"199.00\"\n    currency: p.amount_money.currency,\n    receipt_url: p.receipt_url || null,\n    email: src.email,                         // chave de match no GHL\n    phone: src.phone,                         // fallback de match\n    first_name: src.first_name,               // p/ criar contato novo no GHL\n    last_name: src.last_name,\n    full_name: src.full_name,\n    paid_at: p.updated_at || p.created_at,\n    last_square_event_id: src.event_id\n  }\n}];\n"
       },
       "id": "11111111-1111-1111-1111-111111111114",
       "name": "Montar JSON limpo",
@@ -284,21 +262,15 @@
       "main": [[{ "node": "Normalizar payload", "type": "main", "index": 0 }], []]
     },
     "Normalizar payload": {
-      "main": [[{ "node": "IF e-mail já presente?", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Square API: GET order", "type": "main", "index": 0 }]]
     },
-    "IF e-mail já presente?": {
-      "main": [
-        [{ "node": "Montar JSON limpo", "type": "main", "index": 0 }],
-        [{ "node": "Square API: GET payment", "type": "main", "index": 0 }]
-      ]
-    },
-    "Square API: GET payment": {
+    "Square API: GET order": {
       "main": [[{ "node": "Square API: GET customer", "type": "main", "index": 0 }]]
     },
     "Square API: GET customer": {
-      "main": [[{ "node": "Consolidar contato (enriquecido)", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Consolidar contato", "type": "main", "index": 0 }]]
     },
-    "Consolidar contato (enriquecido)": {
+    "Consolidar contato": {
       "main": [[{ "node": "Montar JSON limpo", "type": "main", "index": 0 }]]
     },
     "Montar JSON limpo": {
@@ -311,6 +283,6 @@
   },
   "pinData": {},
   "meta": {
-    "description": "Square payment.updated -> validação HMAC -> filtros (COMPLETED, amount>0) -> enriquecimento condicional via Square API -> POST JSON limpo ao Inbound Webhook do GHL. Idempotência delegada ao GHL: Create/Update Contact faz upsert por e-mail/telefone e Add Tag é naturalmente idempotente. Segredos e URLs via variáveis de ambiente. Notificação de erro (WhatsApp) adiada."
+    "description": "Square payment.updated -> validação HMAC -> filtros (COMPLETED, amount>0) -> enriquecimento via Square API (GET order + GET customer) para obter e-mail/telefone/nome, pois o webhook não os traz -> POST JSON limpo ao Inbound Webhook do GHL. Idempotência delegada ao GHL: Create/Update Contact faz upsert por e-mail/telefone e Add Tag é naturalmente idempotente. Segredos e URLs via variáveis de ambiente. Notificação de erro (WhatsApp) adiada."
   }
 }

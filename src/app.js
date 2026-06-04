@@ -583,36 +583,121 @@ function shareTextFor(code) {
 function setupCheckoutCta() {
   const wrap = $("checkout-cta-tiers");
   if (!wrap) return;
-  const buttons = wrap.querySelectorAll(".tier-btn[data-tier]");
-  if (!buttons.length) return;
+  const cards = wrap.querySelectorAll(".tier-card[data-tier]");
+  if (!cards.length) return;
+
+  const fmtUsd = (n) => `$${Number(n).toFixed(0).replace(/\.?0+$/, "")}`;
 
   const hydrate = () => {
     const tiers = window.__sparkTiers || null;
-    buttons.forEach((btn) => {
-      const tierId = btn.dataset.tier;
-      const url = tiers?.[tierId]?.url || "";
-      btn.disabled = !url;
-      btn.dataset.url = url;
+    cards.forEach((card) => {
+      const tierId = card.dataset.tier;
+      const meta = tiers?.[tierId] || null;
+      const url = meta?.url || "";
+      const cupom = meta?.cupom || null;
+
+      // Preço + ativação
+      if (meta?.monthly_usd) {
+        const priceEl = card.querySelector(".tier-card__price strong");
+        if (priceEl) priceEl.textContent = fmtUsd(meta.monthly_usd);
+      }
+      const actEl = card.querySelector("[data-activation]");
+      if (actEl) {
+        if (meta?.activation_usd > 0) {
+          actEl.textContent = `+ ${fmtUsd(meta.activation_usd)} ativação`;
+          actEl.hidden = false;
+        } else {
+          actEl.hidden = true;
+        }
+      }
+
+      // Linha do desconto que o indicado ganha
+      const discEl = card.querySelector("[data-discount]");
+      if (discEl) {
+        if (meta?.discount?.label) {
+          discEl.textContent = `Indicado ganha ${meta.discount.label}`;
+          discEl.classList.add("is-set");
+        } else {
+          discEl.textContent = "—";
+          discEl.classList.remove("is-set");
+        }
+      }
+
+      // Cupom per-plano (SPARKSTARTEROFF, etc.)
+      const couponWrap = card.querySelector("[data-coupon-wrap]");
+      const couponCodeEl = card.querySelector("[data-coupon-code]");
+      if (couponCodeEl) couponCodeEl.textContent = cupom || "—";
+      if (couponWrap) couponWrap.hidden = !cupom;
+
+      // Botão "Abrir checkout"
+      const openBtn = card.querySelector("[data-open]");
+      if (openBtn) {
+        openBtn.disabled = !url;
+        openBtn.dataset.url = url;
+      }
+      // Botão "Compartilhar"
+      const shareBtn = card.querySelector("[data-share]");
+      if (shareBtn) {
+        shareBtn.disabled = !cupom && !url;
+        shareBtn.dataset.cupom = cupom || "";
+        shareBtn.dataset.url = url;
+        shareBtn.dataset.tierName = meta?.name || tierId;
+      }
+      // Botão "Copiar"
+      const copyBtn = card.querySelector("[data-copy]");
+      if (copyBtn) {
+        copyBtn.disabled = !cupom;
+        copyBtn.dataset.cupom = cupom || "";
+      }
     });
   };
 
-  buttons.forEach((btn) => {
-    btn.addEventListener("click", () => {
+  // Delegated click handlers (uma vez só, mesmo após re-hydrate)
+  wrap.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn || btn.disabled) return;
+
+    if (btn.matches("[data-open]")) {
       const url = btn.dataset.url;
-      if (url) {
-        window.open(url, "_blank", "noopener");
-      } else {
-        console.error("[checkout-cta] tier url missing", {
-          tier: btn.dataset.tier,
-          tiers: window.__sparkTiers,
-        });
-        toast({
-          title: "Link indisponível",
-          sub: "Recarregue a página. Se persistir, contate o suporte.",
-          tone: "warn",
-        });
+      if (!url) return;
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+
+    if (btn.matches("[data-copy]")) {
+      const code = btn.dataset.cupom;
+      if (!code) return;
+      try {
+        await navigator.clipboard.writeText(code);
+        const orig = btn.innerHTML;
+        btn.classList.add("is-copied");
+        btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        setTimeout(() => {
+          btn.classList.remove("is-copied");
+          btn.innerHTML = orig;
+        }, 1400);
+      } catch {
+        toast({ title: "Não foi possível copiar", tone: "warn" });
       }
-    });
+      return;
+    }
+
+    if (btn.matches("[data-share]")) {
+      const code = btn.dataset.cupom;
+      const url = btn.dataset.url;
+      const tierName = btn.dataset.tierName || "Spark";
+      const text = code
+        ? `Cupom *${code}* — desconto no plano ${tierName} (Spark Leads). ${url || ""}`.trim()
+        : `Garante seu plano ${tierName} (Spark Leads): ${url || ""}`.trim();
+      // Web Share API quando disponível (mobile); fallback WhatsApp
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: `Cupom ${tierName}`, text, url });
+          return;
+        } catch {/* user cancelou — segue p/ WhatsApp */}
+      }
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+    }
   });
 
   window.__sparkRehydrateCheckoutCta = hydrate;

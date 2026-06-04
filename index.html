@@ -203,28 +203,66 @@
             </div>
           </div>
           <div class="checkout-cta__tiers" id="checkout-cta-tiers">
-            <button class="tier-btn" data-tier="starter" type="button" disabled>
-              <span class="tier-btn__head">
-                <span class="tier-btn__name">Starter</span>
-                <span class="tier-btn__price">$79<small>/mês</small></span>
-              </span>
-              <span class="tier-btn__cta">Abrir checkout →</span>
-            </button>
-            <button class="tier-btn tier-btn--featured" data-tier="growth" type="button" disabled>
-              <span class="tier-btn__badge">Mais popular</span>
-              <span class="tier-btn__head">
-                <span class="tier-btn__name">Growth</span>
-                <span class="tier-btn__price">$120<small>/mês</small></span>
-              </span>
-              <span class="tier-btn__cta">Abrir checkout →</span>
-            </button>
-            <button class="tier-btn" data-tier="scale" type="button" disabled>
-              <span class="tier-btn__head">
-                <span class="tier-btn__name">Scale</span>
-                <span class="tier-btn__price">$250<small>/mês</small></span>
-              </span>
-              <span class="tier-btn__cta">Abrir checkout →</span>
-            </button>
+            <article class="tier-card" data-tier="starter">
+              <header class="tier-card__head">
+                <span class="tier-card__name">Starter</span>
+                <span class="tier-card__price"><strong>$79</strong><small>/mês</small></span>
+                <span class="tier-card__activation" data-activation hidden></span>
+              </header>
+              <p class="tier-card__discount" data-discount>—</p>
+              <div class="tier-card__coupon" data-coupon-wrap hidden>
+                <span class="tier-card__coupon-label">Cupom</span>
+                <code class="tier-card__coupon-code" data-coupon-code>—</code>
+                <button class="tier-card__copy" type="button" data-copy title="Copiar cupom" aria-label="Copiar cupom">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                </button>
+              </div>
+              <footer class="tier-card__actions">
+                <button class="tier-card__btn tier-card__btn--ghost" type="button" data-share>Compartilhar</button>
+                <button class="tier-card__btn tier-card__btn--primary" type="button" data-open disabled>Abrir checkout →</button>
+              </footer>
+            </article>
+
+            <article class="tier-card tier-card--featured" data-tier="growth">
+              <span class="tier-card__badge">Mais popular</span>
+              <header class="tier-card__head">
+                <span class="tier-card__name">Growth</span>
+                <span class="tier-card__price"><strong>$120</strong><small>/mês</small></span>
+                <span class="tier-card__activation" data-activation hidden></span>
+              </header>
+              <p class="tier-card__discount" data-discount>—</p>
+              <div class="tier-card__coupon" data-coupon-wrap hidden>
+                <span class="tier-card__coupon-label">Cupom</span>
+                <code class="tier-card__coupon-code" data-coupon-code>—</code>
+                <button class="tier-card__copy" type="button" data-copy title="Copiar cupom" aria-label="Copiar cupom">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                </button>
+              </div>
+              <footer class="tier-card__actions">
+                <button class="tier-card__btn tier-card__btn--ghost" type="button" data-share>Compartilhar</button>
+                <button class="tier-card__btn tier-card__btn--primary" type="button" data-open disabled>Abrir checkout →</button>
+              </footer>
+            </article>
+
+            <article class="tier-card" data-tier="scale">
+              <header class="tier-card__head">
+                <span class="tier-card__name">Scale</span>
+                <span class="tier-card__price"><strong>$199</strong><small>/mês</small></span>
+                <span class="tier-card__activation" data-activation hidden></span>
+              </header>
+              <p class="tier-card__discount" data-discount>—</p>
+              <div class="tier-card__coupon" data-coupon-wrap hidden>
+                <span class="tier-card__coupon-label">Cupom</span>
+                <code class="tier-card__coupon-code" data-coupon-code>—</code>
+                <button class="tier-card__copy" type="button" data-copy title="Copiar cupom" aria-label="Copiar cupom">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+                </button>
+              </div>
+              <footer class="tier-card__actions">
+                <button class="tier-card__btn tier-card__btn--ghost" type="button" data-share>Compartilhar</button>
+                <button class="tier-card__btn tier-card__btn--primary" type="button" data-open disabled>Abrir checkout →</button>
+              </footer>
+            </article>
           </div>
         </div>
       </section>

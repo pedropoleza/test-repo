@@ -79,9 +79,18 @@ export default async function handler(req, res) {
     const sep = url.includes("?") ? "&" : "?";
     return `${url}${sep}prefilled_promo_code=${encodeURIComponent(row.coupon_code)}`;
   };
-  // Cupons per-plano (SPARKOFFSTARTER/GROWTH/SCALE) dessa subaccount.
-  // Cada um só funciona no plano do nome e já registra a indicação.
+  // Cupons per-plano dessa subaccount, formato ${BASE}${TIER}OFF.
+  // Cada um só funciona no plano do nome (trava por produto) e já registra
+  // a indicação automaticamente quando usado.
   const planCoupons = row.plan_coupons || {};
+
+  // Preços + descontos vivos vêm de plan_config (editáveis no /admin).
+  const { data: planCfg } = await db()
+    .from("plan_config")
+    .select("tier, name, monthly_usd, activation_usd, indicacao_discount_usd, discount_type, indicacao_duration, indicacao_months, sort_order")
+    .order("sort_order", { ascending: true });
+  const cfgByTier = {};
+  for (const p of planCfg || []) cfgByTier[p.tier] = p;
 
   // URL do checkout próprio Spark (não Stripe-hosted). Cada plano com o
   // cupom per-plano prefilled — usar = registro automático da indicação.
@@ -95,28 +104,49 @@ export default async function handler(req, res) {
     return `${checkoutBase}${sep}${params.toString()}`;
   };
 
+  // Frase humana do desconto. Ex:
+  //   amount/repeating(3)  -> "−$20/mês por 3 meses"
+  //   amount/once          -> "−$50 na 1ª fatura"
+  //   percent/repeating(3) -> "100% off por 3 meses"
+  const describeDiscount = (cfg) => {
+    if (!cfg || !cfg.indicacao_discount_usd) return null;
+    const v = Number(cfg.indicacao_discount_usd);
+    const months = Number(cfg.indicacao_months) || null;
+    const isRepeating = cfg.indicacao_duration === "repeating";
+    if (cfg.discount_type === "percent") {
+      return isRepeating
+        ? `${v}% off por ${months || 3} meses`
+        : `${v}% off na 1ª fatura`;
+    }
+    return isRepeating
+      ? `−$${v}/mês por ${months || 3} meses`
+      : `−$${v} na 1ª fatura`;
+  };
+
+  const tierMeta = (tierId, fallbackName) => {
+    const cfg = cfgByTier[tierId] || {};
+    return {
+      name: cfg.name || fallbackName,
+      monthly_usd: Number(cfg.monthly_usd) || 0,
+      activation_usd: Number(cfg.activation_usd) || 0,
+      price_usd: Number(cfg.monthly_usd) || 0,        // legado, mantém p/ compat
+      cupom: planCoupons[tierId] || null,
+      url: buildCheckoutUrl(tierId),
+      link: buildTierUrl(`STRIPE_LINK_${tierId.toUpperCase()}`),
+      discount: cfg.indicacao_discount_usd != null ? {
+        value: Number(cfg.indicacao_discount_usd),
+        type: cfg.discount_type || "amount",
+        duration: cfg.indicacao_duration || "once",
+        months: cfg.indicacao_months || null,
+        label: describeDiscount(cfg),
+      } : null,
+    };
+  };
+
   const tiers = {
-    starter: {
-      name: "Spark Starter",
-      price_usd: 79,
-      cupom: planCoupons.starter || null,
-      url: buildCheckoutUrl("starter"),
-      link: buildTierUrl("STRIPE_LINK_STARTER"),
-    },
-    growth: {
-      name: "Spark Growth",
-      price_usd: 120,
-      cupom: planCoupons.growth || null,
-      url: buildCheckoutUrl("growth"),
-      link: buildTierUrl("STRIPE_LINK_GROWTH"),
-    },
-    scale: {
-      name: "Spark Scale",
-      price_usd: 250,
-      cupom: planCoupons.scale || null,
-      url: buildCheckoutUrl("scale"),
-      link: buildTierUrl("STRIPE_LINK_SCALE"),
-    },
+    starter: tierMeta("starter", "Spark Starter"),
+    growth:  tierMeta("growth",  "Spark Growth"),
+    scale:   tierMeta("scale",   "Spark Scale"),
   };
 
   return res.status(200).json({

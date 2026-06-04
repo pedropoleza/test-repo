@@ -1041,81 +1041,214 @@ lottie-player { display: block; pointer-events: none; }
   gap: 12px;
   position: relative;
 }
-.tier-btn {
+/* ----- Tier cards (cupom per-plano + ações) ----- */
+.tier-card {
   position: relative;
   background: var(--white);
   border: 1px solid var(--gray-200);
   border-radius: var(--r-md);
   padding: 18px 16px 14px;
-  text-align: left;
-  cursor: pointer;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 10px;
-  transition: all var(--d-fast);
-  font: inherit;
+  gap: 12px;
+  transition: border-color var(--d-fast), transform var(--d-fast), box-shadow var(--d-fast);
   color: var(--gray-900);
-  min-height: 120px;
+  min-height: 220px;
 }
-.tier-btn:hover:not(:disabled) {
+.tier-card:hover {
   border-color: var(--ghl-400);
   transform: translateY(-2px);
   box-shadow: 0 8px 20px -8px rgba(21,94,239,0.20);
 }
-.tier-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.tier-btn__head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.tier-btn__name {
+.tier-card__head { display: flex; flex-direction: column; gap: 4px; }
+.tier-card__name {
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--gray-500);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.tier-btn__price {
-  font-size: 26px;
+.tier-card__price {
+  font-size: 28px;
   font-weight: 800;
   color: var(--gray-900);
   font-variant-numeric: tabular-nums;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
 }
-.tier-btn__price small {
+.tier-card__price strong { font-weight: 800; }
+.tier-card__price small {
   font-size: 12px;
   font-weight: 500;
   color: var(--gray-500);
   margin-left: 2px;
 }
-.tier-btn__cta {
-  font-size: var(--fs-sm);
+.tier-card__activation {
+  font-size: 11px;
   font-weight: 600;
-  color: var(--ghl-600);
+  color: var(--gray-500);
+  background: var(--gray-100);
+  padding: 3px 7px;
+  border-radius: var(--r-pill);
+  align-self: flex-start;
+  margin-top: 2px;
 }
-.tier-btn--featured {
+.tier-card__discount {
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--gray-600);
+  margin: 0;
+  min-height: 34px;
+}
+.tier-card__discount.is-set {
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: var(--r-sm);
+  padding: 6px 8px;
+  font-weight: 600;
+}
+.tier-card__coupon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--ghl-50);
+  border: 1px dashed var(--ghl-300);
+  border-radius: var(--r-sm);
+  min-width: 0;
+}
+.tier-card__coupon-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ghl-700);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tier-card__coupon-code {
+  flex: 1;
+  font-family: "SFMono-Regular", ui-monospace, Menlo, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--gray-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.tier-card__copy {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ghl-300);
+  background: var(--white);
+  color: var(--ghl-700);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--d-fast);
+}
+.tier-card__copy:hover:not(:disabled) { background: var(--ghl-50); border-color: var(--ghl-500); }
+.tier-card__copy.is-copied { background: #ecfdf5; border-color: #10b981; color: #047857; }
+.tier-card__copy:disabled { opacity: 0.4; cursor: not-allowed; }
+.tier-card__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+.tier-card__btn {
+  flex: 1;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--d-fast);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.tier-card__btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.tier-card__btn--ghost {
+  background: var(--white);
+  border-color: var(--gray-300);
+  color: var(--gray-700);
+}
+.tier-card__btn--ghost:hover:not(:disabled) { background: var(--gray-50); border-color: var(--gray-400); }
+.tier-card__btn--primary {
+  background: var(--ghl-500);
+  color: var(--white);
+  border-color: var(--ghl-500);
+  box-shadow: 0 2px 6px -2px rgba(21,94,239,0.4);
+}
+.tier-card__btn--primary:hover:not(:disabled) {
+  background: var(--ghl-600);
+  border-color: var(--ghl-600);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -4px rgba(21,94,239,0.55);
+}
+
+/* Featured (Growth) — gradiente azul + textos branco */
+.tier-card--featured {
   background: linear-gradient(135deg, var(--ghl-500) 0%, var(--ghl-700) 100%);
   border-color: var(--ghl-600);
   color: var(--white);
   box-shadow: 0 10px 22px -8px rgba(21,94,239,0.40);
 }
-.tier-btn--featured:hover:not(:disabled) {
+.tier-card--featured:hover {
   transform: translateY(-3px);
   box-shadow: 0 16px 32px -10px rgba(21,94,239,0.55);
 }
-.tier-btn--featured .tier-btn__name,
-.tier-btn--featured .tier-btn__price,
-.tier-btn--featured .tier-btn__price small,
-.tier-btn--featured .tier-btn__cta {
+.tier-card--featured .tier-card__name,
+.tier-card--featured .tier-card__price,
+.tier-card--featured .tier-card__price strong,
+.tier-card--featured .tier-card__price small { color: var(--white); }
+.tier-card--featured .tier-card__name { opacity: 0.85; }
+.tier-card--featured .tier-card__price small { opacity: 0.75; }
+.tier-card--featured .tier-card__activation {
+  background: rgba(255,255,255,0.18);
   color: var(--white);
 }
-.tier-btn--featured .tier-btn__name { opacity: 0.85; }
-.tier-btn--featured .tier-btn__price small { opacity: 0.7; }
-.tier-btn--featured .tier-btn__cta { opacity: 0.95; }
-.tier-btn__badge {
+.tier-card--featured .tier-card__discount { color: rgba(255,255,255,0.85); }
+.tier-card--featured .tier-card__discount.is-set {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.28);
+  color: #ecfdf5;
+}
+.tier-card--featured .tier-card__coupon {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.3);
+}
+.tier-card--featured .tier-card__coupon-label { color: rgba(255,255,255,0.85); }
+.tier-card--featured .tier-card__coupon-code { color: var(--white); }
+.tier-card--featured .tier-card__copy {
+  background: rgba(255,255,255,0.16);
+  border-color: rgba(255,255,255,0.3);
+  color: var(--white);
+}
+.tier-card--featured .tier-card__copy:hover:not(:disabled) {
+  background: rgba(255,255,255,0.28);
+}
+.tier-card--featured .tier-card__btn--ghost {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.32);
+  color: var(--white);
+}
+.tier-card--featured .tier-card__btn--ghost:hover:not(:disabled) {
+  background: rgba(255,255,255,0.22);
+}
+.tier-card--featured .tier-card__btn--primary {
+  background: var(--white);
+  color: var(--ghl-700);
+  border-color: var(--white);
+}
+.tier-card--featured .tier-card__btn--primary:hover:not(:disabled) {
+  background: #f8fafc;
+}
+.tier-card__badge {
   position: absolute;
   top: -10px;
   left: 50%;

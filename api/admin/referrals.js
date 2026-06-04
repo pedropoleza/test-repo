@@ -527,12 +527,13 @@ async function diagAppliesTo(req, res) {
   catch (err) { return res.status(200).json({ step: "sdk_create", error: err.message, params }); }
   try { sdkRetrieved = await stripe.coupons.retrieve(sdkCreated.id); } catch {}
 
-  // (B) Via fetch direto, form-encoded com bracket notation
+  // (B) Via fetch direto com Stripe-Version explícito.
+  // Também tenta DOIS formatos de form-encoded (com índice e com [])
   const body = new URLSearchParams();
   body.set("percent_off", "1");
   body.set("duration", "once");
   body.set("name", `__diag_applies_to_${tier}_raw__`);
-  body.set("applies_to[products][0]", cfg.product_id);
+  body.append("applies_to[products][]", cfg.product_id);
   body.set("metadata[source]", "spark-referral-hub");
   body.set("metadata[role]", "diag");
   const rawResp = await fetch("https://api.stripe.com/v1/coupons", {
@@ -540,10 +541,36 @@ async function diagAppliesTo(req, res) {
     headers: {
       Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
       "Content-Type": "application/x-www-form-urlencoded",
+      "Stripe-Version": "2024-10-28.acacia",
     },
     body: body.toString(),
   });
   const rawJson = await rawResp.json();
+  // Também recupera com Stripe-Version explícito pra ver se aparece
+  let rawRetrieved = null;
+  if (rawJson?.id) {
+    const rr = await fetch(`https://api.stripe.com/v1/coupons/${rawJson.id}`, {
+      headers: {
+        Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+        "Stripe-Version": "2024-10-28.acacia",
+      },
+    });
+    rawRetrieved = await rr.json();
+  }
+  // Lista as features da Account pra inspecionar Connect/restrições
+  let accountInfo = null;
+  try {
+    const ar = await fetch("https://api.stripe.com/v1/account", {
+      headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` },
+    });
+    const a = await ar.json();
+    accountInfo = {
+      id: a.id, type: a.type, country: a.country,
+      default_currency: a.default_currency,
+      details_submitted: a.details_submitted,
+      controller: a.controller || null,
+    };
+  } catch {}
 
   // Cleanup
   try { await stripe.coupons.del(sdkCreated.id); } catch {}
@@ -561,10 +588,14 @@ async function diagAppliesTo(req, res) {
     },
     raw_form_post: {
       status: rawResp.status,
+      stripe_version_sent: "2024-10-28.acacia",
       id: rawJson?.id,
-      applies_to: rawJson?.applies_to || null,
+      applies_to_create: rawJson?.applies_to || null,
+      applies_to_retrieve: rawRetrieved?.applies_to || null,
+      raw_response_keys: Object.keys(rawJson || {}),
       error: rawJson?.error || null,
     },
+    account: accountInfo,
   });
 }
 

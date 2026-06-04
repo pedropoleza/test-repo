@@ -521,20 +521,50 @@ async function diagAppliesTo(req, res) {
     metadata: { source: "spark-referral-hub", role: "diag" },
   };
 
-  let created, retrieved;
-  try { created = await stripe.coupons.create(params); }
-  catch (err) { return res.status(200).json({ step: "create", error: err.message, params }); }
-  try { retrieved = await stripe.coupons.retrieve(created.id); } catch {}
-  try { await stripe.coupons.del(created.id); } catch {}
+  // (A) Via SDK
+  let sdkCreated, sdkRetrieved;
+  try { sdkCreated = await stripe.coupons.create(params); }
+  catch (err) { return res.status(200).json({ step: "sdk_create", error: err.message, params }); }
+  try { sdkRetrieved = await stripe.coupons.retrieve(sdkCreated.id); } catch {}
+
+  // (B) Via fetch direto, form-encoded com bracket notation
+  const body = new URLSearchParams();
+  body.set("percent_off", "1");
+  body.set("duration", "once");
+  body.set("name", `__diag_applies_to_${tier}_raw__`);
+  body.set("applies_to[products][0]", cfg.product_id);
+  body.set("metadata[source]", "spark-referral-hub");
+  body.set("metadata[role]", "diag");
+  const rawResp = await fetch("https://api.stripe.com/v1/coupons", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+  const rawJson = await rawResp.json();
+
+  // Cleanup
+  try { await stripe.coupons.del(sdkCreated.id); } catch {}
+  if (rawJson?.id) { try { await stripe.coupons.del(rawJson.id); } catch {} }
 
   return res.status(200).json({
     ok: true,
     tier,
     product: { id: product.id, name: product.name, active: product.active },
     sent_params: params,
-    create_response_applies_to: created.applies_to || null,
-    retrieve_response_applies_to: retrieved?.applies_to || null,
-    created_id: created.id,
+    sdk: {
+      created_id: sdkCreated.id,
+      create_response_applies_to: sdkCreated.applies_to || null,
+      retrieve_response_applies_to: sdkRetrieved?.applies_to || null,
+    },
+    raw_form_post: {
+      status: rawResp.status,
+      id: rawJson?.id,
+      applies_to: rawJson?.applies_to || null,
+      error: rawJson?.error || null,
+    },
   });
 }
 

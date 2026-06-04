@@ -163,15 +163,6 @@
           </div>
         </div>
 
-        <div id="empty-state" class="empty-state" hidden>
-          <div class="empty-state__art" id="empty-state-art">🎉</div>
-          <div class="empty-state__title" id="empty-state-title">Você ainda não tem indicações qualificadas</div>
-          <div class="empty-state__sub" id="empty-state-sub">
-            Compartilhe seu cupom para começar. A primeira indicação já libera <strong>$30 de desconto único</strong>.
-          </div>
-          <button class="btn btn--primary" id="empty-share">Compartilhar cupom</button>
-        </div>
-
         <div data-reveal data-reveal-delay="3">
           <div class="card">
             <div class="card__head">
@@ -189,82 +180,6 @@
           <div id="badges" class="achievements-pills"></div>
         </div>
 
-        <!-- ============= Links de checkout (3 tiers) ============= -->
-        <div class="checkout-cta" data-reveal data-reveal-delay="5">
-          <div class="checkout-cta__head">
-            <div class="checkout-cta__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9 11V7a3 3 0 016 0v4"/><rect x="3" y="11" width="18" height="11" rx="2"/></svg>
-            </div>
-            <div>
-              <h3 class="checkout-cta__title">Páginas de checkout</h3>
-              <p class="checkout-cta__sub">
-                Cada link já vem com o cupom desta sub-account pré-preenchido. Compartilhe o tier certo conforme o perfil do indicado.
-              </p>
-            </div>
-          </div>
-          <div class="checkout-cta__tiers" id="checkout-cta-tiers">
-            <article class="tier-card" data-tier="starter">
-              <header class="tier-card__head">
-                <span class="tier-card__name">Starter</span>
-                <span class="tier-card__price"><strong>$79</strong><small>/mês</small></span>
-                <span class="tier-card__activation" data-activation hidden></span>
-              </header>
-              <p class="tier-card__discount" data-discount>—</p>
-              <div class="tier-card__coupon" data-coupon-wrap hidden>
-                <span class="tier-card__coupon-label">Cupom</span>
-                <code class="tier-card__coupon-code" data-coupon-code>—</code>
-                <button class="tier-card__copy" type="button" data-copy title="Copiar cupom" aria-label="Copiar cupom">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-                </button>
-              </div>
-              <footer class="tier-card__actions">
-                <button class="tier-card__btn tier-card__btn--ghost" type="button" data-share>Compartilhar</button>
-                <button class="tier-card__btn tier-card__btn--primary" type="button" data-open disabled>Abrir checkout →</button>
-              </footer>
-            </article>
-
-            <article class="tier-card tier-card--featured" data-tier="growth">
-              <span class="tier-card__badge">Mais popular</span>
-              <header class="tier-card__head">
-                <span class="tier-card__name">Growth</span>
-                <span class="tier-card__price"><strong>$120</strong><small>/mês</small></span>
-                <span class="tier-card__activation" data-activation hidden></span>
-              </header>
-              <p class="tier-card__discount" data-discount>—</p>
-              <div class="tier-card__coupon" data-coupon-wrap hidden>
-                <span class="tier-card__coupon-label">Cupom</span>
-                <code class="tier-card__coupon-code" data-coupon-code>—</code>
-                <button class="tier-card__copy" type="button" data-copy title="Copiar cupom" aria-label="Copiar cupom">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-                </button>
-              </div>
-              <footer class="tier-card__actions">
-                <button class="tier-card__btn tier-card__btn--ghost" type="button" data-share>Compartilhar</button>
-                <button class="tier-card__btn tier-card__btn--primary" type="button" data-open disabled>Abrir checkout →</button>
-              </footer>
-            </article>
-
-            <article class="tier-card" data-tier="scale">
-              <header class="tier-card__head">
-                <span class="tier-card__name">Scale</span>
-                <span class="tier-card__price"><strong>$199</strong><small>/mês</small></span>
-                <span class="tier-card__activation" data-activation hidden></span>
-              </header>
-              <p class="tier-card__discount" data-discount>—</p>
-              <div class="tier-card__coupon" data-coupon-wrap hidden>
-                <span class="tier-card__coupon-label">Cupom</span>
-                <code class="tier-card__coupon-code" data-coupon-code>—</code>
-                <button class="tier-card__copy" type="button" data-copy title="Copiar cupom" aria-label="Copiar cupom">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-                </button>
-              </div>
-              <footer class="tier-card__actions">
-                <button class="tier-card__btn tier-card__btn--ghost" type="button" data-share>Compartilhar</button>
-                <button class="tier-card__btn tier-card__btn--primary" type="button" data-open disabled>Abrir checkout →</button>
-              </footer>
-            </article>
-          </div>
-        </div>
       </section>
 
       <!-- ============= Histórico ============= -->

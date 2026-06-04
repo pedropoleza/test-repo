@@ -99,12 +99,20 @@ export default async function handler(req, res) {
         try { c = await stripeClient().coupons.retrieve(couponId); } catch {}
       }
 
-      // Trava por produto: se o coupon restringe applies_to.products e
-      // estamos validando contra um tier específico, confere o product_id.
-      const restrictProducts = c.applies_to?.products || null;
-      if (tier && restrictProducts?.length) {
-        const cfg = await loadPlan(tier);
-        if (cfg?.productId && !restrictProducts.includes(cfg.productId)) {
+      // Trava por plano: a) se o coupon restringe applies_to.products
+      // (Stripe-side, quando suportado); b) fallback que SEMPRE funciona:
+      // metadata.tier (no promo code ou no coupon). Os cupons per-plano
+      // carregam metadata.tier e SPARK*OFF só vale no plano do nome.
+      if (tier) {
+        const restrictProducts = c.applies_to?.products || null;
+        let wrongPlan = false;
+        if (restrictProducts?.length) {
+          const cfg = await loadPlan(tier);
+          if (cfg?.productId && !restrictProducts.includes(cfg.productId)) wrongPlan = true;
+        }
+        const metaTier = (pc.metadata?.tier || c.metadata?.tier || "").toLowerCase();
+        if (metaTier && metaTier !== tier) wrongPlan = true;
+        if (wrongPlan) {
           return res.status(200).json({
             valid: false,
             wrong_plan: true,
@@ -180,14 +188,21 @@ export default async function handler(req, res) {
           message: `Cupom ${cupomCode} inválido ou inativo.`,
         });
       }
-      // Trava por produto antes de criar a subscription (mensagem limpa).
+      // Trava por plano antes de criar a subscription:
+      //  a) applies_to.products (Stripe-side, quando suportado)
+      //  b) metadata.tier (fallback robusto — sempre setado nos cupons
+      //     gerados pelo nosso fluxo)
       const couponId = typeof pc.coupon === "string" ? pc.coupon : pc.coupon?.id;
       let couponFull = pc.coupon || {};
       if (couponId) {
         try { couponFull = await stripeClient().coupons.retrieve(couponId); } catch {}
       }
       const restrictProducts = couponFull.applies_to?.products || null;
-      if (restrictProducts?.length && !restrictProducts.includes(cfg.productId)) {
+      const metaTier = (pc.metadata?.tier || couponFull.metadata?.tier || "").toLowerCase();
+      const wrongPlan =
+        (restrictProducts?.length && !restrictProducts.includes(cfg.productId)) ||
+        (metaTier && metaTier !== tier);
+      if (wrongPlan) {
         return res.status(400).json({
           error: "coupon_wrong_plan",
           message: `O cupom ${cupomCode} não é válido para o plano ${cfg.name}.`,

@@ -72,6 +72,7 @@ export default async function handler(req, res) {
       case "pending":          return pendingQueue(req, res);
       case "plans":            return getPlans(req, res);
       case "diag_coupon":      return diagCoupon(req, res);
+      case "diag_applies_to":  return diagAppliesTo(req, res);
       default:                 return listReferrals(req, res);
     }
   }
@@ -494,6 +495,47 @@ async function diagCoupon(req, res) {
   } catch (err) {
     return res.status(404).json({ error: "stripe_error", message: err.message });
   }
+}
+
+/* ============ Diagnóstico applies_to ============
+ * Cria um coupon temporário com applies_to=product do tier (lido do
+ * plan_config), retrieve-a, e DELETA. Retorna o que foi enviado e o que
+ * Stripe devolveu — pra isolar se applies_to está sendo aplicado.
+ */
+async function diagAppliesTo(req, res) {
+  const tier = String(req.query?.tier || "starter").toLowerCase();
+  const stripe = stripeClient();
+  const { data: cfg } = await db().from("plan_config").select("*").eq("tier", tier).maybeSingle();
+  if (!cfg?.product_id) return res.status(400).json({ error: "no_product_id", tier });
+
+  // 1) Confirma que o produto existe
+  let product;
+  try { product = await stripe.products.retrieve(cfg.product_id); }
+  catch (err) { return res.status(200).json({ step: "retrieve_product", error: err.message, product_id: cfg.product_id }); }
+
+  const params = {
+    percent_off: 1,
+    duration: "once",
+    name: `__diag_applies_to_${tier}__`,
+    applies_to: { products: [cfg.product_id] },
+    metadata: { source: "spark-referral-hub", role: "diag" },
+  };
+
+  let created, retrieved;
+  try { created = await stripe.coupons.create(params); }
+  catch (err) { return res.status(200).json({ step: "create", error: err.message, params }); }
+  try { retrieved = await stripe.coupons.retrieve(created.id); } catch {}
+  try { await stripe.coupons.del(created.id); } catch {}
+
+  return res.status(200).json({
+    ok: true,
+    tier,
+    product: { id: product.id, name: product.name, active: product.active },
+    sent_params: params,
+    create_response_applies_to: created.applies_to || null,
+    retrieve_response_applies_to: retrieved?.applies_to || null,
+    created_id: created.id,
+  });
 }
 
 async function getPlans(_req, res) {

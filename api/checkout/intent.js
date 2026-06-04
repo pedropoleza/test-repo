@@ -91,7 +91,13 @@ export default async function handler(req, res) {
       const list = await stripeClient().promotionCodes.list({ code, active: true, limit: 1 });
       const pc = list.data?.[0];
       if (!pc) return res.status(200).json({ valid: false });
-      const c = pc.coupon || {};
+      // promotionCodes.list nem sempre traz applies_to inline — retrieve
+      // explícito garante o objeto completo do coupon.
+      const couponId = typeof pc.coupon === "string" ? pc.coupon : pc.coupon?.id;
+      let c = pc.coupon || {};
+      if (couponId) {
+        try { c = await stripeClient().coupons.retrieve(couponId); } catch {}
+      }
 
       // Trava por produto: se o coupon restringe applies_to.products e
       // estamos validando contra um tier específico, confere o product_id.
@@ -175,7 +181,12 @@ export default async function handler(req, res) {
         });
       }
       // Trava por produto antes de criar a subscription (mensagem limpa).
-      const restrictProducts = pc.coupon?.applies_to?.products || null;
+      const couponId = typeof pc.coupon === "string" ? pc.coupon : pc.coupon?.id;
+      let couponFull = pc.coupon || {};
+      if (couponId) {
+        try { couponFull = await stripeClient().coupons.retrieve(couponId); } catch {}
+      }
+      const restrictProducts = couponFull.applies_to?.products || null;
       if (restrictProducts?.length && !restrictProducts.includes(cfg.productId)) {
         return res.status(400).json({
           error: "coupon_wrong_plan",

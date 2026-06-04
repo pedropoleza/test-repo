@@ -71,6 +71,7 @@ export default async function handler(req, res) {
       case "cupons":           return cuponsList(req, res);
       case "pending":          return pendingQueue(req, res);
       case "plans":            return getPlans(req, res);
+      case "diag_coupon":      return diagCoupon(req, res);
       default:                 return listReferrals(req, res);
     }
   }
@@ -471,6 +472,30 @@ async function pendingQueue(_req, res) {
 }
 
 /* ============ PLANS — get + update (preços editáveis) ============ */
+/* ============ Diagnóstico: inspeciona um Stripe Coupon por ID ============ */
+async function diagCoupon(req, res) {
+  const id = String(req.query?.id || "").trim();
+  if (!id) return res.status(400).json({ error: "missing_id" });
+  try {
+    const c = await stripeClient().coupons.retrieve(id);
+    return res.status(200).json({
+      ok: true,
+      id: c.id,
+      name: c.name,
+      amount_off: c.amount_off,
+      percent_off: c.percent_off,
+      currency: c.currency,
+      duration: c.duration,
+      duration_in_months: c.duration_in_months,
+      valid: c.valid,
+      applies_to: c.applies_to || null,
+      metadata: c.metadata || {},
+    });
+  } catch (err) {
+    return res.status(404).json({ error: "stripe_error", message: err.message });
+  }
+}
+
 async function getPlans(_req, res) {
   const { data, error } = await db()
     .from("plan_config")

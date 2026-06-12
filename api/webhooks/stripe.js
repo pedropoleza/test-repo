@@ -30,6 +30,11 @@ export default async function handler(req, res) {
       ready_for_signature_validation: !!process.env.STRIPE_WEBHOOK_SECRET,
     });
   }
+  // Roteia GHL Workflow → /api/webhooks/stripe?source=ghl
+  if (req.method === "POST" && req.query?.source === "ghl") {
+    return handleGhlOrder(req, res);
+  }
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "GET, POST");
     return res.status(405).json({ error: "method_not_allowed" });
@@ -340,3 +345,137 @@ async function onSubscriptionDeleted(event) {
   }
   return { indicadorLocations: (data || []).map((r) => r.indicador_location).filter(Boolean) };
 }
+
+
+/* =============================================================
+   GHL Workflow Webhook — POST /api/webhooks/stripe?source=ghl
+
+   O Workflow GHL dispara um POST quando um pedido pago usa um cupom.
+   Esperado no body (campos flexíveis — aceita os nomes mais comuns):
+
+     {
+       "coupon_code"   : "VIVIANOSORIOSACSB9STARTER",  (req)
+       "tier"          : "starter" | "growth" | "scale"  (opcional, se ausente
+                          deduzimos do sufixo do code)
+       "contact": { "email":"...", "name":"...", "phone":"...", "company":"..." }
+       "payment": { "amount": 79, "currency":"usd", "order_id":"..." }
+     }
+
+   Segurança: validamos via header X-Spark-Webhook-Token (= env
+   GHL_WORKFLOW_TOKEN). Configure o mesmo token no Workflow GHL.
+   ============================================================= */
+
+import { audit as auditLog } from "../../lib/server/audit.js";
+
+async function handleGhlOrder(req, res) {
+  // 1) Auth
+  const expected = process.env.GHL_WORKFLOW_TOKEN;
+  const got = req.headers["x-spark-webhook-token"];
+  if (!expected || got !== expected) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+
+  // 2) Parse body
+  let body;
+  try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {}; }
+  catch {
+    try {
+      const raw = await readRawBody(req);
+      body = JSON.parse(raw.toString("utf8"));
+    } catch { return res.status(400).json({ error: "invalid_json" }); }
+  }
+
+  const code = String(body.coupon_code || body.code || body.cupom || "").toUpperCase().trim();
+  if (!code) return res.status(400).json({ error: "missing_coupon_code" });
+
+  // 3) Dedup pelo orderId / code+email — idempotência via webhook_events
+  const orderId = String(body.order_id || body.payment?.order_id || body.payment?.id || code).slice(0, 80);
+  const evId = `ghl:${orderId}`;
+  try {
+    await db().from("webhook_events").insert({
+      event_id: evId,
+      source: "ghl",
+      event_type: "order.paid",
+      payload: body,
+      signature_valid: true,
+    });
+  } catch (err) {
+    if (err?.code === "23505" || /duplicate/i.test(err?.message || "")) {
+      return res.status(200).json({ duplicate: true });
+    }
+    console.error("[ghl-webhook] insert error:", err);
+    return res.status(500).json({ error: "db_error" });
+  }
+
+  // 4) Look up installation that owns this coupon
+  const { data: inst, error: lookupErr } = await db()
+    .from("installations")
+    .select("location_id, location_name, ghl_coupons")
+    .or(`ghl_coupons->starter->>code.eq.${code},ghl_coupons->growth->>code.eq.${code},ghl_coupons->scale->>code.eq.${code}`)
+    .maybeSingle();
+  if (lookupErr) {
+    console.error("[ghl-webhook] lookup error:", lookupErr);
+    return res.status(500).json({ error: "db_error" });
+  }
+  if (!inst) {
+    console.info("[ghl-webhook] no installation matches code", code);
+    return res.status(200).json({ ok: true, matched: false, code });
+  }
+
+  // Deduz tier a partir do mapa armazenado
+  const ghl = inst.ghl_coupons || {};
+  let tier = String(body.tier || "").toLowerCase();
+  if (!["starter","growth","scale"].includes(tier)) {
+    if (ghl.starter?.code === code) tier = "starter";
+    else if (ghl.growth?.code === code) tier = "growth";
+    else if (ghl.scale?.code === code) tier = "scale";
+    else tier = null;
+  }
+
+  // 5) Cria referral status=paid (auto-registro)
+  const contact = body.contact || {};
+  const email = String(contact.email || body.email || "").trim().toLowerCase();
+  const name = String(contact.name || body.name || email || "").slice(0, 200);
+  if (!email) {
+    return res.status(400).json({ error: "missing_email" });
+  }
+
+  const insert = {
+    indicador_location: inst.location_id,
+    indicado_email: email,
+    indicado_name: name,
+    tier_purchased: tier,
+    cupom_code: code,
+    activation_paid: !!body.activation_paid || (body.payment?.activation_usd > 0),
+    status: "paid",
+    first_payment_at: new Date().toISOString(),
+    stripe_customer_id: body.stripe_customer_id || null,
+    stripe_subscription_id: body.stripe_subscription_id || body.order_id || null,
+    coupon_used: code,
+  };
+
+  const { error: insErr } = await db().from("referrals").insert(insert);
+  if (insErr && !(insErr.code === "23505" || /duplicate/i.test(insErr.message || ""))) {
+    console.error("[ghl-webhook] referral insert failed:", insErr.message);
+    return res.status(500).json({ error: "referral_insert_failed" });
+  }
+
+  await auditLog({
+    eventType: "ghl.referral_auto_created",
+    actor: "ghl-webhook",
+    resourceType: "referral",
+    summary: `${name} (${email}) usou ${code} → indicado por ${inst.location_name || inst.location_id} (${tier || "?"})`,
+    data: { code, tier, indicador: inst.location_id, orderId },
+  });
+
+  // mark webhook processed
+  try {
+    await db().from("webhook_events").update({ processed: true, processed_at: new Date().toISOString() }).eq("source","ghl").eq("event_id", evId);
+  } catch {}
+
+  // Recompute (best-effort)
+  try { await recomputeTier(inst.location_id, { reason: "ghl_coupon_used" }); } catch {}
+
+  return res.status(200).json({ ok: true, matched: true, indicador: inst.location_id, tier, code });
+}
+

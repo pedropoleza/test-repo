@@ -25,6 +25,7 @@ import { db } from "../../lib/server/db.js";
 import { recomputeTier } from "../../lib/server/tier-discount.js";
 import { ensureInstallation } from "../../lib/server/provision.js";
 import { stripeClient, ensureLocationPlanCoupons } from "../../lib/server/stripe-coupon.js";
+import { listAllGhlCoupons, parseCouponName, normalizeName } from "../../lib/server/ghl.js";
 import { log } from "../../lib/server/log.js";
 import { audit } from "../../lib/server/audit.js";
 import { levels as TIERS } from "../../src/config/tiers.js";
@@ -81,6 +82,7 @@ export default async function handler(req, res) {
     if (action === "bulk_sync")      return bulkSync(req, res);
     if (action === "update_plan")    return updatePlan(req, res);
     if (action === "backfill_plan_coupons") return backfillPlanCoupons(req, res);
+    if (action === "sync_ghl_coupons")      return syncGhlCoupons(req, res);
     return createReferral(req, res);
   }
   if (req.method === "PATCH")  return updateReferral(req, res);
@@ -799,6 +801,106 @@ async function backfillPlanCoupons(req, res) {
   });
 
   return res.status(200).json({ ok: true, processed, created, failed, remaining: remaining ?? null, done: (remaining ?? 0) === 0 });
+}
+
+/* ============ SYNC cupons da GHL master ============
+ * Puxa todos os cupons da subaccount MASTER, casa por nome com cada
+ * installation, e persiste em installations.ghl_coupons.
+ *
+ * POST ?action=sync_ghl_coupons   body: {} (opcional: { dry: true })
+ *
+ * Idempotente — pode rodar várias vezes. Bem rápido (~8 requests à GHL +
+ * 1 update por installation com match novo).
+ */
+async function syncGhlCoupons(req, res) {
+  let body;
+  try { body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {}; }
+  catch { body = {}; }
+  const dry = !!body.dry;
+
+  // 1) Pull all coupons
+  let coupons;
+  try {
+    coupons = await listAllGhlCoupons();
+  } catch (err) {
+    return res.status(502).json({ error: "ghl_list_failed", message: err.message });
+  }
+
+  // 2) Pull all installations (id, name)
+  const { data: installs, error: instErr } = await db()
+    .from("installations").select("location_id, location_name, ghl_coupons");
+  if (instErr) return res.status(500).json({ error: "db_error", detail: instErr.message });
+
+  // 3) Build normalized name → location_id index
+  const nameToLoc = new Map();
+  for (const r of installs || []) {
+    const n = normalizeName(r.location_name);
+    if (n) nameToLoc.set(n, r);
+  }
+
+  // 4) Walk coupons, build per-location { starter, growth, scale }
+  // Se houver mais de um cupom ativo pro mesmo (location, tier), pega o
+  // mais recente (createdAt maior).
+  const matches = new Map(); // location_id → { starter, growth, scale }
+  let parsedCount = 0, matchedCount = 0, skippedCount = 0;
+  for (const c of coupons) {
+    if (c.status && c.status !== "active") { skippedCount++; continue; }
+    const parsed = parseCouponName(c.name);
+    if (!parsed) { skippedCount++; continue; }
+    parsedCount++;
+    const n = normalizeName(parsed.locationName);
+    const inst = nameToLoc.get(n);
+    if (!inst) { skippedCount++; continue; }
+    matchedCount++;
+    const cur = matches.get(inst.location_id) || {};
+    const prev = cur[parsed.tier];
+    const entry = { code: c.code, id: c._id, discountType: c.discountType, discountValue: c.discountValue };
+    if (!prev || new Date(c.createdAt || 0) > new Date(prev.createdAt || 0)) {
+      entry.createdAt = c.createdAt;
+      cur[parsed.tier] = entry;
+      matches.set(inst.location_id, cur);
+    }
+  }
+
+  // 5) Persist (only if changed)
+  let updated = 0, unchanged = 0;
+  const sample = [];
+  for (const [locId, ghlCoupons] of matches) {
+    const inst = installs.find((r) => r.location_id === locId);
+    const cur = JSON.stringify(inst?.ghl_coupons || null);
+    const next = JSON.stringify(ghlCoupons);
+    if (cur === next) { unchanged++; continue; }
+    if (sample.length < 5) sample.push({ location_id: locId, ghl_coupons: ghlCoupons });
+    if (dry) continue;
+    const { error: upErr } = await db()
+      .from("installations").update({ ghl_coupons: ghlCoupons }).eq("location_id", locId);
+    if (upErr) {
+      log.warn("sync_ghl_coupons.update_failed", { locId, error: upErr.message });
+      continue;
+    }
+    updated++;
+  }
+
+  await audit({
+    eventType: "admin.sync_ghl_coupons",
+    actor: "admin",
+    resourceType: "installations",
+    summary: `GHL coupons: ${coupons.length} pulled, ${parsedCount} parsed, ${matchedCount} matched, ${updated} updated`,
+    data: { total: coupons.length, parsed: parsedCount, matched: matchedCount, skipped: skippedCount, updated, unchanged, dry },
+  });
+
+  return res.status(200).json({
+    ok: true,
+    dry,
+    coupons_total: coupons.length,
+    parsed: parsedCount,
+    matched: matchedCount,
+    skipped: skippedCount,
+    locations_updated: updated,
+    locations_unchanged: unchanged,
+    locations_matched: matches.size,
+    sample,
+  });
 }
 
 /* ============ CREATE referral ============ */

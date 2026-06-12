@@ -39,7 +39,7 @@ export default async function handler(req, res) {
   let row;
   const { data, error } = await db()
     .from("installations")
-    .select("coupon_code, location_name, plan_coupons")
+    .select("coupon_code, location_name, plan_coupons, ghl_coupons")
     .eq("location_id", locationId)
     .maybeSingle();
   if (error) {
@@ -84,6 +84,11 @@ export default async function handler(req, res) {
   // a indicação automaticamente quando usado.
   const planCoupons = row.plan_coupons || {};
 
+  // Cupons GHL (master subaccount) atrelados a essa location, casados por
+  // nome durante /api/admin/referrals?action=sync_ghl_coupons.
+  // Formato: { starter:{code,id,discountType,discountValue}, growth:..., scale:... }
+  const ghlCoupons = row.ghl_coupons || {};
+
   // Preços + descontos vivos vêm de plan_config (editáveis no /admin).
   const { data: planCfg } = await db()
     .from("plan_config")
@@ -125,12 +130,15 @@ export default async function handler(req, res) {
 
   const tierMeta = (tierId, fallbackName) => {
     const cfg = cfgByTier[tierId] || {};
+    const ghl = ghlCoupons[tierId] || null;
     return {
       name: cfg.name || fallbackName,
       monthly_usd: Number(cfg.monthly_usd) || 0,
       activation_usd: Number(cfg.activation_usd) || 0,
       price_usd: Number(cfg.monthly_usd) || 0,        // legado, mantém p/ compat
-      cupom: planCoupons[tierId] || null,
+      cupom: ghl?.code || planCoupons[tierId] || null,    // GHL > Stripe fallback
+      cupom_source: ghl?.code ? "ghl" : (planCoupons[tierId] ? "stripe" : null),
+      ghl_cupom: ghl?.code || null,
       url: buildCheckoutUrl(tierId),
       link: buildTierUrl(`STRIPE_LINK_${tierId.toUpperCase()}`),
       discount: cfg.indicacao_discount_usd != null ? {
@@ -154,6 +162,7 @@ export default async function handler(req, res) {
     locationName: row.location_name,
     couponCode: row.coupon_code,
     planCoupons,
+    ghlCoupons,
     shareUrl,
     tiers,
   });

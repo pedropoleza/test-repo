@@ -619,6 +619,63 @@ lottie-player { display: block; pointer-events: none; }
 
 /* ========== Coupon block ========== */
 
+/* Cupons por plano (chips compactos no coupon-card) */
+.plan-codes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--ghl-200);
+}
+.plan-codes__row {
+  display: grid;
+  grid-template-columns: 64px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+}
+.plan-codes__name {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ghl-700);
+}
+.plan-codes__code {
+  font-family: "SFMono-Regular", ui-monospace, Menlo, monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--gray-900);
+  background: var(--ghl-50);
+  border: 1px dashed var(--ghl-300);
+  border-radius: var(--r-sm);
+  padding: 5px 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.02em;
+}
+.plan-codes__copy {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--ghl-300);
+  background: var(--white);
+  color: var(--ghl-700);
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: all var(--d-fast);
+}
+.plan-codes__copy:hover:not(:disabled) { background: var(--ghl-50); border-color: var(--ghl-500); }
+.plan-codes__copy:disabled { opacity: 0.4; cursor: not-allowed; }
+.plan-codes__copy.is-copied { background: #ecfdf5; border-color: #10b981; color: #047857; }
+@media (min-width: 640px) {
+  .plan-codes { grid-template-columns: 1fr 1fr 1fr; }
+  .plan-codes__row { grid-template-columns: 1fr; gap: 4px; }
+  .plan-codes__row > .plan-codes__name { font-size: 10px; }
+}
+
 .coupon-card {
   display: grid;
   grid-template-columns: 1fr auto;

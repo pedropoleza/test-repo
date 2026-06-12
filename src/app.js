@@ -525,8 +525,53 @@ async function applyLocationAndCoupon() {
     window.__sparkRehydrateCheckoutCta();
   }
 
+  // Chips de cupons por plano (Starter/Growth/Scale) — preferência GHL
+  hydratePlanCodes();
+
   return { loc, code };
 }
+
+/* Popula os 3 chips do coupon-card com os codes per-plano.
+ * Fonte: window.__sparkTiers[tier].cupom (já vem do /api/cupom — GHL > Stripe). */
+function hydratePlanCodes() {
+  const wrap = $("plan-codes");
+  if (!wrap) return;
+  const tiers = window.__sparkTiers || {};
+  const codes = {
+    starter: tiers.starter?.cupom || null,
+    growth:  tiers.growth?.cupom  || null,
+    scale:   tiers.scale?.cupom   || null,
+  };
+  if (!codes.starter && !codes.growth && !codes.scale) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  for (const tier of ["starter","growth","scale"]) {
+    const row = wrap.querySelector(`[data-tier="${tier}"]`);
+    if (!row) continue;
+    const code = codes[tier];
+    const codeEl = row.querySelector("[data-code]");
+    const copyBtn = row.querySelector("[data-copy]");
+    if (codeEl) codeEl.textContent = code || "—";
+    if (copyBtn) {
+      copyBtn.disabled = !code;
+      copyBtn.dataset.code = code || "";
+    }
+  }
+}
+
+// Delegated click pra copiar codes per-plano
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest?.(".plan-codes__copy[data-copy]");
+  if (!btn || btn.disabled) return;
+  const code = btn.dataset.code;
+  if (!code) return;
+  try {
+    await navigator.clipboard.writeText(code);
+    btn.classList.add("is-copied");
+    const orig = btn.innerHTML;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    setTimeout(() => { btn.classList.remove("is-copied"); btn.innerHTML = orig; }, 1300);
+  } catch { /* noop */ }
+});
 
 async function copyCode(code, btn, label) {
   try {

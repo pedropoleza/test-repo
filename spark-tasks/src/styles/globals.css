@@ -213,14 +213,6 @@ select {
   cursor: grabbing;
   user-select: none;
 }
-/* When the bulk-action bar is floating, keep clearance so it never covers the
-   last cards or column footers. */
-.shell.selection-active .board {
-  padding-bottom: 82px;
-}
-.shell.selection-active .list-wrap {
-  padding-bottom: 82px;
-}
 
 .column {
   display: flex;
@@ -1267,24 +1259,27 @@ select {
   opacity: 1;
 }
 
+/* In-flow selection strip under the filters (not viewport-fixed, so it's
+   never cut at the bottom of a tall GHL iframe). */
 .bulkbar {
-  position: fixed;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  z-index: 60;
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
+  flex-shrink: 0;
+  z-index: 30;
   background: #101828;
   color: #fff;
-  border-radius: 12px;
-  padding: 10px 14px;
-  box-shadow: var(--shadow-lg);
-  animation: slide-up 0.16s ease-out;
-  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  box-shadow: var(--shadow-md);
+  animation: slide-down 0.16s ease-out;
+}
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 .bulkbar .count {
   font-weight: 700;

@@ -478,6 +478,15 @@ export function Board() {
         </button>
       </header>
 
+      {selected.size > 0 && (
+        <BulkBar
+          selected={selected}
+          users={users.data ?? []}
+          stages={stages}
+          onClear={() => setSelected(new Set())}
+        />
+      )}
+
       {taskList.isLoading || !activeBoardId ? (
         <div className="board">
           {[0, 1, 2, 3].map((s) => (
@@ -570,15 +579,6 @@ export function Board() {
           onToggleSelect={toggleSelect}
           onToggleSelectAll={toggleSelectAll}
           onRowClick={(task) => setModal({ mode: "edit", task })}
-        />
-      )}
-
-      {selected.size > 0 && (
-        <BulkBar
-          selected={selected}
-          users={users.data ?? []}
-          stages={stages}
-          onClear={() => setSelected(new Set())}
         />
       )}
 

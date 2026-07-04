@@ -92,6 +92,7 @@ select {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  flex-shrink: 0;
   padding: 12px 20px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -197,12 +198,21 @@ select {
    -------------------------------------------------------------------------- */
 .board {
   flex: 1;
+  min-height: 0;
   display: flex;
   gap: 14px;
   padding: 16px 20px 20px;
   overflow-x: auto;
   overflow-y: hidden;
   align-items: stretch;
+}
+/* When the bulk-action bar is floating, keep clearance so it never covers the
+   last cards or column footers. */
+.shell.selection-active .board {
+  padding-bottom: 82px;
+}
+.shell.selection-active .list-wrap {
+  padding-bottom: 82px;
 }
 
 .column {
@@ -861,6 +871,7 @@ select {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
   padding: 10px 20px 0;
   background: var(--surface);
   border-bottom: 1px solid var(--border);

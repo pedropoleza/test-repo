@@ -317,6 +317,24 @@ export function Board() {
         <button className="tab tab-add" onClick={() => setNewPipeline(true)}>
           + New pipeline
         </button>
+        {activeBoard && (boardsQ.data?.length ?? 0) > 1 && (
+          <button
+            className="tab"
+            style={{ color: "var(--danger-text)", fontSize: 14 }}
+            title={`Delete the "${activeBoard.name}" pipeline`}
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Delete the "${activeBoard.name}" pipeline and ALL its tasks?`,
+                )
+              ) {
+                deleteBoard.mutate({ id: activeBoard.id });
+              }
+            }}
+          >
+            🗑 Delete pipeline
+          </button>
+        )}
 
         <div className="tabs-right">
           <Notifications usersById={usersById} onOpenTask={openTaskById} />
@@ -528,26 +546,6 @@ export function Board() {
           stages={stages}
           onClear={() => setSelected(new Set())}
         />
-      )}
-
-      {activeBoard && (boardsQ.data?.length ?? 0) > 1 && (
-        <div style={{ position: "fixed", bottom: 12, left: 16, zIndex: 40 }}>
-          <button
-            className="btn btn-ghost"
-            style={{ color: "var(--danger-text)", fontSize: 12.5 }}
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Delete the "${activeBoard.name}" pipeline and ALL its tasks?`,
-                )
-              ) {
-                deleteBoard.mutate({ id: activeBoard.id });
-              }
-            }}
-          >
-            Delete pipeline
-          </button>
-        </div>
       )}
 
       {newPipeline && (

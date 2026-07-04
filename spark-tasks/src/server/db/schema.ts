@@ -20,6 +20,7 @@ import {
   timestamp,
   index,
   primaryKey,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const sparkTasks = pgSchema("spark_tasks");
@@ -39,12 +40,37 @@ export const TASK_COLORS = [
 ] as const;
 export type TaskColor = (typeof TASK_COLORS)[number];
 
+export const TASK_PRIORITIES = [
+  "none",
+  "low",
+  "medium",
+  "high",
+  "urgent",
+] as const;
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+/** Lightweight embedded checklist — low-contention, saved wholesale. */
+export type ChecklistItem = { id: string; text: string; done: boolean };
+
+/** Card rendering style: color strip only, or soft-filled background. */
+export const CARD_STYLES = ["strip", "filled"] as const;
+export type CardStyle = (typeof CARD_STYLES)[number];
+
+/** Per-board display overrides for the fixed status columns. */
+export type ColumnConfig = Partial<
+  Record<TaskStatus, { label?: string; color?: TaskColor }>
+>;
+
 export const boards = sparkTasks.table(
   "boards",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     locationId: text("location_id").notNull(),
     name: text("name").notNull().default("Tarefas"),
+    columnConfig: jsonb("column_config")
+      .notNull()
+      .default(sql`'{}'::jsonb`)
+      .$type<ColumnConfig>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -68,6 +94,15 @@ export const tasks = sparkTasks.table(
     contactId: text("contact_id"),
     position: integer("position").notNull().default(0),
     createdBy: text("created_by").notNull(),
+    priority: text("priority").notNull().default("none").$type<TaskPriority>(),
+    cardStyle: text("card_style").notNull().default("strip").$type<CardStyle>(),
+    labels: jsonb("labels").notNull().default(sql`'[]'::jsonb`).$type<string[]>(),
+    checklist: jsonb("checklist")
+      .notNull()
+      .default(sql`'[]'::jsonb`)
+      .$type<ChecklistItem[]>(),
+    /** Soft delete: archived tasks are hidden from the board by default. */
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
     /** Set once the D7 contact write-back succeeded — the idempotency flag. */
     completedWritebackAt: timestamp("completed_writeback_at", {
       withTimezone: true,
@@ -103,6 +138,26 @@ export const taskAssignees = sparkTasks.table(
     primaryKey({ columns: [t.taskId, t.userId] }),
     index("task_assignees_location_idx").on(t.locationId),
     index("task_assignees_user_idx").on(t.userId),
+  ],
+);
+
+export const taskComments = sparkTasks.table(
+  "task_comments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id, { onDelete: "cascade" }),
+    locationId: text("location_id").notNull(),
+    authorId: text("author_id").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("task_comments_task_idx").on(t.taskId, t.createdAt),
+    index("task_comments_location_idx").on(t.locationId),
   ],
 );
 

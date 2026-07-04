@@ -1,14 +1,31 @@
 "use client";
 
 /**
- * Create/edit modal: title, note, color (fixed palette), status, due date,
- * assignees (Stage 3) and optional GHL contact link (Stage 4, D1 — a task
- * with no contact is fully valid).
+ * Task modal — wide two-column layout (ClickUp-style): content on the left
+ * (title, note, checklist, comments), properties on the right (status,
+ * priority, due, color, assignees, labels, contact, actions). Fits without
+ * scrolling the dialog on desktop; stacks on narrow iframes.
  */
 import { useEffect, useMemo, useState } from "react";
 import { api } from "~/trpc/react";
-import type { TaskColor, TaskStatus } from "~/server/db/schema";
-import { COLORS, COLOR_HEX, STATUSES, STATUS_META, avatarColor, initials } from "./palette";
+import type {
+  CardStyle,
+  ChecklistItem,
+  TaskColor,
+  TaskPriority,
+  TaskStatus,
+} from "~/server/db/schema";
+import {
+  COLORS,
+  COLOR_HEX,
+  PRIORITIES,
+  PRIORITY_META,
+  STATUSES,
+  STATUS_META,
+  avatarColor,
+  initials,
+  type StatusDisplay,
+} from "./palette";
 import type { Task } from "./TaskCard";
 
 type GhlUser = { id: string; name: string; email?: string };
@@ -22,12 +39,18 @@ export function TaskModal({
   users,
   usersError,
   locationId,
+  currentUserId,
+  boardId,
+  statusMeta,
   onClose,
 }: {
   state: ModalState;
   users: GhlUser[];
   usersError: boolean;
   locationId: string | undefined;
+  currentUserId: string | undefined;
+  boardId: string | undefined;
+  statusMeta: Record<TaskStatus, StatusDisplay>;
   onClose: () => void;
 }) {
   const utils = api.useUtils();
@@ -36,14 +59,27 @@ export function TaskModal({
   const [title, setTitle] = useState(editing?.title ?? "");
   const [note, setNote] = useState(editing?.note ?? "");
   const [color, setColor] = useState<TaskColor>(
-    editing?.color ?? STATUS_META[state.mode === "create" ? state.status : "todo"].defaultColor,
+    editing?.color ??
+      STATUS_META[state.mode === "create" ? state.status : "todo"].defaultColor,
   );
   const [status, setStatus] = useState<TaskStatus>(
     editing?.status ?? (state.mode === "create" ? state.status : "todo"),
   );
+  const [priority, setPriority] = useState<TaskPriority>(
+    editing?.priority ?? "none",
+  );
+  const [cardStyle, setCardStyle] = useState<CardStyle>(
+    editing?.cardStyle ?? "strip",
+  );
   const [due, setDue] = useState(
     editing?.dueDate ? toDateInput(editing.dueDate) : "",
   );
+  const [labels, setLabels] = useState<string[]>(editing?.labels ?? []);
+  const [labelDraft, setLabelDraft] = useState("");
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(
+    editing?.checklist ?? [],
+  );
+  const [checkDraft, setCheckDraft] = useState("");
   const [assignees, setAssignees] = useState<Set<string>>(
     new Set(editing?.assigneeIds ?? []),
   );
@@ -52,6 +88,15 @@ export function TaskModal({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Esc closes.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   // Resolve the linked contact's display name when editing.
   const linkedContact = api.ghl.contactGet.useQuery(
@@ -72,10 +117,29 @@ export function TaskModal({
     { enabled: debouncedQuery.trim().length >= 2, staleTime: 60_000, retry: 1 },
   );
 
+  // Comments (edit mode only).
+  const comments = api.task.comments.list.useQuery(
+    { taskId: editing?.id ?? "" },
+    { enabled: !!editing, refetchInterval: 25_000 },
+  );
+  const [commentDraft, setCommentDraft] = useState("");
+  const addComment = api.task.comments.add.useMutation({
+    onSuccess: () => {
+      setCommentDraft("");
+      void comments.refetch();
+    },
+  });
+  const removeComment = api.task.comments.remove.useMutation({
+    onSuccess: () => void comments.refetch(),
+  });
+
   const create = api.task.create.useMutation();
   const update = api.task.update.useMutation();
   const move = api.task.move.useMutation();
   const assign = api.task.assign.useMutation();
+  const duplicate = api.task.duplicate.useMutation();
+  const setArchived = api.task.setArchived.useMutation();
+  const deleteTask = api.task.delete.useMutation();
 
   async function save() {
     if (!title.trim() || saving) return;
@@ -85,13 +149,20 @@ export function TaskModal({
     try {
       if (state.mode === "create") {
         const created = await create.mutateAsync({
+          boardId,
           title: title.trim(),
           note: note.trim() || null,
           status,
           color,
+          cardStyle,
+          priority,
+          labels,
           dueDate,
           contactId: contact?.id ?? null,
         });
+        if (checklist.length) {
+          await update.mutateAsync({ id: created.id, checklist });
+        }
         if (assignees.size) {
           await assign.mutateAsync({ id: created.id, add: [...assignees] });
         }
@@ -102,6 +173,10 @@ export function TaskModal({
           title: title.trim(),
           note: note.trim() || null,
           color,
+          cardStyle,
+          priority,
+          labels,
+          checklist,
           dueDate,
           contactId: contact?.id ?? null,
         });
@@ -122,13 +197,60 @@ export function TaskModal({
     }
   }
 
+  async function runAction(action: "duplicate" | "archive" | "restore" | "delete") {
+    if (!editing || saving) return;
+    if (
+      action === "delete" &&
+      !window.confirm("Excluir esta tarefa definitivamente? Essa ação não pode ser desfeita.")
+    ) {
+      return;
+    }
+    setSaving(true);
+    try {
+      if (action === "duplicate") await duplicate.mutateAsync({ id: editing.id });
+      if (action === "archive")
+        await setArchived.mutateAsync({ id: editing.id, archived: true });
+      if (action === "restore")
+        await setArchived.mutateAsync({ id: editing.id, archived: false });
+      if (action === "delete") await deleteTask.mutateAsync({ id: editing.id });
+      await utils.task.list.invalidate();
+      onClose();
+    } catch {
+      setError("Ação falhou. Tente novamente.");
+      setSaving(false);
+    }
+  }
+
+  function addLabel() {
+    const l = labelDraft.trim();
+    if (l && !labels.includes(l) && labels.length < 10) {
+      setLabels([...labels, l]);
+    }
+    setLabelDraft("");
+  }
+
+  function addCheckItem() {
+    const text = checkDraft.trim();
+    if (text && checklist.length < 50) {
+      setChecklist([
+        ...checklist,
+        { id: `c${Date.now()}${checklist.length}`, text, done: false },
+      ]);
+    }
+    setCheckDraft("");
+  }
+
   const sortedUsers = useMemo(
     () => [...users].sort((a, b) => a.name.localeCompare(b.name)),
     [users],
   );
+  const checkDone = checklist.filter((c) => c.done).length;
 
   return (
-    <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="modal-overlay"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="modal" role="dialog" aria-modal="true">
         <div className="modal-header">
           <h2>{state.mode === "create" ? "Nova tarefa" : "Editar tarefa"}</h2>
@@ -137,21 +259,165 @@ export function TaskModal({
           </button>
         </div>
 
-        <div className="modal-body">
-          <div className="field">
-            <label>Título</label>
-            <input
-              className="input"
-              autoFocus={state.mode === "create"}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="O que precisa ser feito?"
-              maxLength={500}
-            />
+        <div className="modal-columns">
+          {/* ---------- Main content ---------- */}
+          <div className="modal-main">
+            <div className="field">
+              <input
+                className="input"
+                style={{ fontSize: 16, fontWeight: 600 }}
+                autoFocus={state.mode === "create"}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="O que precisa ser feito?"
+                maxLength={500}
+              />
+            </div>
+
+            <div className="field">
+              <label>Anotação</label>
+              <textarea
+                className="textarea"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Detalhes, contexto, próximos passos…"
+                maxLength={10_000}
+              />
+            </div>
+
+            <div className="field">
+              <label>
+                Checklist{" "}
+                {checklist.length > 0 && (
+                  <span style={{ color: "var(--text-muted)", fontWeight: 500 }}>
+                    — {checkDone}/{checklist.length}
+                  </span>
+                )}
+              </label>
+              {checklist.length > 0 && (
+                <div className="checklist" style={{ marginBottom: 6 }}>
+                  {checklist.map((c) => (
+                    <div key={c.id} className={`check-item${c.done ? " done" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={c.done}
+                        onChange={() =>
+                          setChecklist(
+                            checklist.map((x) =>
+                              x.id === c.id ? { ...x, done: !x.done } : x,
+                            ),
+                          )
+                        }
+                      />
+                      <span className="txt">{c.text}</span>
+                      <button
+                        type="button"
+                        className="rm"
+                        aria-label="Remover item"
+                        onClick={() =>
+                          setChecklist(checklist.filter((x) => x.id !== c.id))
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addCheckItem();
+                }}
+              >
+                <input
+                  className="input"
+                  style={{ width: "100%" }}
+                  placeholder="+ Adicionar item e Enter"
+                  value={checkDraft}
+                  onChange={(e) => setCheckDraft(e.target.value)}
+                  maxLength={500}
+                />
+              </form>
+            </div>
+
+            {editing && (
+              <div className="field">
+                <label>Comentários</label>
+                {comments.data && comments.data.length > 0 && (
+                  <div className="comments" style={{ marginBottom: 8 }}>
+                    {comments.data.map((c) => {
+                      const who = usersMapName(users, c.authorId);
+                      return (
+                        <div key={c.id} className="comment">
+                          <span
+                            className="avatar"
+                            style={{ background: avatarColor(c.authorId), marginLeft: 0 }}
+                          >
+                            {initials(who)}
+                          </span>
+                          <div className="comment-body">
+                            <div className="comment-meta">
+                              <span className="who">{who}</span>
+                              <span className="when">
+                                {c.createdAt.toLocaleString("pt-BR", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                              {c.authorId === currentUserId && (
+                                <button
+                                  className="rm"
+                                  onClick={() => removeComment.mutate({ id: c.id })}
+                                >
+                                  excluir
+                                </button>
+                              )}
+                            </div>
+                            <div className="comment-text">{c.body}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const body = commentDraft.trim();
+                    if (body && editing) {
+                      addComment.mutate({ taskId: editing.id, body });
+                    }
+                  }}
+                  style={{ display: "flex", gap: 8 }}
+                >
+                  <input
+                    className="input"
+                    style={{ flex: 1 }}
+                    placeholder="Escreva um comentário…"
+                    value={commentDraft}
+                    onChange={(e) => setCommentDraft(e.target.value)}
+                    maxLength={4000}
+                  />
+                  <button
+                    className="btn btn-secondary"
+                    type="submit"
+                    disabled={!commentDraft.trim() || addComment.isPending}
+                  >
+                    Enviar
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {error && <div className="error-text">{error}</div>}
           </div>
 
-          <div className="field-row">
-            <div className="field">
+          {/* ---------- Properties sidebar ---------- */}
+          <div className="modal-side">
+            <div className="side-field">
               <label>Status</label>
               <select
                 className="select"
@@ -160,12 +426,29 @@ export function TaskModal({
               >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>
-                    {STATUS_META[s].label}
+                    {statusMeta[s].label}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="field">
+
+            <div className="side-field">
+              <label>Prioridade</label>
+              <select
+                className="select"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as TaskPriority)}
+                style={{ color: PRIORITY_META[priority].color, fontWeight: 600 }}
+              >
+                {PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    ⚑ {PRIORITY_META[p].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="side-field">
               <label>Vencimento</label>
               <input
                 className="input"
@@ -174,144 +457,213 @@ export function TaskModal({
                 onChange={(e) => setDue(e.target.value)}
               />
             </div>
-          </div>
 
-          <div className="field">
-            <label>Cor</label>
-            <div className="swatches">
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className={`swatch${color === c ? " selected" : ""}`}
-                  style={{ background: COLOR_HEX[c] }}
-                  onClick={() => setColor(c)}
-                  aria-label={c}
-                  title={c}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="field">
-            <label>Anotação</label>
-            <textarea
-              className="textarea"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Detalhes, contexto, próximos passos…"
-              maxLength={10_000}
-            />
-          </div>
-
-          <div className="field">
-            <label>Responsáveis</label>
-            {usersError ? (
-              <div className="hint">
-                Não foi possível carregar os usuários da location. Verifique a
-                instalação do app GHL.
-              </div>
-            ) : sortedUsers.length === 0 ? (
-              <div className="hint">Carregando usuários…</div>
-            ) : (
-              <div className="member-list">
-                {sortedUsers.map((u) => (
-                  <label key={u.id} className="member-row">
-                    <input
-                      type="checkbox"
-                      checked={assignees.has(u.id)}
-                      onChange={(e) => {
-                        const next = new Set(assignees);
-                        if (e.target.checked) next.add(u.id);
-                        else next.delete(u.id);
-                        setAssignees(next);
-                      }}
-                    />
-                    <span
-                      className="avatar"
-                      style={{ background: avatarColor(u.id), marginLeft: 0 }}
-                    >
-                      {initials(u.name)}
-                    </span>
-                    <span>{u.name}</span>
-                  </label>
+            <div className="side-field">
+              <label>Cor</label>
+              <div className="swatches">
+                {COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className={`swatch${color === c ? " selected" : ""}`}
+                    style={{ background: COLOR_HEX[c] }}
+                    onClick={() => setColor(c)}
+                    aria-label={c}
+                    title={c}
+                  />
                 ))}
               </div>
-            )}
-          </div>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  marginTop: 8,
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  color: "var(--text-secondary)",
+                  textTransform: "none",
+                  letterSpacing: 0,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={cardStyle === "filled"}
+                  onChange={(e) => setCardStyle(e.target.checked ? "filled" : "strip")}
+                  style={{ accentColor: "var(--primary)" }}
+                />
+                Preencher fundo do card com a cor
+              </label>
+            </div>
 
-          <div className="field">
-            <label>Contato GHL (opcional)</label>
-            {contact ? (
-              <div className="linked-contact">
-                <span className="name">
-                  👤 {contact.name === "…" ? (linkedContact.data?.name ?? "Contato") : contact.name}
-                </span>
-                {locationId && (
-                  <a
-                    href={`https://app.gohighlevel.com/v2/location/${locationId}/contacts/detail/${contact.id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Abrir no GHL ↗
-                  </a>
-                )}
-                <button
-                  className="btn btn-ghost"
-                  type="button"
-                  onClick={() => setContact(null)}
-                  title="Desvincular contato"
-                >
-                  ✕
-                </button>
-              </div>
-            ) : (
-              <>
+            <div className="side-field">
+              <label>Responsáveis</label>
+              {usersError ? (
+                <div className="hint">Usuários indisponíveis (verifique o app GHL).</div>
+              ) : sortedUsers.length === 0 ? (
+                <div className="hint">Carregando…</div>
+              ) : (
+                <div className="member-list" style={{ maxHeight: 132 }}>
+                  {sortedUsers.map((u) => (
+                    <label key={u.id} className="member-row" style={{ padding: "6px 10px" }}>
+                      <input
+                        type="checkbox"
+                        checked={assignees.has(u.id)}
+                        onChange={(e) => {
+                          const next = new Set(assignees);
+                          if (e.target.checked) next.add(u.id);
+                          else next.delete(u.id);
+                          setAssignees(next);
+                        }}
+                      />
+                      <span
+                        className="avatar"
+                        style={{ background: avatarColor(u.id), marginLeft: 0 }}
+                      >
+                        {initials(u.name)}
+                      </span>
+                      <span style={{ fontSize: 13 }}>{u.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="side-field">
+              <label>Etiquetas</label>
+              {labels.length > 0 && (
+                <div className="label-row" style={{ marginBottom: 6 }}>
+                  {labels.map((l) => (
+                    <span key={l} className="label-chip">
+                      {l}
+                      <span
+                        className="rm"
+                        role="button"
+                        aria-label={`Remover ${l}`}
+                        onClick={() => setLabels(labels.filter((x) => x !== l))}
+                      >
+                        ✕
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  addLabel();
+                }}
+              >
                 <input
                   className="input"
-                  placeholder="Buscar contato por nome, e-mail ou telefone…"
-                  value={contactQuery}
-                  onChange={(e) => setContactQuery(e.target.value)}
-                  style={{ width: "100%" }}
+                  placeholder="+ etiqueta e Enter"
+                  value={labelDraft}
+                  onChange={(e) => setLabelDraft(e.target.value)}
+                  maxLength={30}
                 />
-                {search.isError && (
-                  <div className="hint" style={{ marginTop: 6 }}>
-                    Busca indisponível — verifique a conexão com o GHL.
-                  </div>
-                )}
-                {search.data && search.data.length > 0 && (
-                  <div className="contact-results">
-                    {search.data.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="contact-row"
-                        onClick={() => {
-                          setContact({ id: c.id, name: c.name });
-                          setContactQuery("");
-                        }}
-                      >
-                        <div>{c.name}</div>
-                        {(c.email || c.phone) && (
-                          <div className="sub">{c.email ?? c.phone}</div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {search.data && search.data.length === 0 && (
-                  <div className="hint" style={{ marginTop: 6 }}>
-                    Nenhum contato encontrado.
-                  </div>
-                )}
-              </>
+              </form>
+            </div>
+
+            <div className="side-field">
+              <label>Contato GHL</label>
+              {contact ? (
+                <div className="linked-contact" style={{ padding: "6px 10px" }}>
+                  <span className="name" style={{ fontSize: 13 }}>
+                    👤 {contact.name === "…" ? (linkedContact.data?.name ?? "Contato") : contact.name}
+                  </span>
+                  {locationId && (
+                    <a
+                      href={`https://app.gohighlevel.com/v2/location/${locationId}/contacts/detail/${contact.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Abrir ↗
+                    </a>
+                  )}
+                  <button
+                    className="btn btn-ghost"
+                    type="button"
+                    style={{ padding: "2px 6px" }}
+                    onClick={() => setContact(null)}
+                    title="Desvincular contato"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    className="input"
+                    placeholder="Buscar contato…"
+                    value={contactQuery}
+                    onChange={(e) => setContactQuery(e.target.value)}
+                  />
+                  {search.isError && (
+                    <div className="hint" style={{ marginTop: 6 }}>
+                      Busca indisponível.
+                    </div>
+                  )}
+                  {search.data && search.data.length > 0 && (
+                    <div className="contact-results">
+                      {search.data.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="contact-row"
+                          onClick={() => {
+                            setContact({ id: c.id, name: c.name });
+                            setContactQuery("");
+                          }}
+                        >
+                          <div style={{ fontSize: 13 }}>{c.name}</div>
+                          {(c.email || c.phone) && (
+                            <div className="sub">{c.email ?? c.phone}</div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {search.data && search.data.length === 0 && (
+                    <div className="hint" style={{ marginTop: 6 }}>
+                      Nenhum contato encontrado.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {editing && (
+              <div className="side-actions">
+                <button
+                  className="btn btn-secondary"
+                  disabled={saving}
+                  onClick={() => void runAction("duplicate")}
+                >
+                  ⧉ Duplicar tarefa
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  disabled={saving}
+                  onClick={() =>
+                    void runAction(editing.archivedAt ? "restore" : "archive")
+                  }
+                >
+                  {editing.archivedAt ? "↩ Restaurar" : "🗃 Arquivar"}
+                </button>
+                <button
+                  className="btn btn-danger-ghost"
+                  disabled={saving}
+                  onClick={() => void runAction("delete")}
+                >
+                  🗑 Excluir
+                </button>
+              </div>
             )}
           </div>
-
-          {error && <div className="error-text">{error}</div>}
         </div>
 
-        <div className="modal-footer">
+        <div className="modal-footer" style={{ paddingTop: 14, borderTop: "1px solid var(--border)" }}>
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
             Cancelar
           </button>
@@ -326,6 +678,10 @@ export function TaskModal({
       </div>
     </div>
   );
+}
+
+function usersMapName(users: GhlUser[], id: string): string {
+  return users.find((u) => u.id === id)?.name ?? "Usuário";
 }
 
 function toDateInput(d: Date): string {

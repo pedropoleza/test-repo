@@ -204,7 +204,14 @@ select {
   padding: 16px 20px 20px;
   overflow-x: auto;
   overflow-y: hidden;
-  align-items: stretch;
+  /* Columns size to their content (so "+ Add task" sits right under the cards)
+     and only grow to full height + scroll internally when they overflow. */
+  align-items: flex-start;
+  cursor: grab;
+}
+.board.grabbing {
+  cursor: grabbing;
+  user-select: none;
 }
 /* When the bulk-action bar is floating, keep clearance so it never covers the
    last cards or column footers. */
@@ -1089,6 +1096,69 @@ select {
   background: var(--primary);
   margin-top: 5px;
   flex-shrink: 0;
+}
+
+/* Live notification toasts */
+.toast-wrap {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 320px;
+  max-width: calc(100vw - 32px);
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 12px 14px;
+  animation: toast-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+.toast:hover {
+  background: #f9fafb;
+}
+.toast-body {
+  flex: 1;
+  min-width: 0;
+}
+.toast-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.toast-sub {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toast-close {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+.toast-close:hover {
+  color: var(--text);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
 }
 
 /* --------------------------------------------------------------------------

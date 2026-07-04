@@ -63,6 +63,8 @@ export function Board() {
   const [addingStage, setAddingStage] = useState(false);
   const [newStageName, setNewStageName] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const pan = useRef({ down: false, startX: 0, startScroll: 0 });
 
   const activeBoard = boardsQ.data?.find((b) => b.id === activeBoardId);
   const stages: Stage[] = activeBoard?.stages ?? [];
@@ -280,6 +282,38 @@ export function Board() {
     setAddingStage(false);
   }
 
+  /**
+   * Drag-to-scroll: click-hold-drag on empty board areas (background, column
+   * headers, gaps) pans the columns horizontally. Cards, buttons and inputs
+   * are excluded so card drag-and-drop and controls keep working.
+   */
+  function onBoardMouseDown(e: React.MouseEvent) {
+    const el = boardRef.current;
+    if (!el || e.button !== 0) return;
+    const t = e.target as HTMLElement;
+    if (
+      t.closest(
+        ".card, button, input, select, textarea, a, label, .col-editor, .add-stage-form",
+      )
+    ) {
+      return; // let cards drag and controls work
+    }
+    pan.current = { down: true, startX: e.pageX, startScroll: el.scrollLeft };
+    el.classList.add("grabbing");
+    const onMove = (ev: MouseEvent) => {
+      if (!pan.current.down) return;
+      el.scrollLeft = pan.current.startScroll - (ev.pageX - pan.current.startX);
+    };
+    const onUp = () => {
+      pan.current.down = false;
+      el.classList.remove("grabbing");
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
   function openTaskById(taskId: string) {
     const t = (taskList.data ?? []).find((x) => x.id === taskId);
     if (t) setModal({ mode: "edit", task: t });
@@ -460,7 +494,7 @@ export function Board() {
         </div>
       ) : view === "kanban" ? (
         <DragDropContext onDragEnd={onDragEnd}>
-          <div className="board">
+          <div className="board" ref={boardRef} onMouseDown={onBoardMouseDown}>
             {stages.map((stage) => (
               <Column
                 key={stage.id}

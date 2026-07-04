@@ -1,13 +1,18 @@
 /**
- * Root tRPC router. Task/board/ghl routers are added in Stages 2–4. For
- * Stage 1 we expose a `system.whoami` proof that isolation + session work.
+ * Root tRPC router — the full V1 surface (plan §7).
  */
 import { createTRPCRouter, locationProcedure } from "./trpc";
+import { boardRouter } from "./routers/board";
+import { taskRouter } from "./routers/task";
+import { ghlRouter } from "./routers/ghl";
 
 export const appRouter = createTRPCRouter({
+  board: boardRouter,
+  task: taskRouter,
+  ghl: ghlRouter,
   system: createTRPCRouter({
-    // Returns the session's location — proves the SSO -> session -> scoped-tx
-    // chain end to end. location_id here comes only from the session.
+    // Session probe: proves SSO -> session -> scoped-tx and gives the client
+    // its location id for display/deep-links. Always session-derived.
     whoami: locationProcedure.query(({ ctx }) => ({
       locationId: ctx.locationId,
       userId: ctx.userId,

@@ -68,6 +68,10 @@ export const tasks = sparkTasks.table(
     contactId: text("contact_id"),
     position: integer("position").notNull().default(0),
     createdBy: text("created_by").notNull(),
+    /** Set once the D7 contact write-back succeeded — the idempotency flag. */
+    completedWritebackAt: timestamp("completed_writeback_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

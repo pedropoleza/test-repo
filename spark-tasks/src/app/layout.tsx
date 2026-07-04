@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { TRPCReactProvider } from "~/trpc/react";
+import "~/styles/globals.css";
 
 export const metadata: Metadata = {
   title: "Spark Tasks",

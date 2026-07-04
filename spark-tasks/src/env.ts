@@ -35,8 +35,14 @@ export const env = createEnv({
     /** Secret for signing the httpOnly session cookie. */
     SESSION_SECRET: z.string().min(32),
 
-    // --- Background jobs (contact write-back on completion) ---
-    TRIGGER_SECRET_KEY: z.string().min(1),
+    // --- Background jobs ---
+    // Optional until the team provisions the Trigger.dev project (Stage 0
+    // blocker). The completion write-back currently runs via Next `after()`
+    // with retries; when this key exists we move it onto Trigger.dev and make
+    // this required again.
+    TRIGGER_SECRET_KEY: z.string().min(1).optional(),
+    /** Tag added to the GHL contact on task completion (D7). */
+    GHL_WRITEBACK_TAG: z.string().min(1).optional(),
 
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -54,6 +60,7 @@ export const env = createEnv({
     ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
     SESSION_SECRET: process.env.SESSION_SECRET,
     TRIGGER_SECRET_KEY: process.env.TRIGGER_SECRET_KEY,
+    GHL_WRITEBACK_TAG: process.env.GHL_WRITEBACK_TAG,
     NODE_ENV: process.env.NODE_ENV,
   },
   emptyStringAsUndefined: true,

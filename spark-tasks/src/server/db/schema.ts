@@ -102,6 +102,30 @@ export const taskAssignees = sparkTasks.table(
   ],
 );
 
+/**
+ * Agency-level GHL OAuth installation (plan §4.2). One row per company.
+ *
+ * This is agency-global infrastructure, NOT tenant data: it has no
+ * `location_id`, carries the encrypted Company access/refresh token, and is
+ * only ever touched by server-side system code (OAuth callback + token
+ * exchange) running under the privileged connection. It is deliberately NOT
+ * granted to `spark_tasks_app` and has no tenant RLS policy, so a
+ * location-scoped request can never reach agency credentials.
+ */
+export const ghlInstallations = sparkTasks.table("ghl_installations", {
+  companyId: text("company_id").primaryKey(),
+  accessTokenEnc: text("access_token_enc").notNull(),
+  refreshTokenEnc: text("refresh_token_enc"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  scopes: text("scopes"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 /** Session GUC name RLS policies read. Kept in one place to avoid typos. */
 export const LOCATION_GUC = "app.location_id" as const;
 

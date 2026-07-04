@@ -2,7 +2,7 @@
 
 /**
  * Task modal — wide two-column layout (ClickUp-style): content on the left
- * (title, note, checklist, comments), properties on the right (status,
+ * (title, note, checklist, comments), properties on the right (stage,
  * priority, due, color, assignees, labels, contact, actions). Fits without
  * scrolling the dialog on desktop; stacks on narrow iframes.
  */
@@ -11,27 +11,24 @@ import { api } from "~/trpc/react";
 import type {
   CardStyle,
   ChecklistItem,
+  Stage,
   TaskColor,
   TaskPriority,
-  TaskStatus,
 } from "~/server/db/schema";
 import {
   COLORS,
   COLOR_HEX,
   PRIORITIES,
   PRIORITY_META,
-  STATUSES,
-  STATUS_META,
   avatarColor,
   initials,
-  type StatusDisplay,
 } from "./palette";
 import type { Task } from "./TaskCard";
 
 type GhlUser = { id: string; name: string; email?: string };
 
 export type ModalState =
-  | { mode: "create"; status: TaskStatus }
+  | { mode: "create"; status: string }
   | { mode: "edit"; task: Task };
 
 export function TaskModal({
@@ -41,7 +38,7 @@ export function TaskModal({
   locationId,
   currentUserId,
   boardId,
-  statusMeta,
+  stages,
   onClose,
 }: {
   state: ModalState;
@@ -50,46 +47,32 @@ export function TaskModal({
   locationId: string | undefined;
   currentUserId: string | undefined;
   boardId: string | undefined;
-  statusMeta: Record<TaskStatus, StatusDisplay>;
+  stages: Stage[];
   onClose: () => void;
 }) {
   const utils = api.useUtils();
   const editing = state.mode === "edit" ? state.task : null;
+  const initialStatus = editing?.status ?? (state.mode === "create" ? state.status : stages[0]?.id ?? "todo");
+  const stageColor = stages.find((s) => s.id === initialStatus)?.color ?? "gray";
 
   const [title, setTitle] = useState(editing?.title ?? "");
   const [note, setNote] = useState(editing?.note ?? "");
-  const [color, setColor] = useState<TaskColor>(
-    editing?.color ??
-      STATUS_META[state.mode === "create" ? state.status : "todo"].defaultColor,
-  );
-  const [status, setStatus] = useState<TaskStatus>(
-    editing?.status ?? (state.mode === "create" ? state.status : "todo"),
-  );
-  const [priority, setPriority] = useState<TaskPriority>(
-    editing?.priority ?? "none",
-  );
-  const [cardStyle, setCardStyle] = useState<CardStyle>(
-    editing?.cardStyle ?? "strip",
-  );
-  const [due, setDue] = useState(
-    editing?.dueDate ? toDateInput(editing.dueDate) : "",
-  );
+  const [color, setColor] = useState<TaskColor>(editing?.color ?? stageColor);
+  const [status, setStatus] = useState<string>(initialStatus);
+  const [priority, setPriority] = useState<TaskPriority>(editing?.priority ?? "none");
+  const [cardStyle, setCardStyle] = useState<CardStyle>(editing?.cardStyle ?? "strip");
+  const [due, setDue] = useState(editing?.dueDate ? toDateInput(editing.dueDate) : "");
   const [labels, setLabels] = useState<string[]>(editing?.labels ?? []);
   const [labelDraft, setLabelDraft] = useState("");
-  const [checklist, setChecklist] = useState<ChecklistItem[]>(
-    editing?.checklist ?? [],
-  );
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(editing?.checklist ?? []);
   const [checkDraft, setCheckDraft] = useState("");
-  const [assignees, setAssignees] = useState<Set<string>>(
-    new Set(editing?.assigneeIds ?? []),
-  );
+  const [assignees, setAssignees] = useState<Set<string>>(new Set(editing?.assigneeIds ?? []));
   const [contact, setContact] = useState<{ id: string; name: string } | null>(
     editing?.contactId ? { id: editing.contactId, name: "…" } : null,
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Esc closes.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -98,7 +81,6 @@ export function TaskModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Resolve the linked contact's display name when editing.
   const linkedContact = api.ghl.contactGet.useQuery(
     { contactId: editing?.contactId ?? "" },
     { enabled: !!editing?.contactId, staleTime: 10 * 60_000, retry: 1 },
@@ -109,7 +91,6 @@ export function TaskModal({
     }
   }, [linkedContact.data, contact]);
 
-  // Contact search (debounced).
   const [contactQuery, setContactQuery] = useState("");
   const debouncedQuery = useDebounced(contactQuery, 300);
   const search = api.ghl.contactsSearch.useQuery(
@@ -117,7 +98,6 @@ export function TaskModal({
     { enabled: debouncedQuery.trim().length >= 2, staleTime: 60_000, retry: 1 },
   );
 
-  // Comments (edit mode only).
   const comments = api.task.comments.list.useQuery(
     { taskId: editing?.id ?? "" },
     { enabled: !!editing, refetchInterval: 25_000 },
@@ -160,12 +140,8 @@ export function TaskModal({
           dueDate,
           contactId: contact?.id ?? null,
         });
-        if (checklist.length) {
-          await update.mutateAsync({ id: created.id, checklist });
-        }
-        if (assignees.size) {
-          await assign.mutateAsync({ id: created.id, add: [...assignees] });
-        }
+        if (checklist.length) await update.mutateAsync({ id: created.id, checklist });
+        if (assignees.size) await assign.mutateAsync({ id: created.id, add: [...assignees] });
       } else {
         const t = state.task;
         await update.mutateAsync({
@@ -180,62 +156,47 @@ export function TaskModal({
           dueDate,
           contactId: contact?.id ?? null,
         });
-        if (status !== t.status) {
-          await move.mutateAsync({ id: t.id, status });
-        }
+        if (status !== t.status) await move.mutateAsync({ id: t.id, status });
         const add = [...assignees].filter((u) => !t.assigneeIds.includes(u));
         const remove = t.assigneeIds.filter((u) => !assignees.has(u));
-        if (add.length || remove.length) {
-          await assign.mutateAsync({ id: t.id, add, remove });
-        }
+        if (add.length || remove.length) await assign.mutateAsync({ id: t.id, add, remove });
       }
       await utils.task.list.invalidate();
       onClose();
     } catch {
-      setError("Não foi possível salvar. Tente novamente.");
+      setError("Could not save. Try again.");
       setSaving(false);
     }
   }
 
   async function runAction(action: "duplicate" | "archive" | "restore" | "delete") {
     if (!editing || saving) return;
-    if (
-      action === "delete" &&
-      !window.confirm("Excluir esta tarefa definitivamente? Essa ação não pode ser desfeita.")
-    ) {
+    if (action === "delete" && !window.confirm("Permanently delete this task? This cannot be undone.")) {
       return;
     }
     setSaving(true);
     try {
       if (action === "duplicate") await duplicate.mutateAsync({ id: editing.id });
-      if (action === "archive")
-        await setArchived.mutateAsync({ id: editing.id, archived: true });
-      if (action === "restore")
-        await setArchived.mutateAsync({ id: editing.id, archived: false });
+      if (action === "archive") await setArchived.mutateAsync({ id: editing.id, archived: true });
+      if (action === "restore") await setArchived.mutateAsync({ id: editing.id, archived: false });
       if (action === "delete") await deleteTask.mutateAsync({ id: editing.id });
       await utils.task.list.invalidate();
       onClose();
     } catch {
-      setError("Ação falhou. Tente novamente.");
+      setError("Action failed. Try again.");
       setSaving(false);
     }
   }
 
   function addLabel() {
     const l = labelDraft.trim();
-    if (l && !labels.includes(l) && labels.length < 10) {
-      setLabels([...labels, l]);
-    }
+    if (l && !labels.includes(l) && labels.length < 10) setLabels([...labels, l]);
     setLabelDraft("");
   }
-
   function addCheckItem() {
     const text = checkDraft.trim();
     if (text && checklist.length < 50) {
-      setChecklist([
-        ...checklist,
-        { id: `c${Date.now()}${checklist.length}`, text, done: false },
-      ]);
+      setChecklist([...checklist, { id: `c${Date.now()}${checklist.length}`, text, done: false }]);
     }
     setCheckDraft("");
   }
@@ -247,14 +208,11 @@ export function TaskModal({
   const checkDone = checklist.filter((c) => c.done).length;
 
   return (
-    <div
-      className="modal-overlay"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <div className="modal-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true">
         <div className="modal-header">
-          <h2>{state.mode === "create" ? "Nova tarefa" : "Editar tarefa"}</h2>
-          <button className="btn btn-ghost" onClick={onClose} aria-label="Fechar">
+          <h2>{state.mode === "create" ? "New task" : "Edit task"}</h2>
+          <button className="btn btn-ghost" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
@@ -269,18 +227,18 @@ export function TaskModal({
                 autoFocus={state.mode === "create"}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="O que precisa ser feito?"
+                placeholder="What needs to be done?"
                 maxLength={500}
               />
             </div>
 
             <div className="field">
-              <label>Anotação</label>
+              <label>Note</label>
               <textarea
                 className="textarea"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Detalhes, contexto, próximos passos…"
+                placeholder="Details, context, next steps…"
                 maxLength={10_000}
               />
             </div>
@@ -302,21 +260,15 @@ export function TaskModal({
                         type="checkbox"
                         checked={c.done}
                         onChange={() =>
-                          setChecklist(
-                            checklist.map((x) =>
-                              x.id === c.id ? { ...x, done: !x.done } : x,
-                            ),
-                          )
+                          setChecklist(checklist.map((x) => (x.id === c.id ? { ...x, done: !x.done } : x)))
                         }
                       />
                       <span className="txt">{c.text}</span>
                       <button
                         type="button"
                         className="rm"
-                        aria-label="Remover item"
-                        onClick={() =>
-                          setChecklist(checklist.filter((x) => x.id !== c.id))
-                        }
+                        aria-label="Remove item"
+                        onClick={() => setChecklist(checklist.filter((x) => x.id !== c.id))}
                       >
                         ✕
                       </button>
@@ -333,7 +285,7 @@ export function TaskModal({
                 <input
                   className="input"
                   style={{ width: "100%" }}
-                  placeholder="+ Adicionar item e Enter"
+                  placeholder="+ Add item and press Enter"
                   value={checkDraft}
                   onChange={(e) => setCheckDraft(e.target.value)}
                   maxLength={500}
@@ -343,11 +295,11 @@ export function TaskModal({
 
             {editing && (
               <div className="field">
-                <label>Comentários</label>
+                <label>Comments</label>
                 {comments.data && comments.data.length > 0 && (
                   <div className="comments" style={{ marginBottom: 8 }}>
                     {comments.data.map((c) => {
-                      const who = usersMapName(users, c.authorId);
+                      const who = users.find((u) => u.id === c.authorId)?.name ?? "User";
                       return (
                         <div key={c.id} className="comment">
                           <span
@@ -360,7 +312,7 @@ export function TaskModal({
                             <div className="comment-meta">
                               <span className="who">{who}</span>
                               <span className="when">
-                                {c.createdAt.toLocaleString("pt-BR", {
+                                {c.createdAt.toLocaleString("en-US", {
                                   day: "2-digit",
                                   month: "short",
                                   hour: "2-digit",
@@ -368,11 +320,8 @@ export function TaskModal({
                                 })}
                               </span>
                               {c.authorId === currentUserId && (
-                                <button
-                                  className="rm"
-                                  onClick={() => removeComment.mutate({ id: c.id })}
-                                >
-                                  excluir
+                                <button className="rm" onClick={() => removeComment.mutate({ id: c.id })}>
+                                  delete
                                 </button>
                               )}
                             </div>
@@ -387,16 +336,14 @@ export function TaskModal({
                   onSubmit={(e) => {
                     e.preventDefault();
                     const body = commentDraft.trim();
-                    if (body && editing) {
-                      addComment.mutate({ taskId: editing.id, body });
-                    }
+                    if (body && editing) addComment.mutate({ taskId: editing.id, body });
                   }}
                   style={{ display: "flex", gap: 8 }}
                 >
                   <input
                     className="input"
                     style={{ flex: 1 }}
-                    placeholder="Escreva um comentário…"
+                    placeholder="Write a comment…"
                     value={commentDraft}
                     onChange={(e) => setCommentDraft(e.target.value)}
                     maxLength={4000}
@@ -406,7 +353,7 @@ export function TaskModal({
                     type="submit"
                     disabled={!commentDraft.trim() || addComment.isPending}
                   >
-                    Enviar
+                    Send
                   </button>
                 </form>
               </div>
@@ -418,22 +365,19 @@ export function TaskModal({
           {/* ---------- Properties sidebar ---------- */}
           <div className="modal-side">
             <div className="side-field">
-              <label>Status</label>
-              <select
-                className="select"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as TaskStatus)}
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {statusMeta[s].label}
+              <label>Stage</label>
+              <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
+                {stages.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
                   </option>
                 ))}
+                {!stages.some((s) => s.id === status) && <option value={status}>{status}</option>}
               </select>
             </div>
 
             <div className="side-field">
-              <label>Prioridade</label>
+              <label>Priority</label>
               <select
                 className="select"
                 value={priority}
@@ -449,17 +393,12 @@ export function TaskModal({
             </div>
 
             <div className="side-field">
-              <label>Vencimento</label>
-              <input
-                className="input"
-                type="date"
-                value={due}
-                onChange={(e) => setDue(e.target.value)}
-              />
+              <label>Due date</label>
+              <input className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
             </div>
 
             <div className="side-field">
-              <label>Cor</label>
+              <label>Color</label>
               <div className="swatches">
                 {COLORS.map((c) => (
                   <button
@@ -493,16 +432,16 @@ export function TaskModal({
                   onChange={(e) => setCardStyle(e.target.checked ? "filled" : "strip")}
                   style={{ accentColor: "var(--primary)" }}
                 />
-                Preencher fundo do card com a cor
+                Fill card background with the color
               </label>
             </div>
 
             <div className="side-field">
-              <label>Responsáveis</label>
+              <label>Assignees</label>
               {usersError ? (
-                <div className="hint">Usuários indisponíveis (verifique o app GHL).</div>
+                <div className="hint">Users unavailable (check the GHL app).</div>
               ) : sortedUsers.length === 0 ? (
-                <div className="hint">Carregando…</div>
+                <div className="hint">Loading…</div>
               ) : (
                 <div className="member-list" style={{ maxHeight: 132 }}>
                   {sortedUsers.map((u) => (
@@ -517,10 +456,7 @@ export function TaskModal({
                           setAssignees(next);
                         }}
                       />
-                      <span
-                        className="avatar"
-                        style={{ background: avatarColor(u.id), marginLeft: 0 }}
-                      >
+                      <span className="avatar" style={{ background: avatarColor(u.id), marginLeft: 0 }}>
                         {initials(u.name)}
                       </span>
                       <span style={{ fontSize: 13 }}>{u.name}</span>
@@ -531,7 +467,7 @@ export function TaskModal({
             </div>
 
             <div className="side-field">
-              <label>Etiquetas</label>
+              <label>Labels</label>
               {labels.length > 0 && (
                 <div className="label-row" style={{ marginBottom: 6 }}>
                   {labels.map((l) => (
@@ -540,7 +476,7 @@ export function TaskModal({
                       <span
                         className="rm"
                         role="button"
-                        aria-label={`Remover ${l}`}
+                        aria-label={`Remove ${l}`}
                         onClick={() => setLabels(labels.filter((x) => x !== l))}
                       >
                         ✕
@@ -557,7 +493,7 @@ export function TaskModal({
               >
                 <input
                   className="input"
-                  placeholder="+ etiqueta e Enter"
+                  placeholder="+ label and press Enter"
                   value={labelDraft}
                   onChange={(e) => setLabelDraft(e.target.value)}
                   maxLength={30}
@@ -566,11 +502,11 @@ export function TaskModal({
             </div>
 
             <div className="side-field">
-              <label>Contato GHL</label>
+              <label>Link Contact</label>
               {contact ? (
                 <div className="linked-contact" style={{ padding: "6px 10px" }}>
                   <span className="name" style={{ fontSize: 13 }}>
-                    👤 {contact.name === "…" ? (linkedContact.data?.name ?? "Contato") : contact.name}
+                    👤 {contact.name === "…" ? (linkedContact.data?.name ?? "Contact") : contact.name}
                   </span>
                   {locationId && (
                     <a
@@ -578,7 +514,7 @@ export function TaskModal({
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Abrir ↗
+                      Open ↗
                     </a>
                   )}
                   <button
@@ -586,7 +522,7 @@ export function TaskModal({
                     type="button"
                     style={{ padding: "2px 6px" }}
                     onClick={() => setContact(null)}
-                    title="Desvincular contato"
+                    title="Unlink contact"
                   >
                     ✕
                   </button>
@@ -595,13 +531,13 @@ export function TaskModal({
                 <>
                   <input
                     className="input"
-                    placeholder="Buscar contato…"
+                    placeholder="Search contact…"
                     value={contactQuery}
                     onChange={(e) => setContactQuery(e.target.value)}
                   />
                   {search.isError && (
                     <div className="hint" style={{ marginTop: 6 }}>
-                      Busca indisponível.
+                      Search unavailable.
                     </div>
                   )}
                   {search.data && search.data.length > 0 && (
@@ -617,16 +553,14 @@ export function TaskModal({
                           }}
                         >
                           <div style={{ fontSize: 13 }}>{c.name}</div>
-                          {(c.email || c.phone) && (
-                            <div className="sub">{c.email ?? c.phone}</div>
-                          )}
+                          {(c.email || c.phone) && <div className="sub">{c.email ?? c.phone}</div>}
                         </button>
                       ))}
                     </div>
                   )}
                   {search.data && search.data.length === 0 && (
                     <div className="hint" style={{ marginTop: 6 }}>
-                      Nenhum contato encontrado.
+                      No contacts found.
                     </div>
                   )}
                 </>
@@ -635,28 +569,18 @@ export function TaskModal({
 
             {editing && (
               <div className="side-actions">
-                <button
-                  className="btn btn-secondary"
-                  disabled={saving}
-                  onClick={() => void runAction("duplicate")}
-                >
-                  ⧉ Duplicar tarefa
+                <button className="btn btn-secondary" disabled={saving} onClick={() => void runAction("duplicate")}>
+                  ⧉ Duplicate task
                 </button>
                 <button
                   className="btn btn-secondary"
                   disabled={saving}
-                  onClick={() =>
-                    void runAction(editing.archivedAt ? "restore" : "archive")
-                  }
+                  onClick={() => void runAction(editing.archivedAt ? "restore" : "archive")}
                 >
-                  {editing.archivedAt ? "↩ Restaurar" : "🗃 Arquivar"}
+                  {editing.archivedAt ? "↩ Restore" : "🗃 Archive"}
                 </button>
-                <button
-                  className="btn btn-danger-ghost"
-                  disabled={saving}
-                  onClick={() => void runAction("delete")}
-                >
-                  🗑 Excluir
+                <button className="btn btn-danger-ghost" disabled={saving} onClick={() => void runAction("delete")}>
+                  🗑 Delete
                 </button>
               </div>
             )}
@@ -665,23 +589,15 @@ export function TaskModal({
 
         <div className="modal-footer" style={{ paddingTop: 14, borderTop: "1px solid var(--border)" }}>
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
-            Cancelar
+            Cancel
           </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => void save()}
-            disabled={saving || !title.trim()}
-          >
-            {saving ? "Salvando…" : state.mode === "create" ? "Criar tarefa" : "Salvar"}
+          <button className="btn btn-primary" onClick={() => void save()} disabled={saving || !title.trim()}>
+            {saving ? "Saving…" : state.mode === "create" ? "Create task" : "Save"}
           </button>
         </div>
       </div>
     </div>
   );
-}
-
-function usersMapName(users: GhlUser[], id: string): string {
-  return users.find((u) => u.id === id)?.name ?? "Usuário";
 }
 
 function toDateInput(d: Date): string {

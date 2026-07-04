@@ -1,25 +1,27 @@
 "use client";
 
 /**
- * The board shell: pipeline (board) tabs, kanban/list view toggle, quick
- * filters (search, assignee, "minhas tarefas", due date, archived), sorting,
- * multi-select with bulk actions, drag-and-drop and the task modal.
- * Data auto-syncs across users via polling + refetch-on-focus.
+ * Board shell: pipeline (board) tabs, board / list view toggle, notifications,
+ * quick filters (search, assignee, my tasks, due date, archived), sorting,
+ * multi-select with bulk actions, drag-and-drop, custom stages and the task
+ * modal. Data auto-syncs across users via polling + refetch-on-focus.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd";
 import { api } from "~/trpc/react";
-import type { TaskColor, TaskStatus } from "~/server/db/schema";
+import type { Stage, TaskColor } from "~/server/db/schema";
 import {
-  STATUSES,
   PRIORITY_META,
   avatarColor,
   initials,
-  mergeColumnMeta,
+  doneStageIds,
+  slugStageId,
 } from "./palette";
-import { Column } from "./Column";
+import { Column, type StagePatch } from "./Column";
 import { ListView } from "./ListView";
 import { BulkBar } from "./BulkBar";
+import { Notifications } from "./Notifications";
+import { NewPipelineModal } from "./NewPipelineModal";
 import { TaskModal, type ModalState } from "./TaskModal";
 import type { Task } from "./TaskCard";
 
@@ -35,18 +37,15 @@ export function Board() {
   const activeBoardId = boardId ?? boardsQ.data?.[0]?.id ?? null;
 
   const [showArchived, setShowArchived] = useState(false);
-  const taskList = api.task.list.useQuery(
-    {
-      boardId: activeBoardId ?? undefined,
-      includeArchived: showArchived,
-    },
-    {
-      enabled: !!activeBoardId,
-      // Multi-user sync: poll + refetch when the iframe regains focus.
-      refetchInterval: 20_000,
-      refetchOnWindowFocus: true,
-    },
-  );
+  const listKey = {
+    boardId: activeBoardId ?? undefined,
+    includeArchived: showArchived,
+  };
+  const taskList = api.task.list.useQuery(listKey, {
+    enabled: !!activeBoardId,
+    refetchInterval: 20_000,
+    refetchOnWindowFocus: true,
+  });
   const users = api.ghl.users.useQuery(undefined, {
     staleTime: 5 * 60_000,
     retry: 1,
@@ -60,14 +59,21 @@ export function Board() {
   const [sort, setSort] = useState<SortMode>("manual");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<ModalState | null>(null);
+  const [newPipeline, setNewPipeline] = useState(false);
+  const [addingStage, setAddingStage] = useState(false);
+  const [newStageName, setNewStageName] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const activeBoard = boardsQ.data?.find((b) => b.id === activeBoardId);
+  const stages: Stage[] = activeBoard?.stages ?? [];
+  const doneIds = useMemo(() => doneStageIds(stages), [stages]);
 
   const usersById = useMemo(
     () => new Map((users.data ?? []).map((u) => [u.id, u.name])),
     [users.data],
   );
 
-  // Keyboard shortcuts: N = nova tarefa, / = buscar (ignored while typing).
+  // Keyboard shortcuts: N = new task, / = search (ignored while typing).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null;
@@ -77,10 +83,10 @@ export function Board() {
           target.tagName === "TEXTAREA" ||
           target.tagName === "SELECT" ||
           target.isContentEditable);
-      if (typing || modal) return;
+      if (typing || modal || newPipeline) return;
       if (e.key === "n" || e.key === "N") {
         e.preventDefault();
-        setModal({ mode: "create", status: "todo" });
+        setModal({ mode: "create", status: stages[0]?.id ?? "todo" });
       } else if (e.key === "/") {
         e.preventDefault();
         searchRef.current?.focus();
@@ -88,17 +94,13 @@ export function Board() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modal]);
+  }, [modal, newPipeline, stages]);
 
   const move = api.task.move.useMutation({
     onMutate: async (vars) => {
       await utils.task.list.cancel();
-      const key = {
-        boardId: activeBoardId ?? undefined,
-        includeArchived: showArchived,
-      };
-      const prev = utils.task.list.getData(key);
-      utils.task.list.setData(key, (old) => {
+      const prev = utils.task.list.getData(listKey);
+      utils.task.list.setData(listKey, (old) => {
         if (!old) return old;
         const moved = old.find((t) => t.id === vars.id);
         if (!moved) return old;
@@ -114,10 +116,10 @@ export function Board() {
           { ...moved, status: vars.status, position: (before + after) / 2 },
         ];
       });
-      return { prev, key };
+      return { prev };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) utils.task.list.setData(ctx.key, ctx.prev);
+      if (ctx?.prev) utils.task.list.setData(listKey, ctx.prev);
     },
     onSettled: () => utils.task.list.invalidate(),
   });
@@ -126,18 +128,14 @@ export function Board() {
     onSettled: () => utils.task.list.invalidate(),
   });
 
-  const boardMutationOpts = {
-    onSettled: () => utils.board.list.invalidate(),
-  };
-  const createBoard = api.board.create.useMutation({
-    ...boardMutationOpts,
-    onSuccess: (b) => {
-      setBoardId(b.id);
+  const invalidateBoards = { onSettled: () => utils.board.list.invalidate() };
+  const renameBoard = api.board.rename.useMutation(invalidateBoards);
+  const setStages = api.board.setStages.useMutation({
+    onSettled: () => {
       void utils.board.list.invalidate();
+      void utils.task.list.invalidate();
     },
   });
-  const renameBoard = api.board.rename.useMutation(boardMutationOpts);
-  const updateColumns = api.board.updateColumns.useMutation(boardMutationOpts);
   const deleteBoard = api.board.delete.useMutation({
     onSuccess: () => {
       setBoardId(null);
@@ -164,7 +162,7 @@ export function Board() {
       list = list.filter((t) => {
         if (!t.dueDate) return false;
         if (dueFilter === "overdue") {
-          return t.dueDate.getTime() < now.getTime() && t.status !== "done";
+          return t.dueDate.getTime() < now.getTime() && !doneIds.has(t.status);
         }
         if (dueFilter === "today") {
           return t.dueDate >= startToday && t.dueDate < endToday;
@@ -182,7 +180,7 @@ export function Board() {
       );
     }
     return list;
-  }, [taskList.data, assigneeFilter, myTasks, myUserId, dueFilter, search]);
+  }, [taskList.data, assigneeFilter, myTasks, myUserId, dueFilter, search, doneIds]);
 
   const sortTasks = useMemo(() => {
     return (list: Task[]) => {
@@ -206,27 +204,30 @@ export function Board() {
     };
   }, [sort]);
 
-  const byStatus = useMemo(() => {
-    const map = new Map<TaskStatus, Task[]>(STATUSES.map((s) => [s, []]));
-    for (const t of filtered) map.get(t.status)?.push(t);
-    for (const s of STATUSES) map.set(s, sortTasks(map.get(s)!));
+  const byStage = useMemo(() => {
+    const map = new Map<string, Task[]>(stages.map((s) => [s.id, []]));
+    for (const t of filtered) {
+      // Tasks whose stage no longer exists fall into the first stage bucket.
+      const bucket = map.get(t.status) ?? map.get(stages[0]?.id ?? "");
+      bucket?.push(t);
+    }
+    for (const s of stages) map.set(s.id, sortTasks(map.get(s.id) ?? []));
     return map;
-  }, [filtered, sortTasks]);
+  }, [filtered, sortTasks, stages]);
 
   const listRows = useMemo(() => {
-    const statusRank = new Map(STATUSES.map((s, i) => [s, i]));
+    const rank = new Map(stages.map((s, i) => [s.id, i]));
     return sortTasks(filtered).sort(
-      (a, b) =>
-        (statusRank.get(a.status) ?? 0) - (statusRank.get(b.status) ?? 0),
+      (a, b) => (rank.get(a.status) ?? 0) - (rank.get(b.status) ?? 0),
     );
-  }, [filtered, sortTasks]);
+  }, [filtered, sortTasks, stages]);
 
   function onDragEnd(result: DropResult) {
     const { destination, draggableId } = result;
     if (!destination || sort !== "manual") return;
     move.mutate({
       id: draggableId,
-      status: destination.droppableId as TaskStatus,
+      status: destination.droppableId,
       index: destination.index,
     });
   }
@@ -239,7 +240,6 @@ export function Board() {
       return next;
     });
   }
-
   function toggleSelectAll() {
     setSelected((prev) => {
       const visible = view === "list" ? listRows : filtered;
@@ -248,21 +248,54 @@ export function Board() {
     });
   }
 
+  // ---- Stage editing helpers (all go through board.setStages) ----
+  function editStage(stageId: string, patch: StagePatch) {
+    if (!activeBoardId) return;
+    const next = stages.map((s) =>
+      s.id === stageId
+        ? {
+            ...s,
+            ...(patch.name !== undefined ? { name: patch.name } : {}),
+            ...(patch.color !== undefined ? { color: patch.color } : {}),
+            isDone: patch.isDone ?? s.isDone,
+          }
+        : s,
+    );
+    setStages.mutate({ id: activeBoardId, stages: next });
+  }
+  function deleteStage(stageId: string) {
+    if (!activeBoardId || stages.length <= 1) return;
+    setStages.mutate({
+      id: activeBoardId,
+      stages: stages.filter((s) => s.id !== stageId),
+    });
+  }
+  function addStage() {
+    const name = newStageName.trim();
+    if (!activeBoardId || !name) return;
+    const id = slugStageId(name, new Set(stages.map((s) => s.id)));
+    const color: TaskColor = "gray";
+    setStages.mutate({ id: activeBoardId, stages: [...stages, { id, name, color }] });
+    setNewStageName("");
+    setAddingStage(false);
+  }
+
+  function openTaskById(taskId: string) {
+    const t = (taskList.data ?? []).find((x) => x.id === taskId);
+    if (t) setModal({ mode: "edit", task: t });
+  }
+
   if (taskList.isError) {
     return (
       <div className="centered">
-        Sessão expirada ou indisponível. Recarregue a página dentro do
-        GoHighLevel.
+        Session expired or unavailable. Reload the page inside GoHighLevel.
       </div>
     );
   }
 
-  const activeBoard = boardsQ.data?.find((b) => b.id === activeBoardId);
-  const statusMeta = mergeColumnMeta(activeBoard?.columnConfig);
-
   return (
     <div className={`shell${selected.size ? " selection-active" : ""}`}>
-      {/* Pipelines */}
+      {/* Pipelines + view toggle + notifications */}
       <nav className="tabs-bar" aria-label="Pipelines">
         {(boardsQ.data ?? []).map((b) => (
           <button
@@ -273,95 +306,88 @@ export function Board() {
               setSelected(new Set());
             }}
             onDoubleClick={() => {
-              const name = window.prompt("Renomear pipeline:", b.name);
+              const name = window.prompt("Rename pipeline:", b.name);
               if (name?.trim()) renameBoard.mutate({ id: b.id, name: name.trim() });
             }}
-            title="Duplo clique para renomear"
+            title="Double-click to rename"
           >
             {b.name}
           </button>
         ))}
-        <button
-          className="tab tab-add"
-          onClick={() => {
-            const name = window.prompt(
-              "Nome do novo pipeline (ex.: Comercial, Suporte, Onboarding):",
-            );
-            if (name?.trim()) createBoard.mutate({ name: name.trim() });
-          }}
-        >
-          + Novo pipeline
+        <button className="tab tab-add" onClick={() => setNewPipeline(true)}>
+          + New pipeline
         </button>
-        {activeBoard && (boardsQ.data?.length ?? 0) > 1 && (
-          <button
-            className="tab"
-            style={{ marginLeft: "auto", color: "var(--danger-text)" }}
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Excluir o pipeline "${activeBoard.name}" e TODAS as suas tarefas?`,
-                )
-              ) {
-                deleteBoard.mutate({ id: activeBoard.id });
-              }
-            }}
-          >
-            Excluir pipeline
-          </button>
-        )}
+
+        <div className="tabs-right">
+          <Notifications usersById={usersById} onOpenTask={openTaskById} />
+          <div className="view-toggle" role="tablist" aria-label="View">
+            <button
+              className={view === "kanban" ? "on" : ""}
+              onClick={() => setView("kanban")}
+            >
+              Board
+            </button>
+            <button
+              className={view === "list" ? "on" : ""}
+              onClick={() => setView("list")}
+            >
+              Tasks list view
+            </button>
+          </div>
+        </div>
       </nav>
 
       {/* Filters / actions */}
       <header className="topbar">
         <div className="topbar-title">
-          <h1>{activeBoard?.name ?? "Tarefas"}</h1>
+          <h1>{activeBoard?.name ?? "Tasks"}</h1>
           <span className="count">{filtered.length}</span>
         </div>
 
         <input
           ref={searchRef}
           className="input"
-          placeholder="Buscar…  ( / )"
+          placeholder="Search…  ( / )"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ width: 170 }}
+          style={{ width: 160 }}
         />
 
         <button
           className={`chip-toggle${myTasks ? " on" : ""}`}
           onClick={() => setMyTasks((v) => !v)}
-          title="Somente tarefas atribuídas a você"
+          title="Only tasks assigned to you"
         >
           {myUserId && (
             <span
               className="avatar"
               style={{ background: avatarColor(myUserId), marginLeft: 0 }}
             >
-              {initials(usersById.get(myUserId) ?? "Eu")}
+              {initials(usersById.get(myUserId) ?? "Me")}
             </span>
           )}
-          Minhas
+          My tasks
         </button>
 
         <select
           className="select"
           value={dueFilter}
           onChange={(e) => setDueFilter(e.target.value as DueFilter)}
-          title="Filtro de vencimento"
+          title="Due date filter"
         >
-          <option value="all">Vencimento: todos</option>
-          <option value="overdue">⚠ Atrasadas</option>
-          <option value="today">Hoje</option>
-          <option value="week">Próximos 7 dias</option>
+          <option value="all">Due: all</option>
+          <option value="overdue">⚠ Overdue</option>
+          <option value="today">Today</option>
+          <option value="week">Next 7 days</option>
         </select>
 
         <select
           className="select"
           value={assigneeFilter}
           onChange={(e) => setAssigneeFilter(e.target.value)}
-          title="Filtrar por responsável"
+          title="Filter by assignee"
         >
-          <option value="">Todos os responsáveis</option>
+          <option value="">All assignees</option>
           {(users.data ?? [])
             .slice()
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -376,41 +402,33 @@ export function Board() {
           className="select"
           value={sort}
           onChange={(e) => setSort(e.target.value as SortMode)}
-          title="Ordenação das colunas"
+          title="Column ordering"
         >
-          <option value="manual">Ordem manual</option>
-          <option value="priority">Por prioridade</option>
-          <option value="due">Por vencimento</option>
+          <option value="manual">Manual order</option>
+          <option value="priority">By priority</option>
+          <option value="due">By due date</option>
         </select>
 
         <button
           className={`chip-toggle${showArchived ? " on" : ""}`}
           onClick={() => setShowArchived((v) => !v)}
-          title="Mostrar tarefas arquivadas"
+          title="Show archived tasks"
         >
-          🗃 Arquivadas
-        </button>
-
-        <button
-          className={`chip-toggle${view === "list" ? " on" : ""}`}
-          onClick={() => setView((v) => (v === "kanban" ? "list" : "kanban"))}
-          title="Alternar Kanban / Lista"
-        >
-          {view === "kanban" ? "☰ Lista" : "▦ Kanban"}
+          🗃 Archived
         </button>
 
         <button
           className="btn btn-primary"
-          onClick={() => setModal({ mode: "create", status: "todo" })}
-          title="Atalho: N"
+          onClick={() => setModal({ mode: "create", status: stages[0]?.id ?? "todo" })}
+          title="Shortcut: N"
         >
-          + Nova tarefa
+          + New task
         </button>
       </header>
 
       {taskList.isLoading || !activeBoardId ? (
         <div className="board">
-          {STATUSES.map((s) => (
+          {[0, 1, 2, 3].map((s) => (
             <div
               key={s}
               className="column"
@@ -425,41 +443,77 @@ export function Board() {
       ) : view === "kanban" ? (
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="board">
-            {STATUSES.map((status) => (
+            {stages.map((stage) => (
               <Column
-                key={status}
-                status={status}
-                meta={statusMeta[status]}
-                tasks={byStatus.get(status) ?? []}
+                key={stage.id}
+                stage={stage}
+                tasks={byStage.get(stage.id) ?? []}
                 usersById={usersById}
                 onCardClick={(task) => setModal({ mode: "edit", task })}
                 adding={quickCreate.isPending}
                 dragDisabled={sort !== "manual"}
+                canDelete={stages.length > 1}
                 selected={selected}
                 onToggleSelect={toggleSelect}
-                onSaveMeta={(s, label, color) => {
-                  if (!activeBoardId) return;
-                  updateColumns.mutate({
-                    id: activeBoardId,
-                    columns: { [s]: { label, ...(color ? { color } : {}) } },
-                  });
-                }}
-                onQuickAdd={(title, s) =>
-                  quickCreate.mutate({
-                    title,
-                    status: s,
-                    boardId: activeBoardId,
-                  })
+                onEditStage={editStage}
+                onDeleteStage={deleteStage}
+                onQuickAdd={(title, stageId) =>
+                  quickCreate.mutate({ title, status: stageId, boardId: activeBoardId })
                 }
               />
             ))}
+
+            {/* Add stage */}
+            <div className="add-stage-col">
+              {addingStage ? (
+                <form
+                  className="add-stage-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    addStage();
+                  }}
+                >
+                  <input
+                    className="input"
+                    autoFocus
+                    placeholder="Stage name"
+                    value={newStageName}
+                    onChange={(e) => setNewStageName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Escape" && setAddingStage(false)}
+                    maxLength={30}
+                  />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-primary" type="submit" style={{ padding: "6px 12px", fontSize: 12.5 }}>
+                      Add
+                    </button>
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      style={{ padding: "6px 10px", fontSize: 12.5 }}
+                      onClick={() => setAddingStage(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  className="add-stage-btn"
+                  onClick={() => setAddingStage(true)}
+                  disabled={stages.length >= 12}
+                >
+                  + Add stage
+                </button>
+              )}
+            </div>
           </div>
         </DragDropContext>
       ) : (
         <ListView
           tasks={listRows}
           usersById={usersById}
-          statusMeta={statusMeta}
+          stages={stages}
+          doneIds={doneIds}
           selected={selected}
           onToggleSelect={toggleSelect}
           onToggleSelectAll={toggleSelectAll}
@@ -471,7 +525,38 @@ export function Board() {
         <BulkBar
           selected={selected}
           users={users.data ?? []}
+          stages={stages}
           onClear={() => setSelected(new Set())}
+        />
+      )}
+
+      {activeBoard && (boardsQ.data?.length ?? 0) > 1 && (
+        <div style={{ position: "fixed", bottom: 12, left: 16, zIndex: 40 }}>
+          <button
+            className="btn btn-ghost"
+            style={{ color: "var(--danger-text)", fontSize: 12.5 }}
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Delete the "${activeBoard.name}" pipeline and ALL its tasks?`,
+                )
+              ) {
+                deleteBoard.mutate({ id: activeBoard.id });
+              }
+            }}
+          >
+            Delete pipeline
+          </button>
+        </div>
+      )}
+
+      {newPipeline && (
+        <NewPipelineModal
+          onClose={() => setNewPipeline(false)}
+          onCreated={(id) => {
+            setBoardId(id);
+            setNewPipeline(false);
+          }}
         />
       )}
 
@@ -483,7 +568,7 @@ export function Board() {
           locationId={whoami.data?.locationId}
           currentUserId={myUserId}
           boardId={activeBoardId ?? undefined}
-          statusMeta={statusMeta}
+          stages={stages}
           onClose={() => setModal(null)}
         />
       )}

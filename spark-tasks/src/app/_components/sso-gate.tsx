@@ -84,22 +84,22 @@ export function SsoGate({ children }: { children: ReactNode }) {
   }, []);
 
   if (state.kind === "loading") {
-    return <Centered>Carregando…</Centered>;
+    return <Centered>Loading…</Centered>;
   }
   if (state.kind === "no-response") {
     return (
       <Centered>
         <div style={{ maxWidth: 460 }}>
           <p style={{ fontWeight: 600, color: "#101828", marginBottom: 8 }}>
-            O GoHighLevel não respondeu ao pedido de autenticação (SSO).
+            GoHighLevel did not respond to the authentication (SSO) request.
           </p>
           <p style={{ margin: 0 }}>
-            Isso normalmente significa uma destas duas coisas: o app foi aberto
-            por um <b>Custom Menu Link</b> (que não tem SSO) em vez da página do
-            app de marketplace instalado, ou o <b>SSO não está habilitado</b>{" "}
-            nas configurações do app no Developer Portal. Abra o app pelo menu
-            do próprio app instalado na location e confirme que a Shared Secret
-            Key está salva na seção SSO do app.
+            This usually means one of two things: the app was opened via a{" "}
+            <b>Custom Menu Link</b> (which has no SSO) instead of the installed
+            marketplace app page, or <b>SSO is not enabled</b> in the app
+            settings in the Developer Portal. Open the app from the installed
+            app menu inside the location and confirm the Shared Secret Key is
+            saved in the app's SSO section.
           </p>
         </div>
       </Centered>
@@ -110,12 +110,13 @@ export function SsoGate({ children }: { children: ReactNode }) {
       <Centered>
         <div style={{ maxWidth: 460 }}>
           <p style={{ fontWeight: 600, color: "#101828", marginBottom: 8 }}>
-            Autenticação recusada pelo servidor (HTTP {state.status || "—"}).
+            Authentication rejected by the server (HTTP {state.status || "—"}).
           </p>
           <p style={{ margin: 0 }}>
-            O GHL respondeu, mas o payload não pôde ser validado — em geral é a
-            Shared Secret Key do app diferente da configurada no servidor, ou o
-            app aberto no nível de agency (abra dentro de uma location).
+            GHL responded, but the payload could not be validated — usually the
+            app's Shared Secret Key differs from the one configured on the
+            server, or the app was opened at the agency level (open it inside a
+            location).
           </p>
         </div>
       </Centered>

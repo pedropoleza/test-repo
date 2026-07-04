@@ -15,22 +15,25 @@ export type Task = RouterOutputs["task"]["list"][number];
 export function TaskCard({
   task,
   usersById,
+  isDone,
   onClick,
   dragging,
 }: {
   task: Task;
   usersById: Map<string, string>;
+  /** Whether the task's current stage is a completion stage. */
+  isDone: boolean;
   onClick: () => void;
   dragging: boolean;
 }) {
-  const overdue = isOverdue(task.dueDate, task.status);
+  const overdue = isOverdue(task.dueDate, isDone);
   const checkDone = task.checklist.filter((c) => c.done).length;
   const checkTotal = task.checklist.length;
   const archived = !!task.archivedAt;
 
   return (
     <div
-      className={`card${dragging ? " dragging" : ""}${task.status === "done" ? " done" : ""}${archived ? " archived" : ""}${task.cardStyle === "filled" ? " filled" : ""}`}
+      className={`card${dragging ? " dragging" : ""}${isDone ? " done" : ""}${archived ? " archived" : ""}${task.cardStyle === "filled" ? " filled" : ""}`}
       style={{ ["--card-color" as string]: COLOR_HEX[task.color] }}
       onClick={onClick}
       role="button"
@@ -63,7 +66,7 @@ export function TaskCard({
         </div>
       )}
       <div className="card-footer">
-        {archived && <span className="pill archived-pill">Arquivada</span>}
+        {archived && <span className="pill archived-pill">Archived</span>}
         {task.dueDate && (
           <span className={`pill${overdue ? " overdue" : ""}`}>
             {overdue ? "⚠ " : "🗓 "}
@@ -115,8 +118,8 @@ export function ContactPill({ contactId }: { contactId: string }) {
     { staleTime: 10 * 60_000, retry: 1 },
   );
   return (
-    <span className="pill contact" title={contact.data?.name ?? "Contato"}>
-      👤 {contact.data?.name ?? "Contato"}
+    <span className="pill contact" title={contact.data?.name ?? "Contact"}>
+      👤 {contact.data?.name ?? "Contact"}
     </span>
   );
 }

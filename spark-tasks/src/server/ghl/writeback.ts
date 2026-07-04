@@ -17,7 +17,7 @@
  */
 import { eq, sql, and, isNull } from "drizzle-orm";
 import { db } from "~/server/db";
-import { tasks } from "~/server/db/schema";
+import { tasks, boards } from "~/server/db/schema";
 import { env } from "~/env";
 import { createContactNote, addContactTags } from "./api";
 
@@ -63,23 +63,27 @@ async function attemptWriteback(
         title: tasks.title,
         status: tasks.status,
         contactId: tasks.contactId,
+        stages: boards.stages,
       })
       .from(tasks)
+      .innerJoin(boards, eq(boards.id, tasks.boardId))
       .where(and(eq(tasks.id, taskId), isNull(tasks.completedWritebackAt)))
       .limit(1);
     return row ?? null;
   });
 
-  // Already written back, task gone, reopened, or contact unlinked → no-op.
-  if (!task || task.status !== "done" || !task.contactId) return;
+  // Already written back, task gone, moved out of a done stage, or contact
+  // unlinked → no-op.
+  const inDoneStage = !!task?.stages.find((s) => s.id === task.status)?.isDone;
+  if (!task || !inDoneStage || !task.contactId) return;
 
   await createContactNote(
     locationId,
     task.contactId,
-    `Tarefa concluída: ${task.title}`,
+    `Task completed: ${task.title}`,
   );
   await addContactTags(locationId, task.contactId, [
-    env.GHL_WRITEBACK_TAG ?? "tarefa-concluida",
+    env.GHL_WRITEBACK_TAG ?? "task-completed",
   ]);
 
   await db.transaction(async (tx) => {

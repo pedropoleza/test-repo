@@ -2,26 +2,25 @@
 
 /**
  * List view: flat, sortable table of the (already filtered/sorted) tasks.
- * Rows open the task modal; the status chip and checkbox act inline.
+ * Rows open the task modal; the status select and checkbox act inline.
  */
 import { api } from "~/trpc/react";
-import type { TaskStatus } from "~/server/db/schema";
+import type { Stage } from "~/server/db/schema";
 import {
   COLOR_HEX,
   PRIORITY_META,
-  STATUSES,
   avatarColor,
   initials,
   formatDue,
   isOverdue,
-  type StatusDisplay,
 } from "./palette";
 import type { Task } from "./TaskCard";
 
 export function ListView({
   tasks,
   usersById,
-  statusMeta,
+  stages,
+  doneIds,
   selected,
   onToggleSelect,
   onToggleSelectAll,
@@ -29,7 +28,8 @@ export function ListView({
 }: {
   tasks: Task[];
   usersById: Map<string, string>;
-  statusMeta: Record<TaskStatus, StatusDisplay>;
+  stages: Stage[];
+  doneIds: Set<string>;
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
@@ -39,9 +39,9 @@ export function ListView({
   const move = api.task.move.useMutation({
     onSettled: () => utils.task.list.invalidate(),
   });
+  const stageName = (id: string) => stages.find((s) => s.id === id)?.name ?? id;
 
-  const allSelected =
-    tasks.length > 0 && tasks.every((t) => selected.has(t.id));
+  const allSelected = tasks.length > 0 && tasks.every((t) => selected.has(t.id));
 
   return (
     <div className="list-wrap">
@@ -53,29 +53,30 @@ export function ListView({
                 type="checkbox"
                 checked={allSelected}
                 onChange={onToggleSelectAll}
-                aria-label="Selecionar todas"
+                aria-label="Select all"
                 style={{ accentColor: "var(--primary)" }}
               />
             </th>
-            <th>Tarefa</th>
-            <th>Status</th>
-            <th>Prioridade</th>
-            <th>Vencimento</th>
+            <th>Task</th>
+            <th>Stage</th>
+            <th>Priority</th>
+            <th>Due</th>
             <th>Checklist</th>
-            <th>Responsáveis</th>
-            <th>Etiquetas</th>
+            <th>Assignees</th>
+            <th>Labels</th>
           </tr>
         </thead>
         <tbody>
           {tasks.length === 0 && (
             <tr>
               <td colSpan={8} style={{ textAlign: "center", color: "var(--text-muted)" }}>
-                Sem tarefas com os filtros atuais
+                No tasks with the current filters
               </td>
             </tr>
           )}
           {tasks.map((t) => {
-            const overdue = isOverdue(t.dueDate, t.status);
+            const isDone = doneIds.has(t.status);
+            const overdue = isOverdue(t.dueDate, isDone);
             const checkDone = t.checklist.filter((c) => c.done).length;
             return (
               <tr
@@ -88,16 +89,13 @@ export function ListView({
                     type="checkbox"
                     checked={selected.has(t.id)}
                     onChange={() => onToggleSelect(t.id)}
-                    aria-label="Selecionar tarefa"
+                    aria-label="Select task"
                     style={{ accentColor: "var(--primary)" }}
                   />
                 </td>
                 <td>
                   <span className="lrow-title">
-                    <span
-                      className="color-dot"
-                      style={{ background: COLOR_HEX[t.color] }}
-                    />
+                    <span className="color-dot" style={{ background: COLOR_HEX[t.color] }} />
                     {t.priority !== "none" && (
                       <span
                         className="flag"
@@ -109,16 +107,14 @@ export function ListView({
                     )}
                     <span
                       style={
-                        t.status === "done"
+                        isDone
                           ? { textDecoration: "line-through", color: "var(--text-muted)" }
                           : undefined
                       }
                     >
                       {t.title}
                     </span>
-                    {t.archivedAt && (
-                      <span className="pill archived-pill">Arquivada</span>
-                    )}
+                    {t.archivedAt && <span className="pill archived-pill">Archived</span>}
                   </span>
                 </td>
                 <td onClick={(e) => e.stopPropagation()}>
@@ -126,18 +122,16 @@ export function ListView({
                     className="select"
                     style={{ padding: "4px 8px", fontSize: 12.5 }}
                     value={t.status}
-                    onChange={(e) =>
-                      move.mutate({
-                        id: t.id,
-                        status: e.target.value as TaskStatus,
-                      })
-                    }
+                    onChange={(e) => move.mutate({ id: t.id, status: e.target.value })}
                   >
-                    {STATUSES.map((s) => (
-                      <option key={s} value={s}>
-                        {statusMeta[s].label}
+                    {stages.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
                       </option>
                     ))}
+                    {!stages.some((s) => s.id === t.status) && (
+                      <option value={t.status}>{stageName(t.status)}</option>
+                    )}
                   </select>
                 </td>
                 <td>

@@ -25,11 +25,7 @@ import {
 
 export const sparkTasks = pgSchema("spark_tasks");
 
-/** Fixed status columns (D3). */
-export const TASK_STATUSES = ["todo", "doing", "waiting", "done"] as const;
-export type TaskStatus = (typeof TASK_STATUSES)[number];
-
-/** Fixed color palette (D4, §6) — no free-form picker in V1. */
+/** Fixed color palette (D4, §6). */
 export const TASK_COLORS = [
   "gray",
   "blue",
@@ -39,6 +35,27 @@ export const TASK_COLORS = [
   "purple",
 ] as const;
 export type TaskColor = (typeof TASK_COLORS)[number];
+
+/**
+ * A stage (column) of a pipeline. Stages are now DATA, defined per board, so
+ * clients can add/rename/recolor/reorder them (ClickUp-style). `isDone` marks
+ * a completion stage — moving a linked task into it triggers the D7 contact
+ * write-back. `tasks.status` holds a stage id.
+ */
+export type Stage = {
+  id: string;
+  name: string;
+  color: TaskColor;
+  isDone?: boolean;
+};
+
+/** Seed stages for a new/default board. */
+export const DEFAULT_STAGES: Stage[] = [
+  { id: "todo", name: "To Do", color: "gray" },
+  { id: "doing", name: "In Progress", color: "blue" },
+  { id: "waiting", name: "Waiting", color: "amber" },
+  { id: "done", name: "Done", color: "green", isDone: true },
+];
 
 export const TASK_PRIORITIES = [
   "none",
@@ -56,21 +73,13 @@ export type ChecklistItem = { id: string; text: string; done: boolean };
 export const CARD_STYLES = ["strip", "filled"] as const;
 export type CardStyle = (typeof CARD_STYLES)[number];
 
-/** Per-board display overrides for the fixed status columns. */
-export type ColumnConfig = Partial<
-  Record<TaskStatus, { label?: string; color?: TaskColor }>
->;
-
 export const boards = sparkTasks.table(
   "boards",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     locationId: text("location_id").notNull(),
-    name: text("name").notNull().default("Tarefas"),
-    columnConfig: jsonb("column_config")
-      .notNull()
-      .default(sql`'{}'::jsonb`)
-      .$type<ColumnConfig>(),
+    name: text("name").notNull().default("Tasks"),
+    stages: jsonb("stages").notNull().$type<Stage[]>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -88,7 +97,8 @@ export const tasks = sparkTasks.table(
       .references(() => boards.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     note: text("note"),
-    status: text("status").notNull().default("todo").$type<TaskStatus>(),
+    /** Stage id (references a stage in the task's board). */
+    status: text("status").notNull().default("todo"),
     color: text("color").notNull().default("gray").$type<TaskColor>(),
     dueDate: timestamp("due_date", { withTimezone: true }),
     contactId: text("contact_id"),
@@ -158,6 +168,33 @@ export const taskComments = sparkTasks.table(
   (t) => [
     index("task_comments_task_idx").on(t.taskId, t.createdAt),
     index("task_comments_location_idx").on(t.locationId),
+  ],
+);
+
+export const notifications = sparkTasks.table(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    locationId: text("location_id").notNull(),
+    /** Recipient GHL user id. */
+    userId: text("user_id").notNull(),
+    /** 'assigned' | 'comment'. */
+    type: text("type").notNull(),
+    taskId: uuid("task_id").references(() => tasks.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    body: text("body"),
+    actorId: text("actor_id"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("notifications_recipient_idx").on(
+      t.locationId,
+      t.userId,
+      t.createdAt,
+    ),
   ],
 );
 

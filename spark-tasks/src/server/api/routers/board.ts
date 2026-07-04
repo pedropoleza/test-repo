@@ -1,29 +1,29 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { eq, asc, sql } from "drizzle-orm";
+import { and, eq, asc, sql } from "drizzle-orm";
 import { createTRPCRouter, locationProcedure } from "../trpc";
 import {
   boards,
   tasks,
-  TASK_STATUSES,
   TASK_COLORS,
-  type ColumnConfig,
+  DEFAULT_STAGES,
+  type Stage,
 } from "~/server/db/schema";
 
 const nameSchema = z.string().trim().min(1).max(60);
-const columnConfigSchema = z.record(
-  z.enum(TASK_STATUSES),
-  z.object({
-    label: z.string().trim().min(1).max(30).optional(),
-    color: z.enum(TASK_COLORS).optional(),
-  }),
-);
+const stageSchema = z.object({
+  id: z.string().trim().min(1).max(40),
+  name: z.string().trim().min(1).max(30),
+  color: z.enum(TASK_COLORS),
+  isDone: z.boolean().optional(),
+});
+const stagesSchema = z.array(stageSchema).min(1).max(12);
 
 /**
- * Boards = "pipelines" de tarefas (por setor/pasta, estilo ClickUp).
- * Um board padrão é criado lazily; clientes podem criar/renomear/excluir.
- * `ctx.db` is the RLS-scoped transaction, so everything is pinned to the
- * session's location.
+ * Boards = task pipelines (per sector/folder, ClickUp-style). Each board owns
+ * an ordered list of stages (columns) that clients can add/rename/recolor/
+ * reorder. A default board is created lazily. `ctx.db` is the RLS-scoped
+ * transaction, so everything is pinned to the session's location.
  */
 export const boardRouter = createTRPCRouter({
   /** All boards for the location (creates the default on first load). */
@@ -37,18 +37,24 @@ export const boardRouter = createTRPCRouter({
 
     const [created] = await ctx.db
       .insert(boards)
-      .values({ locationId: ctx.locationId })
+      .values({ locationId: ctx.locationId, stages: DEFAULT_STAGES })
       .returning();
     if (!created) throw new Error("board_create_failed");
     return [created];
   }),
 
   create: locationProcedure
-    .input(z.object({ name: nameSchema }))
+    .input(
+      z.object({
+        name: nameSchema,
+        stages: stagesSchema.optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      const stages = input.stages ?? DEFAULT_STAGES;
       const [created] = await ctx.db
         .insert(boards)
-        .values({ locationId: ctx.locationId, name: input.name })
+        .values({ locationId: ctx.locationId, name: input.name, stages })
         .returning();
       if (!created) throw new Error("board_create_failed");
       return created;
@@ -64,6 +70,47 @@ export const boardRouter = createTRPCRouter({
         .returning();
       if (!updated) throw new TRPCError({ code: "NOT_FOUND" });
       return updated;
+    }),
+
+  /**
+   * Replace a board's full stage list (add/rename/recolor/reorder/remove).
+   * When a stage is removed, its tasks are moved to the first remaining stage
+   * so nothing is orphaned.
+   */
+  setStages: locationProcedure
+    .input(z.object({ id: z.string().uuid(), stages: stagesSchema }))
+    .mutation(async ({ ctx, input }) => {
+      const [board] = await ctx.db
+        .select()
+        .from(boards)
+        .where(eq(boards.id, input.id))
+        .limit(1);
+      if (!board) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Dedupe ids defensively.
+      const seen = new Set<string>();
+      for (const s of input.stages) {
+        if (seen.has(s.id)) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "duplicate_stage_id" });
+        }
+        seen.add(s.id);
+      }
+
+      const removed = board.stages.filter((s) => !seen.has(s.id));
+      const fallback = input.stages[0]!.id;
+      for (const r of removed) {
+        await ctx.db
+          .update(tasks)
+          .set({ status: fallback, updatedAt: sql`now()` })
+          .where(and(eq(tasks.boardId, input.id), eq(tasks.status, r.id)));
+      }
+
+      const [updated] = await ctx.db
+        .update(boards)
+        .set({ stages: input.stages as Stage[] })
+        .where(eq(boards.id, input.id))
+        .returning();
+      return updated!;
     }),
 
   /** Deleting a pipeline cascades its tasks. The last board can't be removed. */
@@ -83,36 +130,6 @@ export const boardRouter = createTRPCRouter({
         .returning({ id: boards.id });
       if (!deleted) throw new TRPCError({ code: "NOT_FOUND" });
       return deleted;
-    }),
-
-  /**
-   * Per-board column display overrides (name + color). The status KEYS stay
-   * fixed (D3 — todo/doing/waiting/done drive all logic incl. the D7
-   * write-back); only presentation changes.
-   */
-  updateColumns: locationProcedure
-    .input(z.object({ id: z.string().uuid(), columns: columnConfigSchema }))
-    .mutation(async ({ ctx, input }) => {
-      const [board] = await ctx.db
-        .select({ columnConfig: boards.columnConfig })
-        .from(boards)
-        .where(eq(boards.id, input.id))
-        .limit(1);
-      if (!board) throw new TRPCError({ code: "NOT_FOUND" });
-
-      const merged: ColumnConfig = { ...board.columnConfig };
-      for (const [status, cfg] of Object.entries(input.columns)) {
-        merged[status as keyof ColumnConfig] = {
-          ...merged[status as keyof ColumnConfig],
-          ...cfg,
-        };
-      }
-      const [updated] = await ctx.db
-        .update(boards)
-        .set({ columnConfig: merged })
-        .where(eq(boards.id, input.id))
-        .returning();
-      return updated!;
     }),
 
   /** Tasks per board, for delete confirmations. */

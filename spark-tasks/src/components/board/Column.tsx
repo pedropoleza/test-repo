@@ -2,34 +2,37 @@
 
 import { useState } from "react";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
-import type { TaskColor, TaskStatus } from "~/server/db/schema";
-import { COLORS, COLOR_HEX, type StatusDisplay } from "./palette";
+import type { Stage, TaskColor } from "~/server/db/schema";
+import { COLORS, COLOR_HEX } from "./palette";
 import { TaskCard, type Task } from "./TaskCard";
 
 /** Cap initial render per column; long columns paginate (§6 perf). */
 const PAGE = 50;
 
+export type StagePatch = { name?: string; color?: TaskColor; isDone?: boolean };
+
 export function Column({
-  status,
-  meta,
+  stage,
   tasks,
   usersById,
   onCardClick,
   onQuickAdd,
-  onSaveMeta,
+  onEditStage,
+  onDeleteStage,
+  canDelete,
   adding,
   dragDisabled,
   selected,
   onToggleSelect,
 }: {
-  status: TaskStatus;
-  /** Display (label + dot color) after the board's column overrides. */
-  meta: StatusDisplay;
+  stage: Stage;
   tasks: Task[];
   usersById: Map<string, string>;
   onCardClick: (task: Task) => void;
-  onQuickAdd: (title: string, status: TaskStatus) => void;
-  onSaveMeta: (status: TaskStatus, label: string, color: TaskColor | null) => void;
+  onQuickAdd: (title: string, stageId: string) => void;
+  onEditStage: (stageId: string, patch: StagePatch) => void;
+  onDeleteStage: (stageId: string) => void;
+  canDelete: boolean;
   adding: boolean;
   /** True when a non-manual sort is active — order is computed, not dragged. */
   dragDisabled: boolean;
@@ -39,37 +42,40 @@ export function Column({
   const [visible, setVisible] = useState(PAGE);
   const [draft, setDraft] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [editLabel, setEditLabel] = useState(meta.label);
-  const [editColor, setEditColor] = useState<TaskColor | null>(null);
+  const [editName, setEditName] = useState(stage.name);
+  const [editColor, setEditColor] = useState<TaskColor>(stage.color);
+  const [editDone, setEditDone] = useState(!!stage.isDone);
 
   const shown = tasks.slice(0, visible);
 
   function submitDraft() {
     const title = draft?.trim();
-    if (title) onQuickAdd(title, status);
+    if (title) onQuickAdd(title, stage.id);
     setDraft(null);
   }
 
   function saveMeta() {
-    onSaveMeta(status, editLabel.trim() || meta.label, editColor);
+    onEditStage(stage.id, {
+      name: editName.trim() || stage.name,
+      color: editColor,
+      isDone: editDone,
+    });
     setEditing(false);
   }
 
   return (
-    <section className="column" aria-label={meta.label}>
+    <section className="column" aria-label={stage.name}>
       <header className="column-header">
-        <span
-          className="dot"
-          style={{ background: editColor ? COLOR_HEX[editColor] : meta.dot }}
-        />
-        <span className="name">{meta.label}</span>
+        <span className="dot" style={{ background: COLOR_HEX[stage.color] }} />
+        <span className="name">{stage.name}</span>
         <span className="count">{tasks.length}</span>
         <button
           className="edit-btn"
-          title="Renomear / cor da coluna"
+          title="Edit stage"
           onClick={() => {
-            setEditLabel(meta.label);
-            setEditColor(null);
+            setEditName(stage.name);
+            setEditColor(stage.color);
+            setEditDone(!!stage.isDone);
             setEditing((v) => !v);
           }}
         >
@@ -87,11 +93,11 @@ export function Column({
         >
           <input
             className="input"
-            value={editLabel}
-            onChange={(e) => setEditLabel(e.target.value)}
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
             maxLength={30}
             autoFocus
-            placeholder="Nome da coluna"
+            placeholder="Stage name"
           />
           <div className="swatches">
             {COLORS.map((c) => (
@@ -105,9 +111,27 @@ export function Column({
               />
             ))}
           </div>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              fontSize: 12.5,
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={editDone}
+              onChange={(e) => setEditDone(e.target.checked)}
+              style={{ accentColor: "var(--primary)" }}
+            />
+            Completion stage (triggers contact write-back)
+          </label>
           <div style={{ display: "flex", gap: 6 }}>
             <button className="btn btn-primary" type="submit" style={{ padding: "5px 12px", fontSize: 12.5 }}>
-              Salvar
+              Save
             </button>
             <button
               className="btn btn-ghost"
@@ -115,13 +139,32 @@ export function Column({
               style={{ padding: "5px 10px", fontSize: 12.5 }}
               onClick={() => setEditing(false)}
             >
-              Cancelar
+              Cancel
             </button>
+            {canDelete && (
+              <button
+                className="btn btn-danger-ghost"
+                type="button"
+                style={{ padding: "5px 10px", fontSize: 12.5, marginLeft: "auto" }}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Delete the "${stage.name}" stage? Its tasks move to the first stage.`,
+                    )
+                  ) {
+                    onDeleteStage(stage.id);
+                    setEditing(false);
+                  }
+                }}
+              >
+                Delete
+              </button>
+            )}
           </div>
         </form>
       )}
 
-      <Droppable droppableId={status} isDropDisabled={dragDisabled}>
+      <Droppable droppableId={stage.id} isDropDisabled={dragDisabled}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
@@ -129,7 +172,7 @@ export function Column({
             className={`column-body${snapshot.isDraggingOver ? " drag-over" : ""}`}
           >
             {shown.length === 0 && !snapshot.isDraggingOver && (
-              <div className="empty-column">Sem tarefas</div>
+              <div className="empty-column">No tasks</div>
             )}
             {shown.map((task, index) => (
               <Draggable
@@ -151,11 +194,12 @@ export function Column({
                       checked={selected.has(task.id)}
                       onChange={() => onToggleSelect(task.id)}
                       onClick={(e) => e.stopPropagation()}
-                      aria-label="Selecionar tarefa"
+                      aria-label="Select task"
                     />
                     <TaskCard
                       task={task}
                       usersById={usersById}
+                      isDone={!!stage.isDone}
                       dragging={dragSnapshot.isDragging}
                       onClick={() => onCardClick(task)}
                     />
@@ -169,7 +213,7 @@ export function Column({
                 className="btn btn-ghost"
                 onClick={() => setVisible((v) => v + PAGE)}
               >
-                Mostrar mais ({tasks.length - visible})
+                Show more ({tasks.length - visible})
               </button>
             )}
           </div>
@@ -184,7 +228,7 @@ export function Column({
             onClick={() => setDraft("")}
             disabled={adding}
           >
-            + Nova tarefa
+            + Add task
           </button>
         ) : (
           <form
@@ -197,7 +241,7 @@ export function Column({
             <input
               className="input"
               autoFocus
-              placeholder="Título da tarefa…"
+              placeholder="Task title…"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={() => (draft.trim() ? submitDraft() : setDraft(null))}

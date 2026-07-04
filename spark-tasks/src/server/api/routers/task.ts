@@ -8,14 +8,16 @@ import {
   tasks,
   taskAssignees,
   taskComments,
-  TASK_STATUSES,
+  notifications,
   TASK_COLORS,
   TASK_PRIORITIES,
   CARD_STYLES,
+  DEFAULT_STAGES,
+  type Stage,
 } from "~/server/db/schema";
 import { runContactWriteback } from "~/server/ghl/writeback";
 
-const statusEnum = z.enum(TASK_STATUSES);
+const statusId = z.string().trim().min(1).max(40);
 const colorEnum = z.enum(TASK_COLORS);
 const priorityEnum = z.enum(TASK_PRIORITIES);
 const cardStyleEnum = z.enum(CARD_STYLES);
@@ -33,37 +35,70 @@ const checklistSchema = z
 type Db = Parameters<Parameters<typeof locationProcedure.query>[0]>[0]["ctx"]["db"];
 
 /**
- * Resolve the target board: an explicit id is verified to exist in this
- * location (RLS scopes the read); otherwise the default board is used
+ * Resolve the target board (id + stages): an explicit id is verified to exist
+ * in this location (RLS scopes the read); otherwise the default board is used
  * (lazily created).
  */
-async function getBoardId(
+async function getBoard(
   db: Db,
   locationId: string,
   boardId?: string,
-): Promise<string> {
+): Promise<{ id: string; stages: Stage[] }> {
   if (boardId) {
     const [b] = await db
-      .select({ id: boards.id })
+      .select({ id: boards.id, stages: boards.stages })
       .from(boards)
       .where(eq(boards.id, boardId))
       .limit(1);
     if (!b) throw new TRPCError({ code: "NOT_FOUND", message: "board" });
-    return b.id;
+    return b;
   }
   const [b] = await db
-    .select({ id: boards.id })
+    .select({ id: boards.id, stages: boards.stages })
     .from(boards)
     .where(eq(boards.locationId, locationId))
     .orderBy(asc(boards.createdAt))
     .limit(1);
-  if (b) return b.id;
+  if (b) return b;
   const [created] = await db
     .insert(boards)
-    .values({ locationId })
-    .returning({ id: boards.id });
+    .values({ locationId, stages: DEFAULT_STAGES })
+    .returning({ id: boards.id, stages: boards.stages });
   if (!created) throw new Error("board_create_failed");
-  return created.id;
+  return created;
+}
+
+/** Whether a given stage id is a completion stage on the board. */
+function stageIsDone(stages: Stage[], id: string): boolean {
+  return !!stages.find((s) => s.id === id)?.isDone;
+}
+
+/** Insert "assigned" notifications for newly-added users (skips the actor). */
+async function notifyAssigned(
+  db: Db,
+  opts: {
+    locationId: string;
+    actorId: string;
+    userIds: string[];
+    taskId: string;
+    taskTitle: string;
+  },
+) {
+  const recipients = [...new Set(opts.userIds)].filter(
+    (u) => u && u !== opts.actorId,
+  );
+  if (!recipients.length) return;
+  await db.insert(notifications).values(
+    recipients.map((userId) => ({
+      locationId: opts.locationId,
+      userId,
+      type: "assigned",
+      taskId: opts.taskId,
+      title: "New task assigned to you",
+      body: opts.taskTitle,
+      actorId: opts.actorId,
+    })),
+  );
 }
 
 /** Renumber a column 0..n-1 (only writes rows whose position changed). */
@@ -85,7 +120,7 @@ export const taskRouter = createTRPCRouter({
       z
         .object({
           boardId: z.string().uuid().optional(),
-          status: statusEnum.optional(),
+          status: statusId.optional(),
           assigneeId: z.string().optional(),
           contactId: z.string().optional(),
           includeArchived: z.boolean().optional(),
@@ -136,7 +171,7 @@ export const taskRouter = createTRPCRouter({
         boardId: z.string().uuid().optional(),
         title: z.string().trim().min(1).max(500),
         note: z.string().max(10_000).nullish(),
-        status: statusEnum.default("todo"),
+        status: statusId.optional(),
         color: colorEnum.default("gray"),
         cardStyle: cardStyleEnum.default("strip"),
         priority: priorityEnum.default("none"),
@@ -146,12 +181,18 @@ export const taskRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const boardId = await getBoardId(ctx.db, ctx.locationId, input.boardId);
+      const board = await getBoard(ctx.db, ctx.locationId, input.boardId);
+      // Resolve the stage: use the requested one if it exists on the board,
+      // otherwise the first stage.
+      const status =
+        input.status && board.stages.some((s) => s.id === input.status)
+          ? input.status
+          : board.stages[0]?.id ?? "todo";
       // Append to the end of the target column.
       const [{ count }] = (await ctx.db
         .select({ count: sql<number>`count(*)::int` })
         .from(tasks)
-        .where(and(eq(tasks.boardId, boardId), eq(tasks.status, input.status)))) as [
+        .where(and(eq(tasks.boardId, board.id), eq(tasks.status, status)))) as [
         { count: number },
       ];
 
@@ -159,10 +200,10 @@ export const taskRouter = createTRPCRouter({
         .insert(tasks)
         .values({
           locationId: ctx.locationId, // from session — never client input
-          boardId,
+          boardId: board.id,
           title: input.title,
           note: input.note ?? null,
-          status: input.status,
+          status,
           color: input.color,
           cardStyle: input.cardStyle,
           priority: input.priority,
@@ -223,7 +264,7 @@ export const taskRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string().uuid(),
-        status: statusEnum,
+        status: statusId,
         index: z.number().int().min(0).optional(),
       }),
     )
@@ -234,6 +275,16 @@ export const taskRouter = createTRPCRouter({
         .where(eq(tasks.id, input.id))
         .limit(1);
       if (!task) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const [board] = await ctx.db
+        .select({ stages: boards.stages })
+        .from(boards)
+        .where(eq(boards.id, task.boardId))
+        .limit(1);
+      const stages = board?.stages ?? [];
+      if (stages.length && !stages.some((s) => s.id === input.status)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "unknown_stage" });
+      }
 
       const fromStatus = task.status;
       const toStatus = input.status;
@@ -275,12 +326,12 @@ export const taskRouter = createTRPCRouter({
         await renumber(ctx.db, source);
       }
 
-      // D7: enqueue write-back on the transition into done. `after()` runs
-      // post-response (never blocks the UI); the job itself is idempotent and
-      // re-checks state, so a rolled-back tx or repeat call is harmless.
+      // D7: enqueue write-back on the transition into a DONE stage. `after()`
+      // runs post-response (never blocks the UI); the job itself is idempotent
+      // and re-checks state, so a rolled-back tx or repeat call is harmless.
       if (
-        toStatus === "done" &&
-        fromStatus !== "done" &&
+        stageIsDone(stages, toStatus) &&
+        !stageIsDone(stages, fromStatus) &&
         task.contactId &&
         !task.completedWritebackAt
       ) {
@@ -303,13 +354,20 @@ export const taskRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const [task] = await ctx.db
-        .select({ id: tasks.id })
+        .select({ id: tasks.id, title: tasks.title })
         .from(tasks)
         .where(eq(tasks.id, input.id))
         .limit(1);
       if (!task) throw new TRPCError({ code: "NOT_FOUND" });
 
       if (input.add.length) {
+        // Only notify users that were not already assigned.
+        const existing = await ctx.db
+          .select({ userId: taskAssignees.userId })
+          .from(taskAssignees)
+          .where(eq(taskAssignees.taskId, input.id));
+        const already = new Set(existing.map((e) => e.userId));
+
         await ctx.db
           .insert(taskAssignees)
           .values(
@@ -320,6 +378,14 @@ export const taskRouter = createTRPCRouter({
             })),
           )
           .onConflictDoNothing();
+
+        await notifyAssigned(ctx.db, {
+          locationId: ctx.locationId,
+          actorId: ctx.userId,
+          userIds: input.add.filter((u) => !already.has(u)),
+          taskId: input.id,
+          taskTitle: task.title,
+        });
       }
       if (input.remove.length) {
         await ctx.db
@@ -389,7 +455,7 @@ export const taskRouter = createTRPCRouter({
         .values({
           locationId: ctx.locationId,
           boardId: src.boardId,
-          title: `${src.title} (cópia)`,
+          title: `${src.title} (copy)`,
           note: src.note,
           status: src.status,
           color: src.color,
@@ -434,7 +500,7 @@ export const taskRouter = createTRPCRouter({
     .input(
       z.object({
         ids: z.array(z.string().uuid()).min(1).max(100),
-        status: statusEnum.optional(),
+        status: statusId.optional(),
         priority: priorityEnum.optional(),
         color: colorEnum.optional(),
         archived: z.boolean().optional(),
@@ -479,6 +545,15 @@ export const taskRouter = createTRPCRouter({
             ),
           )
           .onConflictDoNothing();
+        for (const r of rows) {
+          await notifyAssigned(ctx.db, {
+            locationId: ctx.locationId,
+            actorId: ctx.userId,
+            userIds: input.addAssigneeIds,
+            taskId: r.id,
+            taskTitle: r.title,
+          });
+        }
       }
       if (input.removeAssigneeIds?.length) {
         await ctx.db
@@ -491,11 +566,23 @@ export const taskRouter = createTRPCRouter({
           );
       }
 
-      // D7 write-back for tasks that just transitioned into done.
-      if (input.status === "done") {
+      // D7 write-back for tasks that just transitioned into a done stage.
+      if (input.status) {
+        const boardIds = [...new Set(rows.map((r) => r.boardId))];
+        const stageRows = await ctx.db
+          .select({ id: boards.id, stages: boards.stages })
+          .from(boards)
+          .where(inArray(boards.id, boardIds));
+        const stagesByBoard = new Map(stageRows.map((b) => [b.id, b.stages]));
         const locationId = ctx.locationId;
         for (const r of rows) {
-          if (r.status !== "done" && r.contactId && !r.completedWritebackAt) {
+          const stages = stagesByBoard.get(r.boardId) ?? [];
+          if (
+            stageIsDone(stages, input.status) &&
+            !stageIsDone(stages, r.status) &&
+            r.contactId &&
+            !r.completedWritebackAt
+          ) {
             const id = r.id;
             after(() => runContactWriteback(id, locationId));
           }

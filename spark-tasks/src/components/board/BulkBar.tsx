@@ -2,21 +2,23 @@
 
 /**
  * Floating action bar shown while tasks are selected (kanban or list).
- * Applies bulk status/priority/assignee changes, archive and delete.
+ * Applies bulk stage/priority/assignee changes, archive and delete.
  */
 import { api } from "~/trpc/react";
-import type { TaskPriority, TaskStatus } from "~/server/db/schema";
-import { PRIORITIES, PRIORITY_META, STATUSES, STATUS_META } from "./palette";
+import type { Stage, TaskPriority } from "~/server/db/schema";
+import { PRIORITIES, PRIORITY_META } from "./palette";
 
 type GhlUser = { id: string; name: string };
 
 export function BulkBar({
   selected,
   users,
+  stages,
   onClear,
 }: {
   selected: Set<string>;
   users: GhlUser[];
+  stages: Stage[];
   onClear: () => void;
 }) {
   const utils = api.useUtils();
@@ -37,23 +39,21 @@ export function BulkBar({
   const busy = bulk.isPending || bulkDelete.isPending;
 
   return (
-    <div className="bulkbar" role="toolbar" aria-label="Ações em massa">
-      <span className="count">{ids.length} selecionada(s)</span>
+    <div className="bulkbar" role="toolbar" aria-label="Bulk actions">
+      <span className="count">{ids.length} selected</span>
 
       <select
         className="select"
         value=""
         disabled={busy}
         onChange={(e) => {
-          if (e.target.value) {
-            bulk.mutate({ ids, status: e.target.value as TaskStatus });
-          }
+          if (e.target.value) bulk.mutate({ ids, status: e.target.value });
         }}
       >
-        <option value="">Mover para…</option>
-        {STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {STATUS_META[s].label}
+        <option value="">Move to…</option>
+        {stages.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
           </option>
         ))}
       </select>
@@ -68,7 +68,7 @@ export function BulkBar({
           }
         }}
       >
-        <option value="">Prioridade…</option>
+        <option value="">Priority…</option>
         {PRIORITIES.map((p) => (
           <option key={p} value={p}>
             {PRIORITY_META[p].label}
@@ -82,12 +82,10 @@ export function BulkBar({
           value=""
           disabled={busy}
           onChange={(e) => {
-            if (e.target.value) {
-              bulk.mutate({ ids, addAssigneeIds: [e.target.value] });
-            }
+            if (e.target.value) bulk.mutate({ ids, addAssigneeIds: [e.target.value] });
           }}
         >
-          <option value="">Atribuir a…</option>
+          <option value="">Assign to…</option>
           {users
             .slice()
             .sort((a, b) => a.name.localeCompare(b.name))
@@ -104,7 +102,7 @@ export function BulkBar({
         disabled={busy}
         onClick={() => bulk.mutate({ ids, archived: true })}
       >
-        Arquivar
+        Archive
       </button>
       <button
         className="btn btn-danger"
@@ -112,14 +110,14 @@ export function BulkBar({
         onClick={() => {
           if (
             window.confirm(
-              `Excluir definitivamente ${ids.length} tarefa(s)? Essa ação não pode ser desfeita.`,
+              `Permanently delete ${ids.length} task(s)? This cannot be undone.`,
             )
           ) {
             bulkDelete.mutate({ ids });
           }
         }}
       >
-        Excluir
+        Delete
       </button>
       <button className="btn btn-dark" onClick={onClear} disabled={busy}>
         ✕

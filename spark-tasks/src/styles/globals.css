@@ -413,7 +413,7 @@ select {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 4vh 16px 16px;
+  padding: 3vh 16px;
   z-index: 50;
   animation: fade-in 0.12s ease-out;
   overflow-y: auto;
@@ -427,7 +427,9 @@ select {
   animation: slide-up 0.16s ease-out;
   display: flex;
   flex-direction: column;
-  max-height: 90vh;
+  /* Cap below the viewport so the footer (Create/Save) never gets cut in the
+     iframe; the two content columns scroll internally instead. */
+  max-height: 85vh;
 }
 .modal-columns {
   display: grid;

@@ -15,15 +15,20 @@ export const env = createEnv({
   server: {
     // --- Database (existing Supabase project, schema `spark_tasks`) ---
     DATABASE_URL: z.string().url(),
-    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+    // Not used by runtime code (we talk to Postgres directly via DATABASE_URL);
+    // kept optional in case ops tooling needs it later.
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
 
     // --- GHL agency app (OAuth + SSO) ---
     GHL_APP_CLIENT_ID: z.string().min(1),
     GHL_APP_CLIENT_SECRET: z.string().min(1),
     /** Agency "Shared Secret Key" used to decrypt the iframe SSO payload. */
     GHL_SSO_KEY: z.string().min(1),
-    /** Agency/company id, used as `companyId` in POST /oauth/locationToken. */
-    GHL_COMPANY_ID: z.string().min(1),
+    /**
+     * Agency/company id. Optional: the OAuth callback captures companyId from
+     * the token response; set this only to pin a specific agency.
+     */
+    GHL_COMPANY_ID: z.string().min(1).optional(),
 
     // --- Crypto / sessions ---
     /** base64 of 32 random bytes — AES-256-GCM key for tokens at rest. */

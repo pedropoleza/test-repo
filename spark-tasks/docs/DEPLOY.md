@@ -2,23 +2,24 @@
 
 ## Domínio de produção (canônico)
 
-**`https://spark-tasks.vercel.app`**
+**`https://spark-tasks-sigma.vercel.app`**
 
 Projeto Vercel: `spark-tasks` · Root Directory: `spark-tasks/` (este diretório
 do repo) · Framework: Next.js · Package manager: pnpm.
 
-> Se o Vercel atribuir outro domínio, troque apenas o host — os paths abaixo
-> são fixos no código. O callback OAuth resolve o domínio dinamicamente
-> (`url.origin`), então nada precisa ser recompilado.
+> Domínio real atribuído pelo Vercel (o `spark-tasks.vercel.app` já estava em
+> uso por outra conta). Os paths são fixos no código e o callback OAuth resolve
+> o domínio dinamicamente (`url.origin`) — um domínio custom futuro não exige
+> recompilar nada, só atualizar os campos no app GHL.
 
 ## URLs para configurar no app GHL (Developer Portal)
 
 | Campo no app GHL | URL exata |
 |---|---|
-| **Redirect URL** (OAuth) | `https://spark-tasks.vercel.app/api/oauth/callback` |
-| **Custom Page URL** (iframe/SSO) | `https://spark-tasks.vercel.app/` |
-| **Webhook URL** (opcional) | `https://spark-tasks.vercel.app/api/webhooks/ghl` |
-| Healthcheck (verificação) | `https://spark-tasks.vercel.app/api/health` |
+| **Redirect URL** (OAuth) | `https://spark-tasks-sigma.vercel.app/api/oauth/callback` |
+| **Custom Page URL** (iframe/SSO) | `https://spark-tasks-sigma.vercel.app/` |
+| **Webhook URL** (opcional) | `https://spark-tasks-sigma.vercel.app/api/webhooks/ghl` |
+| Healthcheck (verificação) | `https://spark-tasks-sigma.vercel.app/api/health` |
 
 Escopos a conceder (plan §4.3): `locations.readonly`, `users.readonly`,
 `contacts.readonly`, `contacts.write` + OAuth/locationToken.

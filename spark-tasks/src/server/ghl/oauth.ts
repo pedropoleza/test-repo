@@ -9,7 +9,7 @@
  * refreshed on demand. Location tokens are cached in memory with their expiry.
  * Tokens are never logged or exposed to the client.
  */
-import { eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db } from "~/server/db";
 import { ghlInstallations } from "~/server/db/schema";
 import { env } from "~/env";
@@ -25,6 +25,8 @@ type TokenResponse = {
   refresh_token?: string;
   expires_in?: number;
   scope?: string;
+  /** Present on Company tokens — lets us capture the agency id at install. */
+  companyId?: string;
 };
 
 async function postForm(
@@ -71,10 +73,13 @@ export async function handleOAuthCallback(
     user_type: "Company",
     redirect_uri: redirectUri,
   });
+  // Prefer the companyId GHL returns with the token; env is the fallback.
+  const companyId = tok.companyId ?? env.GHL_COMPANY_ID;
+  if (!companyId) throw new Error("no_company_id_in_token_or_env");
   await db
     .insert(ghlInstallations)
     .values({
-      companyId: env.GHL_COMPANY_ID,
+      companyId,
       accessTokenEnc: encryptToken(tok.access_token),
       refreshTokenEnc: tok.refresh_token
         ? encryptToken(tok.refresh_token)
@@ -96,18 +101,29 @@ export async function handleOAuthCallback(
     });
 }
 
-/** Valid Company access token, refreshing if near expiry. */
-async function getCompanyToken(): Promise<string> {
-  const [row] = await db
+/** Valid Company access token (+ its companyId), refreshing if near expiry. */
+async function getCompanyToken(): Promise<{
+  token: string;
+  companyId: string;
+}> {
+  // V1: one agency install. If GHL_COMPANY_ID is set, pin to it; otherwise
+  // use the (single) stored installation captured by the OAuth callback.
+  const rows = await db
     .select()
     .from(ghlInstallations)
-    .where(eq(ghlInstallations.companyId, env.GHL_COMPANY_ID))
+    .where(
+      env.GHL_COMPANY_ID
+        ? eq(ghlInstallations.companyId, env.GHL_COMPANY_ID)
+        : undefined,
+    )
+    .orderBy(desc(ghlInstallations.updatedAt))
     .limit(1);
+  const row = rows[0];
   if (!row) throw new Error("agency_not_installed");
 
   const expMs = row.expiresAt ? row.expiresAt.getTime() : 0;
   if (expMs - Date.now() > REFRESH_MARGIN_MS) {
-    return decryptToken(row.accessTokenEnc);
+    return { token: decryptToken(row.accessTokenEnc), companyId: row.companyId };
   }
   if (!row.refreshTokenEnc) throw new Error("no_refresh_token");
 
@@ -128,8 +144,8 @@ async function getCompanyToken(): Promise<string> {
       expiresAt: expiryFrom(tok.expires_in),
       updatedAt: sql`now()`,
     })
-    .where(eq(ghlInstallations.companyId, env.GHL_COMPANY_ID));
-  return tok.access_token;
+    .where(eq(ghlInstallations.companyId, row.companyId));
+  return { token: tok.access_token, companyId: row.companyId };
 }
 
 // In-memory location-token cache (plan allows in-memory/DB). Serverless
@@ -145,8 +161,8 @@ export async function getLocationToken(locationId: string): Promise<string> {
   const company = await getCompanyToken();
   const tok = await postForm(
     LOCATION_TOKEN_URL,
-    { companyId: env.GHL_COMPANY_ID, locationId },
-    company,
+    { companyId: company.companyId, locationId },
+    company.token,
   );
   locationTokenCache.set(locationId, {
     token: tok.access_token,

@@ -17,6 +17,12 @@ const GHL_FRAME_ANCESTORS = [
   "https://*.gohighlevel.com",
   "https://*.leadconnectorhq.com",
   "https://*.msgsndr.com",
+  // SparkLeads white-label domain (agencies access GHL via their own domain,
+  // and frame-ancestors is checked against THAT origin, not gohighlevel.com).
+  "https://*.sparkleads.pro",
+  // Extra white-label origins without a code change: space-separated list,
+  // e.g. EXTRA_FRAME_ANCESTORS="https://app.cliente.com https://*.outra.com"
+  ...(process.env.EXTRA_FRAME_ANCESTORS?.split(/\s+/).filter(Boolean) ?? []),
 ];
 
 /** @type {import('next').NextConfig} */

@@ -587,6 +587,29 @@ export function TaskModal({
           </div>
         </div>
 
+        {editing && (
+          <div className="modal-created">
+            <span
+              className="avatar"
+              style={{ background: avatarColor(editing.createdBy), marginLeft: 0 }}
+            >
+              {initials(users.find((u) => u.id === editing.createdBy)?.name ?? "?")}
+            </span>
+            <span>
+              Created by{" "}
+              <b>{users.find((u) => u.id === editing.createdBy)?.name ?? "Unknown user"}</b>
+              {" · "}
+              {editing.createdAt.toLocaleString("en-US", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
+        )}
+
         <div className="modal-footer" style={{ paddingTop: 14, borderTop: "1px solid var(--border)" }}>
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
             Cancel

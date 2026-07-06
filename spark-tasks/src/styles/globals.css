@@ -474,6 +474,25 @@ select {
   padding: 0 20px 18px;
 }
 
+/* "Created by … · date" line at the bottom of the task detail modal. */
+.modal-created {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.modal-created .avatar {
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+}
+.modal-created b {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 .field label {
   display: block;
   font-size: 12.5px;

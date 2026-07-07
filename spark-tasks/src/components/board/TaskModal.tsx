@@ -28,7 +28,7 @@ import type { Task } from "./TaskCard";
 type GhlUser = { id: string; name: string; email?: string };
 
 export type ModalState =
-  | { mode: "create"; status: string }
+  | { mode: "create"; status: string; title?: string }
   | { mode: "edit"; task: Task };
 
 export function TaskModal({
@@ -39,6 +39,7 @@ export function TaskModal({
   currentUserId,
   boardId,
   stages,
+  requiresOwner,
   onClose,
 }: {
   state: ModalState;
@@ -48,6 +49,8 @@ export function TaskModal({
   currentUserId: string | undefined;
   boardId: string | undefined;
   stages: Stage[];
+  /** This subaccount requires at least one assignee (owner) on a task. */
+  requiresOwner: boolean;
   onClose: () => void;
 }) {
   const utils = api.useUtils();
@@ -55,7 +58,9 @@ export function TaskModal({
   const initialStatus = editing?.status ?? (state.mode === "create" ? state.status : stages[0]?.id ?? "todo");
   const stageColor = stages.find((s) => s.id === initialStatus)?.color ?? "gray";
 
-  const [title, setTitle] = useState(editing?.title ?? "");
+  const [title, setTitle] = useState(
+    editing?.title ?? (state.mode === "create" ? state.title ?? "" : ""),
+  );
   const [note, setNote] = useState(editing?.note ?? "");
   const [color, setColor] = useState<TaskColor>(editing?.color ?? stageColor);
   const [status, setStatus] = useState<string>(initialStatus);
@@ -121,8 +126,10 @@ export function TaskModal({
   const setArchived = api.task.setArchived.useMutation();
   const deleteTask = api.task.delete.useMutation();
 
+  const ownerMissing = requiresOwner && assignees.size === 0;
+
   async function save() {
-    if (!title.trim() || saving) return;
+    if (!title.trim() || saving || ownerMissing) return;
     setSaving(true);
     setError(null);
     const dueDate = due ? new Date(`${due}T12:00:00`) : null;
@@ -139,9 +146,11 @@ export function TaskModal({
           labels,
           dueDate,
           contactId: contact?.id ?? null,
+          // Assignees are created atomically with the task (enforces the
+          // required-owner rule server-side).
+          assigneeIds: [...assignees],
         });
         if (checklist.length) await update.mutateAsync({ id: created.id, checklist });
-        if (assignees.size) await assign.mutateAsync({ id: created.id, add: [...assignees] });
       } else {
         const t = state.task;
         await update.mutateAsync({
@@ -437,7 +446,15 @@ export function TaskModal({
             </div>
 
             <div className="side-field">
-              <label>Assignees</label>
+              <label>
+                Assignees{" "}
+                {requiresOwner && <span style={{ color: "var(--danger)" }}>*</span>}
+              </label>
+              {requiresOwner && ownerMissing && (
+                <div className="error-text" style={{ marginBottom: 6 }}>
+                  An owner is required — select at least one assignee.
+                </div>
+              )}
               {usersError ? (
                 <div className="hint">Users unavailable (check the GHL app).</div>
               ) : sortedUsers.length === 0 ? (
@@ -614,7 +631,12 @@ export function TaskModal({
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={() => void save()} disabled={saving || !title.trim()}>
+          <button
+            className="btn btn-primary"
+            onClick={() => void save()}
+            disabled={saving || !title.trim() || ownerMissing}
+            title={ownerMissing ? "Select an owner (assignee) first" : undefined}
+          >
             {saving ? "Saving…" : state.mode === "create" ? "Create task" : "Save"}
           </button>
         </div>

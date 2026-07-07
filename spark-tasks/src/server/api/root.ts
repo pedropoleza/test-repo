@@ -6,6 +6,7 @@ import { boardRouter } from "./routers/board";
 import { taskRouter } from "./routers/task";
 import { ghlRouter } from "./routers/ghl";
 import { notificationsRouter } from "./routers/notifications";
+import { locationRequiresOwner } from "~/server/config";
 
 export const appRouter = createTRPCRouter({
   board: boardRouter,
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
     whoami: locationProcedure.query(({ ctx }) => ({
       locationId: ctx.locationId,
       userId: ctx.userId,
+      requiresOwner: locationRequiresOwner(ctx.locationId),
     })),
   }),
 });

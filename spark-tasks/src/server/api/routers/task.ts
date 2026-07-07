@@ -16,6 +16,7 @@ import {
   type Stage,
 } from "~/server/db/schema";
 import { runContactWriteback } from "~/server/ghl/writeback";
+import { locationRequiresOwner } from "~/server/config";
 
 const statusId = z.string().trim().min(1).max(40);
 const colorEnum = z.enum(TASK_COLORS);
@@ -178,9 +179,17 @@ export const taskRouter = createTRPCRouter({
         labels: labelsSchema.default([]),
         dueDate: z.date().nullish(),
         contactId: z.string().max(100).nullish(),
+        assigneeIds: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Owner (assignee) required on some subaccounts (see server/config).
+      if (
+        locationRequiresOwner(ctx.locationId) &&
+        input.assigneeIds.length === 0
+      ) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "owner_required" });
+      }
       const board = await getBoard(ctx.db, ctx.locationId, input.boardId);
       // Resolve the stage: use the requested one if it exists on the board,
       // otherwise the first stage.
@@ -215,6 +224,26 @@ export const taskRouter = createTRPCRouter({
         })
         .returning();
       if (!created) throw new Error("task_create_failed");
+
+      if (input.assigneeIds.length) {
+        await ctx.db
+          .insert(taskAssignees)
+          .values(
+            input.assigneeIds.map((userId) => ({
+              taskId: created.id,
+              userId,
+              locationId: ctx.locationId,
+            })),
+          )
+          .onConflictDoNothing();
+        await notifyAssigned(ctx.db, {
+          locationId: ctx.locationId,
+          actorId: ctx.userId,
+          userIds: input.assigneeIds,
+          taskId: created.id,
+          taskTitle: created.title,
+        });
+      }
       return created;
     }),
 
@@ -401,6 +430,10 @@ export const taskRouter = createTRPCRouter({
         .select({ userId: taskAssignees.userId })
         .from(taskAssignees)
         .where(eq(taskAssignees.taskId, input.id));
+      // Keep an owner on subaccounts that require one (rolls back the removal).
+      if (locationRequiresOwner(ctx.locationId) && current.length === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "owner_required" });
+      }
       return { id: input.id, assigneeIds: current.map((c) => c.userId) };
     }),
 

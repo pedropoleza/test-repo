@@ -147,6 +147,7 @@ export function Board() {
   });
 
   const myUserId = whoami.data?.userId;
+  const requiresOwner = whoami.data?.requiresOwner ?? false;
 
   const filtered = useMemo(() => {
     let list = taskList.data ?? [];
@@ -519,7 +520,13 @@ export function Board() {
                 onEditStage={editStage}
                 onDeleteStage={deleteStage}
                 onQuickAdd={(title, stageId) =>
-                  quickCreate.mutate({ title, status: stageId, boardId: activeBoardId })
+                  requiresOwner
+                    ? setModal({ mode: "create", status: stageId, title })
+                    : quickCreate.mutate({
+                        title,
+                        status: stageId,
+                        boardId: activeBoardId,
+                      })
                 }
               />
             ))}
@@ -601,6 +608,7 @@ export function Board() {
           currentUserId={myUserId}
           boardId={activeBoardId ?? undefined}
           stages={stages}
+          requiresOwner={requiresOwner}
           onClose={() => setModal(null)}
         />
       )}

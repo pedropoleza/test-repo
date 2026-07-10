@@ -57,6 +57,13 @@ export function Notifications({
   const markRead = api.notifications.markRead.useMutation({
     onSuccess: () => void unread.refetch(),
   });
+  const sendTest = api.notifications.test.useMutation({
+    onSuccess: () => {
+      // Refetch immediately so the pop-up appears right away.
+      void list.refetch();
+      void unread.refetch();
+    },
+  });
 
   // Detect new unread notifications and raise toasts.
   useEffect(() => {
@@ -149,19 +156,24 @@ export function Notifications({
             <div className="notif-head">
               <span>Notifications</span>
               <span style={{ display: "flex", gap: 4 }}>
+                <a
+                  className="btn btn-ghost"
+                  style={{ padding: "2px 8px", fontSize: 12, textDecoration: "none" }}
+                  title="Get OS notifications even with the module closed"
+                  href="/enable-alerts"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  🖥 Enable alerts
+                </a>
                 <button
                   className="btn btn-ghost"
                   style={{ padding: "2px 8px", fontSize: 12 }}
-                  title="Get OS notifications even with the module closed"
-                  onClick={() =>
-                    window.open(
-                      "/enable-alerts",
-                      "spark-alerts",
-                      "width=430,height=560,popup=yes",
-                    )
-                  }
+                  title="Send yourself a test alert (pop-up + desktop)"
+                  disabled={sendTest.isPending}
+                  onClick={() => sendTest.mutate()}
                 >
-                  🖥 Enable alerts
+                  {sendTest.isPending ? "…" : "Send test"}
                 </button>
                 {count > 0 && (
                   <button

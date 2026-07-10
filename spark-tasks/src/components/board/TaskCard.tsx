@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * Task card, structured top-to-bottom with a clear hierarchy:
+ *   1. tags row (priority / recurring / origin / archived) — only when present
+ *   2. title
+ *   3. note preview
+ *   4. labels
+ *   5. meta footer (divider): due + checklist on the left, contact + assignees
+ *      on the right
+ * Quick actions are a single floating pill (SVG icons) revealed on hover at
+ * the top-right edge.
+ */
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
   COLOR_HEX,
@@ -9,6 +20,19 @@ import {
   formatDue,
   isOverdue,
 } from "./palette";
+import {
+  IconArchive,
+  IconCalendar,
+  IconChat,
+  IconCheck,
+  IconChecklist,
+  IconFlag,
+  IconRepeat,
+  IconRestore,
+  IconTrash,
+  IconUserPlus,
+  IconZap,
+} from "./Icons";
 
 export type Task = RouterOutputs["task"]["list"][number];
 
@@ -51,6 +75,11 @@ export function TaskCard({
   const checkTotal = task.checklist.length;
   const archived = !!task.archivedAt;
   const mineAlready = !!currentUserId && task.assigneeIds.includes(currentUserId);
+  const prio = PRIORITY_META[task.priority];
+  const hasTags =
+    task.priority !== "none" || task.recurring || task.source === "ghl" || archived;
+  const hasMeta =
+    !!task.dueDate || checkTotal > 0 || !!task.contactId || task.assigneeIds.length > 0;
 
   const stop = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -79,47 +108,48 @@ export function TaskCard({
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onClick()}
     >
-      {/* GHL-style quick actions (revealed on hover) */}
-      <div className="quick-actions" onMouseDown={stop}>
+      {/* Hover quick-action pill */}
+      <div className="qa-bar" onMouseDown={stop}>
         <button
-          className={`qa-btn${isDone ? " qa-done" : ""}`}
+          className={`qa${isDone ? " on-done" : ""}`}
           title={isDone ? "Reopen" : "Mark complete"}
           onClick={(e) => {
             stop(e);
             move.mutate({ id: task.id, status: isDone ? openStageId : doneStageId });
           }}
         >
-          ✓
+          <IconCheck />
         </button>
         {currentUserId && !mineAlready && (
           <button
-            className="qa-btn"
+            className="qa"
             title="Assign to me"
             onClick={(e) => {
               stop(e);
               assign.mutate({ id: task.id, add: [currentUserId] });
             }}
           >
-            🙋
+            <IconUserPlus />
           </button>
         )}
         {task.contactId && (
-          <button className="qa-btn" title="Message client" onClick={openConversation}>
-            💬
+          <button className="qa qa-chat" title="Message client" onClick={openConversation}>
+            <IconChat />
           </button>
         )}
+        <span className="qa-sep" />
         <button
-          className="qa-btn"
+          className="qa"
           title={archived ? "Restore" : "Archive"}
           onClick={(e) => {
             stop(e);
             setArchived.mutate({ id: task.id, archived: !archived });
           }}
         >
-          {archived ? "↩" : "🗃"}
+          {archived ? <IconRestore /> : <IconArchive />}
         </button>
         <button
-          className="qa-btn qa-danger"
+          className="qa qa-danger"
           title="Delete"
           onClick={(e) => {
             stop(e);
@@ -128,24 +158,64 @@ export function TaskCard({
             }
           }}
         >
-          🗑
+          <IconTrash />
         </button>
       </div>
-      <div className="card-title">
-        {task.priority !== "none" && (
-          <span
-            className="flag"
-            title={PRIORITY_META[task.priority].label}
-            style={{ color: PRIORITY_META[task.priority].color, marginRight: 6 }}
-          >
-            ⚑
-          </span>
-        )}
-        {task.title}
-      </div>
+
+      {/* 1. Tags */}
+      {hasTags && (
+        <div className="card-tags">
+          {task.priority !== "none" && (
+            <span
+              className="tag"
+              style={{ color: prio.color, background: `${prio.color}14` }}
+              title={`Priority: ${prio.label}`}
+            >
+              <IconFlag size={10} />
+              {prio.label}
+            </span>
+          )}
+          {task.recurring && (
+            <span
+              className="tag"
+              style={{ color: "#6938EF", background: "#6938EF14" }}
+              title="Recurring task"
+            >
+              <IconRepeat size={10} />
+              Recurring
+            </span>
+          )}
+          {task.source === "ghl" && (
+            <span
+              className="tag"
+              style={{ color: "#155EEF", background: "#155EEF14" }}
+              title="Synced from Spark"
+            >
+              <IconZap size={10} />
+              Spark
+            </span>
+          )}
+          {archived && (
+            <span
+              className="tag"
+              style={{ color: "#667085", background: "#66708514" }}
+            >
+              <IconArchive size={10} />
+              Archived
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* 2. Title */}
+      <div className="card-title">{task.title}</div>
+
+      {/* 3. Note preview */}
       {task.note && <div className="card-note">{task.note}</div>}
+
+      {/* 4. Labels */}
       {task.labels.length > 0 && (
-        <div className="label-row" style={{ marginTop: 6 }}>
+        <div className="label-row" style={{ marginTop: 7 }}>
           {task.labels.slice(0, 3).map((l) => (
             <span key={l} className="label-chip">
               {l}
@@ -156,59 +226,57 @@ export function TaskCard({
           )}
         </div>
       )}
-      <div className="card-footer">
-        {task.recurring && (
-          <span className="pill recurring-pill" title="Recurring task">
-            🔁 Recurring
-          </span>
-        )}
-        {task.source === "ghl" && (
-          <span className="pill spark-pill" title="Synced from Spark">
-            ⚡ Spark
-          </span>
-        )}
-        {archived && <span className="pill archived-pill">Archived</span>}
-        {task.dueDate && (
-          <span className={`pill${overdue ? " overdue" : ""}`}>
-            {overdue ? "⚠ " : "🗓 "}
-            {formatDue(task.dueDate)}
-          </span>
-        )}
-        {checkTotal > 0 && (
-          <span
-            className={`progress-pill${checkDone === checkTotal ? " complete" : ""}`}
-            title={`Checklist: ${checkDone}/${checkTotal}`}
-          >
-            ✓ {checkDone}/{checkTotal}
-            <span className="progress-bar">
-              <span style={{ width: `${(checkDone / checkTotal) * 100}%` }} />
-            </span>
-          </span>
-        )}
-        {task.contactId && <ContactPill contactId={task.contactId} />}
-        {task.assigneeIds.length > 0 && (
-          <span className="avatars">
-            {task.assigneeIds.slice(0, 4).map((uid) => {
-              const name = usersById.get(uid) ?? uid;
-              return (
-                <span
-                  key={uid}
-                  className="avatar"
-                  title={name}
-                  style={{ background: avatarColor(uid) }}
-                >
-                  {initials(name)}
-                </span>
-              );
-            })}
-            {task.assigneeIds.length > 4 && (
-              <span className="avatar" style={{ background: "#667085" }}>
-                +{task.assigneeIds.length - 4}
+
+      {/* 5. Meta footer */}
+      {hasMeta && (
+        <div className="card-meta">
+          <div className="meta-left">
+            {task.dueDate && (
+              <span
+                className={`meta-item${overdue ? " overdue" : ""}`}
+                title={overdue ? "Overdue" : "Due date"}
+              >
+                <IconCalendar size={12} />
+                {formatDue(task.dueDate)}
               </span>
             )}
-          </span>
-        )}
-      </div>
+            {checkTotal > 0 && (
+              <span
+                className={`meta-item${checkDone === checkTotal ? " complete" : ""}`}
+                title={`Checklist ${checkDone}/${checkTotal}`}
+              >
+                <IconChecklist size={12} />
+                {checkDone}/{checkTotal}
+              </span>
+            )}
+          </div>
+          <div className="meta-right">
+            {task.contactId && <ContactPill contactId={task.contactId} />}
+            {task.assigneeIds.length > 0 && (
+              <span className="avatars">
+                {task.assigneeIds.slice(0, 3).map((uid) => {
+                  const name = usersById.get(uid) ?? uid;
+                  return (
+                    <span
+                      key={uid}
+                      className="avatar"
+                      title={name}
+                      style={{ background: avatarColor(uid) }}
+                    >
+                      {initials(name)}
+                    </span>
+                  );
+                })}
+                {task.assigneeIds.length > 3 && (
+                  <span className="avatar" style={{ background: "#667085" }}>
+                    +{task.assigneeIds.length - 3}
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -225,7 +293,6 @@ export function ContactPill({ contactId }: { contactId: string }) {
   async function openConversation(e: React.MouseEvent) {
     e.stopPropagation();
     e.preventDefault();
-    // Open synchronously (keeps the user gesture), then set the resolved URL.
     const w = window.open("", "_blank", "noopener");
     try {
       const { url } = await utils.ghl.conversationUrl.fetch({ contactId });
@@ -236,7 +303,11 @@ export function ContactPill({ contactId }: { contactId: string }) {
   }
 
   return (
-    <span className="contact-chip" title={name}>
+    <button
+      className="contact-mini"
+      title={`${name} — open conversation`}
+      onClick={openConversation}
+    >
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img className="contact-photo" src={photo} alt="" />
@@ -248,15 +319,10 @@ export function ContactPill({ contactId }: { contactId: string }) {
           {initials(name)}
         </span>
       )}
-      <span className="contact-name">{name}</span>
-      <button
-        className="contact-chat"
-        onClick={openConversation}
-        title="Open conversation"
-        aria-label="Open conversation"
-      >
-        💬
-      </button>
-    </span>
+      <span className="contact-mini-name">{name.split(" ")[0]}</span>
+      <span className="contact-mini-chat">
+        <IconChat size={10} />
+      </span>
+    </button>
   );
 }

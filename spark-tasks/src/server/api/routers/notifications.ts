@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { after } from "next/server";
 import { createTRPCRouter, locationProcedure } from "../trpc";
 import { notifications } from "~/server/db/schema";
+import { sendPushToUser } from "~/server/push";
 
 /**
  * In-app notifications for the current user. RLS scopes rows to the location;
@@ -45,6 +47,31 @@ export const notificationsRouter = createTRPCRouter({
         );
       return { ok: true };
     }),
+
+  /**
+   * Self-test: creates a notification for the CURRENT user (in-app pop-up)
+   * and fires a desktop push to their subscriptions. One-click diagnosis of
+   * the whole alert pipeline.
+   */
+  test: locationProcedure.mutation(async ({ ctx }) => {
+    await ctx.db.insert(notifications).values({
+      locationId: ctx.locationId,
+      userId: ctx.userId,
+      type: "test",
+      title: "Test notification",
+      body: "If you can see this pop-up, in-app alerts work.",
+      actorId: null,
+    });
+    const { locationId, userId } = ctx;
+    after(() =>
+      sendPushToUser(locationId, userId, {
+        title: "Spark Tasks — test alert",
+        body: "Desktop alerts are working.",
+        tag: "self-test",
+      }),
+    );
+    return { ok: true };
+  }),
 
   markAllRead: locationProcedure.mutation(async ({ ctx }) => {
     await ctx.db

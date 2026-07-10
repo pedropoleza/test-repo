@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { after } from "next/server";
 import { createTRPCRouter, locationProcedure } from "../trpc";
 import { notifications } from "~/server/db/schema";
 import { sendPushToUser } from "~/server/push";
@@ -50,8 +49,8 @@ export const notificationsRouter = createTRPCRouter({
 
   /**
    * Self-test: creates a notification for the CURRENT user (in-app pop-up)
-   * and fires a desktop push to their subscriptions. One-click diagnosis of
-   * the whole alert pipeline.
+   * and fires a desktop push to their subscriptions, AWAITED so the caller
+   * gets the real delivery diagnosis back.
    */
   test: locationProcedure.mutation(async ({ ctx }) => {
     await ctx.db.insert(notifications).values({
@@ -62,15 +61,12 @@ export const notificationsRouter = createTRPCRouter({
       body: "If you can see this pop-up, in-app alerts work.",
       actorId: null,
     });
-    const { locationId, userId } = ctx;
-    after(() =>
-      sendPushToUser(locationId, userId, {
-        title: "Spark Tasks — test alert",
-        body: "Desktop alerts are working.",
-        tag: "self-test",
-      }),
-    );
-    return { ok: true };
+    const push = await sendPushToUser(ctx.locationId, ctx.userId, {
+      title: "Spark Tasks — test alert",
+      body: "Desktop alerts are working.",
+      tag: "self-test",
+    });
+    return { ok: true, push };
   }),
 
   markAllRead: locationProcedure.mutation(async ({ ctx }) => {

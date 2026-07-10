@@ -13,6 +13,32 @@ import { env } from "~/env";
 export const SESSION_COOKIE = "st_session";
 const TTL_SECONDS = 30 * 60; // 30 min; re-handshake on expiry.
 
+/**
+ * Long-lived companion cookie for the CRM-wide notifier (GHL Custom JS).
+ * Carries only identity for the read-only notification poll endpoint; the
+ * cookie path pins it to that endpoint so it can't act as a session.
+ */
+export const NOTIFY_COOKIE = "st_notify";
+const NOTIFY_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+
+export function createNotifyToken(session: Session): {
+  token: string;
+  maxAge: number;
+} {
+  const exp = Math.floor(nowSeconds()) + NOTIFY_TTL_SECONDS;
+  const payload: SessionPayload = { ...session, exp };
+  const payloadB64 = b64url(Buffer.from(JSON.stringify(payload)));
+  return {
+    token: `${payloadB64}.${sign(payloadB64)}`,
+    maxAge: NOTIFY_TTL_SECONDS,
+  };
+}
+
+/** Same verification as the session token (signature + expiry). */
+export function verifyNotifyToken(token: string | undefined): Session | null {
+  return verifySessionToken(token);
+}
+
 export type Session = {
   locationId: string;
   userId: string;

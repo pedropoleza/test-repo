@@ -9,7 +9,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { decodeSsoPayload } from "~/server/ghl/sso";
-import { createSessionToken, SESSION_COOKIE } from "~/server/auth/session";
+import {
+  createSessionToken,
+  createNotifyToken,
+  SESSION_COOKIE,
+  NOTIFY_COOKIE,
+} from "~/server/auth/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +51,19 @@ export async function POST(req: Request) {
     sameSite: "none",
     path: "/",
     maxAge,
+  });
+  // Long-lived identity for the CRM-wide notifier (GHL Custom JS): pinned to
+  // the read-only poll endpoint via `path`, so it cannot act as a session.
+  const notify = createNotifyToken({
+    locationId: identity.locationId,
+    userId: identity.userId,
+  });
+  res.cookies.set(NOTIFY_COOKIE, notify.token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/api/crm-notify",
+    maxAge: notify.maxAge,
   });
   return res;
 }

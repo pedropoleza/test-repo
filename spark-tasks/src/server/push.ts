@@ -34,12 +34,30 @@ export type PushPayload = {
   tag?: string;
 };
 
+export type PushSendResult = {
+  configured: boolean;
+  subscriptions: number;
+  sent: number;
+  pruned: number;
+  errors: string[];
+};
+
 export async function sendPushToUser(
   locationId: string,
   userId: string,
   payload: PushPayload,
-): Promise<void> {
-  if (!ensureConfigured()) return;
+): Promise<PushSendResult> {
+  const result: PushSendResult = {
+    configured: ensureConfigured(),
+    subscriptions: 0,
+    sent: 0,
+    pruned: 0,
+    errors: [],
+  };
+  if (!result.configured) {
+    console.warn("[push] disabled: VAPID keys not configured");
+    return result;
+  }
 
   const subs = await db.transaction(async (tx) => {
     await tx.execute(
@@ -55,7 +73,11 @@ export async function sendPushToUser(
         ),
       );
   });
-  if (!subs.length) return;
+  result.subscriptions = subs.length;
+  if (!subs.length) {
+    console.info(`[push] user=${userId} has no subscriptions`);
+    return result;
+  }
 
   const body = JSON.stringify(payload);
   await Promise.all(
@@ -66,10 +88,12 @@ export async function sendPushToUser(
           body,
           { TTL: 60 * 60 },
         );
+        result.sent += 1;
       } catch (err) {
         const status = (err as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) {
           // Subscription expired/revoked — prune it.
+          result.pruned += 1;
           await db.transaction(async (tx) => {
             await tx.execute(
               sql`select set_config('app.location_id', ${locationId}, true)`,
@@ -79,11 +103,15 @@ export async function sendPushToUser(
               .where(eq(pushSubscriptions.endpoint, s.endpoint));
           });
         } else {
-          console.warn(
-            `[push] send failed (${status ?? "?"}): ${err instanceof Error ? err.message : "unknown"}`,
-          );
+          const msg = `${status ?? "?"}: ${err instanceof Error ? err.message : "unknown"}`;
+          result.errors.push(msg);
+          console.warn(`[push] send failed (${msg})`);
         }
       }
     }),
   );
+  console.info(
+    `[push] user=${userId} sent=${result.sent}/${result.subscriptions} pruned=${result.pruned} errors=${result.errors.length}`,
+  );
+  return result;
 }

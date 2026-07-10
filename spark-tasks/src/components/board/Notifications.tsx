@@ -57,11 +57,28 @@ export function Notifications({
   const markRead = api.notifications.markRead.useMutation({
     onSuccess: () => void unread.refetch(),
   });
+  const [testResult, setTestResult] = useState<string | null>(null);
   const sendTest = api.notifications.test.useMutation({
-    onSuccess: () => {
+    onSuccess: (r) => {
       // Refetch immediately so the pop-up appears right away.
       void list.refetch();
       void unread.refetch();
+      const p = r.push;
+      if (!p.configured) {
+        setTestResult("⚠️ Push keys missing on the server.");
+      } else if (p.subscriptions === 0) {
+        setTestResult(
+          "⚠️ No desktop subscription in this browser yet — click 🖥 Alerts and allow notifications first.",
+        );
+      } else if (p.sent > 0) {
+        setTestResult(
+          `✅ Desktop push sent to ${p.sent} device(s). If nothing appeared, check Chrome ▸ Site settings ▸ Notifications and Windows/macOS notification settings (Focus/Do Not Disturb).`,
+        );
+      } else {
+        setTestResult(
+          `❌ Push failed: ${p.errors[0] ?? (p.pruned ? "subscription expired — re-enable alerts" : "unknown")}`,
+        );
+      }
     },
   });
 
@@ -184,6 +201,20 @@ export function Notifications({
                 )}
               </span>
             </div>
+            {testResult && (
+              <div
+                style={{
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                  color: "var(--text-secondary)",
+                  background: "#f9fafb",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                {testResult}
+              </div>
+            )}
             <div className="notif-list">
               {list.isLoading && <div className="notif-empty">Loading…</div>}
               {list.data && list.data.length === 0 && (

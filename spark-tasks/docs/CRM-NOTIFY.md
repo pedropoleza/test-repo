@@ -47,6 +47,43 @@ the plain tag instead:
   `*.leadconnectorhq.com`, `*.msgsndr.com`, `*.sparkleads.pro`) with
   credentials.
 
+## Tenant-isolation guarantees (audited)
+
+Reminders can only ever reach users of their own location. Enforcement is
+layered — no single point of failure:
+
+1. **Identity is server-minted.** `{locationId, userId}` come exclusively from
+   the GHL SSO payload decrypted with the agency secret; they are HMAC-signed
+   into the httpOnly `st_notify` cookie. The script cannot read or forge it.
+2. **Feed query is double-scoped.** RLS (FORCED, non-superuser role) pins the
+   transaction to the cookie's location; the query additionally filters
+   `user_id = cookie.userId`. A tampered cookie fails signature verification →
+   401.
+3. **Viewing-location match (hard guard).** The script reports the location id
+   of the CRM page being viewed (`?loc=`); the server returns an EMPTY feed
+   unless it equals the cookie's location. Browsing any other subaccount —
+   related or not — renders nothing. Agency-level pages (no location in the
+   URL) are silent by design.
+4. **Notification rows themselves are tenant-scoped.** They are only created
+   by assignment events inside a location (RLS-scoped writes), keyed to a
+   recipient user id of that location.
+5. **CORS with credentials only for trusted CRM origins** (GHL + white-label
+   allowlist, extensible via `EXTRA_FRAME_ANCESTORS`). Arbitrary websites
+   cannot read the feed even with the cookie present.
+6. **No-cookie = no-op.** In subaccounts whose users never opened Spark Tasks,
+   the script gets 401s and stands down after a few attempts. It renders
+   nothing and calls nothing else.
+
+## Distribution (every agency that installs the app)
+
+Agency-level Custom JS is per-agency: each agency that installs Spark Tasks
+pastes the loader block once in THEIR Settings → Company → Custom JavaScript
+(make it part of the app's install/onboarding instructions). Their white-label
+domain must be added to the CORS allowlist via the `EXTRA_FRAME_ANCESTORS`
+env var (also used for iframe embedding — one list, two protections).
+In-app pop-ups and desktop Web Push work automatically for every install with
+no extra setup.
+
 ## Troubleshooting
 
 - **No pop-ups anywhere**: user hasn't opened the module since the notifier

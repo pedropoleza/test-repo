@@ -22,6 +22,13 @@ const ORIGIN_PATTERNS = [
   /\.sparkleads\.pro$/,
 ];
 
+// Extra trusted white-label CRM origins (other agencies), without a code
+// change: space-separated origins, e.g. "https://app.cliente.com".
+const EXTRA_HOSTS = (process.env.EXTRA_FRAME_ANCESTORS ?? "")
+  .split(/\s+/)
+  .filter(Boolean)
+  .map((o) => o.replace(/^https?:\/\//, "").replace(/^\*\./, ""));
+
 function corsHeaders(origin: string | null): Record<string, string> {
   if (!origin) return {};
   try {
@@ -29,7 +36,8 @@ function corsHeaders(origin: string | null): Record<string, string> {
     const ok =
       ORIGIN_PATTERNS.some((p) => p.test(host)) ||
       host === "gohighlevel.com" ||
-      host === "sparkleads.pro";
+      host === "sparkleads.pro" ||
+      EXTRA_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
     if (!ok) return {};
     return {
       "Access-Control-Allow-Origin": origin,
@@ -59,6 +67,19 @@ export async function GET(req: Request) {
   }
 
   const url = new URL(req.url);
+
+  // HARD TENANT GUARD: the script reports which location's pages the user is
+  // currently browsing. Reminders are returned ONLY when it matches the
+  // location bound into the signed cookie — so a user browsing any other
+  // (unrelated) subaccount gets an empty feed, never cross-location data.
+  const viewingLoc = url.searchParams.get("loc");
+  if (!viewingLoc || viewingLoc !== identity.locationId) {
+    return NextResponse.json(
+      { notifications: [], serverTime: new Date().toISOString() },
+      { headers: { ...cors, "Cache-Control": "no-store" } },
+    );
+  }
+
   const sinceParam = url.searchParams.get("since");
   const since = sinceParam ? new Date(sinceParam) : null;
   // Default window: only very recent items, so a fresh browser isn't flooded.

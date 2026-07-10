@@ -146,10 +146,13 @@
 
   var failures = 0;
   function poll() {
-    if (only) {
-      var loc = currentLocation();
-      if (!loc || only.indexOf(loc) === -1) return;
-    }
+    // TENANT GUARD (client side): only poll while inside a location's pages,
+    // and always report WHICH location — the server only answers when it
+    // matches the identity cookie's location, so reminders can never render
+    // in an unrelated subaccount.
+    var loc = currentLocation();
+    if (!loc) return; // agency-level pages: stay silent
+    if (only && only.indexOf(loc) === -1) return;
     if (failures > 8) return; // identity cookie missing/expired — stand down
     var since = "";
     try {
@@ -157,7 +160,8 @@
     } catch (e) {
       /* ignore */
     }
-    fetch(API + "/api/crm-notify" + (since ? "?since=" + encodeURIComponent(since) : ""), {
+    var qs = "?loc=" + encodeURIComponent(loc) + (since ? "&since=" + encodeURIComponent(since) : "");
+    fetch(API + "/api/crm-notify" + qs, {
       credentials: "include",
     })
       .then(function (r) {

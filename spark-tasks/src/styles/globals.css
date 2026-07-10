@@ -1552,8 +1552,8 @@ select {
    hover. Monochrome SVG icons; hover states color by intent. */
 .qa-bar {
   position: absolute;
-  top: -11px;
-  right: 8px;
+  top: 6px;
+  right: 6px;
   z-index: 5;
   display: flex;
   align-items: center;
@@ -1564,7 +1564,7 @@ select {
   box-shadow: var(--shadow-md);
   padding: 2px;
   opacity: 0;
-  transform: translateY(3px);
+  transform: translateY(-3px);
   transition: opacity 0.13s, transform 0.13s;
   pointer-events: none;
 }
@@ -1608,10 +1608,6 @@ select {
   height: 14px;
   background: var(--border);
   margin: 0 2px;
-}
-/* Room for the floating pill above the first card */
-.column-body {
-  padding-top: 12px;
 }
 
 /* In-flow selection strip under the filters (not viewport-fixed, so it's

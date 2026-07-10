@@ -242,6 +242,10 @@ export const ghlInstallations = sparkTasks.table("ghl_installations", {
   refreshTokenEnc: text("refresh_token_enc"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   scopes: text("scopes"),
+  /** 'Company' (agency install) or 'Location' (subaccount install). */
+  userType: text("user_type"),
+  /** For Location installs: the location the token is scoped to. */
+  locationId: text("location_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

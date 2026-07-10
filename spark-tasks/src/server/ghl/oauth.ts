@@ -27,6 +27,10 @@ type TokenResponse = {
   scope?: string;
   /** Present on Company tokens — lets us capture the agency id at install. */
   companyId?: string;
+  /** 'Company' | 'Location' — which install shape produced this token. */
+  userType?: string;
+  /** Present on Location tokens: the subaccount the token is scoped to. */
+  locationId?: string;
 };
 
 async function postForm(
@@ -58,8 +62,9 @@ function expiryFrom(expiresIn?: number): Date {
 }
 
 /**
- * Exchange an install `code` for the Company token and persist it encrypted.
- * Called by the OAuth callback route after the agency install.
+ * Exchange an install `code` for a token and persist it encrypted. Supports
+ * BOTH install shapes: agency-level (Company token, exchanged per-location
+ * later) and direct subaccount installs (Location token, used as-is).
  */
 export async function handleOAuthCallback(
   code: string,
@@ -76,38 +81,35 @@ export async function handleOAuthCallback(
   // Prefer the companyId GHL returns with the token; env is the fallback.
   const companyId = tok.companyId ?? env.GHL_COMPANY_ID;
   if (!companyId) throw new Error("no_company_id_in_token_or_env");
+  const values = {
+    companyId,
+    accessTokenEnc: encryptToken(tok.access_token),
+    refreshTokenEnc: tok.refresh_token ? encryptToken(tok.refresh_token) : null,
+    expiresAt: expiryFrom(tok.expires_in),
+    scopes: tok.scope ?? null,
+    userType: tok.userType ?? (tok.locationId ? "Location" : "Company"),
+    locationId: tok.locationId ?? null,
+  };
   await db
     .insert(ghlInstallations)
-    .values({
-      companyId,
-      accessTokenEnc: encryptToken(tok.access_token),
-      refreshTokenEnc: tok.refresh_token
-        ? encryptToken(tok.refresh_token)
-        : null,
-      expiresAt: expiryFrom(tok.expires_in),
-      scopes: tok.scope ?? null,
-    })
+    .values(values)
     .onConflictDoUpdate({
       target: ghlInstallations.companyId,
-      set: {
-        accessTokenEnc: encryptToken(tok.access_token),
-        refreshTokenEnc: tok.refresh_token
-          ? encryptToken(tok.refresh_token)
-          : null,
-        expiresAt: expiryFrom(tok.expires_in),
-        scopes: tok.scope ?? null,
-        updatedAt: sql`now()`,
-      },
+      set: { ...values, updatedAt: sql`now()` },
     });
 }
 
-/** Valid Company access token (+ its companyId), refreshing if near expiry. */
-async function getCompanyToken(): Promise<{
+type Installation = {
   token: string;
   companyId: string;
-}> {
-  // V1: one agency install. If GHL_COMPANY_ID is set, pin to it; otherwise
-  // use the (single) stored installation captured by the OAuth callback.
+  userType: string | null;
+  locationId: string | null;
+};
+
+/** Valid installation access token, refreshing if near expiry. */
+async function getInstallationToken(): Promise<Installation> {
+  // V1: one install. If GHL_COMPANY_ID is set, pin to it; otherwise use the
+  // (single) stored installation captured by the OAuth callback.
   const rows = await db
     .select()
     .from(ghlInstallations)
@@ -121,9 +123,14 @@ async function getCompanyToken(): Promise<{
   const row = rows[0];
   if (!row) throw new Error("agency_not_installed");
 
+  const base = {
+    companyId: row.companyId,
+    userType: row.userType,
+    locationId: row.locationId,
+  };
   const expMs = row.expiresAt ? row.expiresAt.getTime() : 0;
   if (expMs - Date.now() > REFRESH_MARGIN_MS) {
-    return { token: decryptToken(row.accessTokenEnc), companyId: row.companyId };
+    return { token: decryptToken(row.accessTokenEnc), ...base };
   }
   if (!row.refreshTokenEnc) throw new Error("no_refresh_token");
 
@@ -132,7 +139,7 @@ async function getCompanyToken(): Promise<{
     client_secret: env.GHL_APP_CLIENT_SECRET,
     grant_type: "refresh_token",
     refresh_token: decryptToken(row.refreshTokenEnc),
-    user_type: "Company",
+    user_type: row.userType === "Location" ? "Location" : "Company",
   });
   await db
     .update(ghlInstallations)
@@ -145,28 +152,59 @@ async function getCompanyToken(): Promise<{
       updatedAt: sql`now()`,
     })
     .where(eq(ghlInstallations.companyId, row.companyId));
-  return { token: tok.access_token, companyId: row.companyId };
+  return { token: tok.access_token, ...base };
 }
 
 // In-memory location-token cache (plan allows in-memory/DB). Serverless
 // instances are ephemeral, so this is a best-effort cache; misses just refetch.
 const locationTokenCache = new Map<string, { token: string; expMs: number }>();
 
-/** Short-lived Location access token for a given location (cached). */
+/**
+ * Access token usable for a given location's APIs.
+ *  - Agency (Company) install → exchange via POST /oauth/locationToken.
+ *  - Direct subaccount (Location) install → the installation token IS the
+ *    location token; use it as-is. GHL scopes it server-side, so a mismatched
+ *    location would just get 401s from the API — nothing can leak.
+ * Installations recorded before user_type existed are healed on first use:
+ * when the exchange answers "user type not supported", we mark the row as a
+ * Location install and use the token directly.
+ */
 export async function getLocationToken(locationId: string): Promise<string> {
   const cached = locationTokenCache.get(locationId);
   if (cached && cached.expMs - Date.now() > REFRESH_MARGIN_MS) {
     return cached.token;
   }
-  const company = await getCompanyToken();
-  const tok = await postForm(
-    LOCATION_TOKEN_URL,
-    { companyId: company.companyId, locationId },
-    company.token,
-  );
-  locationTokenCache.set(locationId, {
-    token: tok.access_token,
-    expMs: expiryFrom(tok.expires_in).getTime(),
-  });
-  return tok.access_token;
+  const inst = await getInstallationToken();
+
+  if (inst.userType === "Location") {
+    if (inst.locationId && inst.locationId !== locationId) {
+      throw new Error("location_mismatch");
+    }
+    return inst.token;
+  }
+
+  try {
+    const tok = await postForm(
+      LOCATION_TOKEN_URL,
+      { companyId: inst.companyId, locationId },
+      inst.token,
+    );
+    locationTokenCache.set(locationId, {
+      token: tok.access_token,
+      expMs: expiryFrom(tok.expires_in).getTime(),
+    });
+    return tok.access_token;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    // Legacy row without user_type that is actually a Location token.
+    if (msg.includes("user type is not yet supported")) {
+      await db
+        .update(ghlInstallations)
+        .set({ userType: "Location", locationId, updatedAt: sql`now()` })
+        .where(eq(ghlInstallations.companyId, inst.companyId));
+      console.info("[ghl-oauth] healed installation as Location-type");
+      return inst.token;
+    }
+    throw err;
+  }
 }

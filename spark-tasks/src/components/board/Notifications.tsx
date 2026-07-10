@@ -155,33 +155,31 @@ export function Notifications({
           <div className="notif-panel">
             <div className="notif-head">
               <span>Notifications</span>
-              <span style={{ display: "flex", gap: 4 }}>
+              <span className="notif-head-actions">
                 <a
-                  className="btn btn-ghost"
-                  style={{ padding: "2px 8px", fontSize: 12, textDecoration: "none" }}
+                  className="btn btn-ghost notif-action"
                   title="Get OS notifications even with the module closed"
                   href="/enable-alerts"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  🖥 Enable alerts
+                  🖥 Alerts
                 </a>
                 <button
-                  className="btn btn-ghost"
-                  style={{ padding: "2px 8px", fontSize: 12 }}
+                  className="btn btn-ghost notif-action"
                   title="Send yourself a test alert (pop-up + desktop)"
                   disabled={sendTest.isPending}
                   onClick={() => sendTest.mutate()}
                 >
-                  {sendTest.isPending ? "…" : "Send test"}
+                  {sendTest.isPending ? "…" : "Test"}
                 </button>
                 {count > 0 && (
                   <button
-                    className="btn btn-ghost"
-                    style={{ padding: "2px 8px", fontSize: 12 }}
+                    className="btn btn-ghost notif-action"
+                    title="Mark all notifications as read"
                     onClick={() => markAll.mutate()}
                   >
-                    Mark all read
+                    Read all
                   </button>
                 )}
               </span>

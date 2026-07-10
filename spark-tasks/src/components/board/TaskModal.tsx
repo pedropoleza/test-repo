@@ -521,28 +521,73 @@ export function TaskModal({
             <div className="side-field">
               <label>Link Contact</label>
               {contact ? (
-                <div className="linked-contact" style={{ padding: "6px 10px" }}>
-                  <span className="name" style={{ fontSize: 13 }}>
-                    👤 {contact.name === "…" ? (linkedContact.data?.name ?? "Contact") : contact.name}
-                  </span>
-                  {locationId && (
-                    <a
-                      href={`https://app.gohighlevel.com/v2/location/${locationId}/contacts/detail/${contact.id}`}
-                      target="_blank"
-                      rel="noreferrer"
+                <div className="linked-contact-card">
+                  <div className="linked-contact-row">
+                    {linkedContact.data?.photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        className="contact-photo"
+                        src={linkedContact.data.photoUrl}
+                        alt=""
+                      />
+                    ) : (
+                      <span
+                        className="contact-photo initials"
+                        style={{ background: avatarColor(contact.id) }}
+                      >
+                        {initials(
+                          contact.name === "…"
+                            ? (linkedContact.data?.name ?? "C")
+                            : contact.name,
+                        )}
+                      </span>
+                    )}
+                    <span className="name" style={{ fontSize: 13.5, flex: 1 }}>
+                      {contact.name === "…"
+                        ? (linkedContact.data?.name ?? "Contact")
+                        : contact.name}
+                    </span>
+                    <button
+                      className="btn btn-ghost"
+                      type="button"
+                      style={{ padding: "2px 6px" }}
+                      onClick={() => setContact(null)}
+                      title="Unlink contact"
                     >
-                      Open ↗
-                    </a>
-                  )}
-                  <button
-                    className="btn btn-ghost"
-                    type="button"
-                    style={{ padding: "2px 6px" }}
-                    onClick={() => setContact(null)}
-                    title="Unlink contact"
-                  >
-                    ✕
-                  </button>
+                      ✕
+                    </button>
+                  </div>
+                  <div className="linked-contact-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ padding: "6px 12px", fontSize: 13 }}
+                      onClick={async () => {
+                        const w = window.open("", "_blank", "noopener");
+                        try {
+                          const { url } = await utils.ghl.conversationUrl.fetch({
+                            contactId: contact.id,
+                          });
+                          if (w) w.location.href = url;
+                        } catch {
+                          if (w) w.close();
+                        }
+                      }}
+                    >
+                      💬 Conversation
+                    </button>
+                    {locationId && (
+                      <a
+                        className="btn btn-secondary"
+                        style={{ padding: "6px 12px", fontSize: 13 }}
+                        href={`https://app.gohighlevel.com/v2/location/${locationId}/contacts/detail/${contact.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open contact ↗
+                      </a>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <>

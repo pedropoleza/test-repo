@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, locationProcedure } from "../trpc";
-import { getLocationUsers, searchContacts, getContact } from "~/server/ghl/api";
+import {
+  getLocationUsers,
+  searchContacts,
+  getContact,
+  getConversationId,
+} from "~/server/ghl/api";
+
+const GHL_APP = "https://app.gohighlevel.com";
 
 /**
  * GHL-facing queries. Always scoped to the SESSION's location — the client
@@ -48,5 +55,25 @@ export const ghlRouter = createTRPCRouter({
       } catch (err) {
         mapGhlError(err);
       }
+    }),
+
+  /**
+   * Deep link to the client's conversation. Resolves the conversation id when
+   * possible; otherwise falls back to the contact page so the button always
+   * lands somewhere useful. locationId is server-derived from the session.
+   */
+  conversationUrl: locationProcedure
+    .input(z.object({ contactId: z.string().min(1).max(100) }))
+    .query(async ({ ctx, input }) => {
+      const base = `${GHL_APP}/v2/location/${ctx.locationId}`;
+      try {
+        const convId = await getConversationId(ctx.locationId, input.contactId);
+        if (convId) {
+          return { url: `${base}/conversations/conversations/${convId}` };
+        }
+      } catch {
+        // scope missing / no conversation — fall back below
+      }
+      return { url: `${base}/contacts/detail/${input.contactId}` };
     }),
 });

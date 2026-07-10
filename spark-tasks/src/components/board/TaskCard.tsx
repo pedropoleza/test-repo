@@ -123,13 +123,49 @@ export function TaskCard({
 }
 
 export function ContactPill({ contactId }: { contactId: string }) {
+  const utils = api.useUtils();
   const contact = api.ghl.contactGet.useQuery(
     { contactId },
     { staleTime: 10 * 60_000, retry: 1 },
   );
+  const name = contact.data?.name ?? "Contact";
+  const photo = contact.data?.photoUrl;
+
+  async function openConversation(e: React.MouseEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    // Open synchronously (keeps the user gesture), then set the resolved URL.
+    const w = window.open("", "_blank", "noopener");
+    try {
+      const { url } = await utils.ghl.conversationUrl.fetch({ contactId });
+      if (w) w.location.href = url;
+    } catch {
+      if (w) w.close();
+    }
+  }
+
   return (
-    <span className="pill contact" title={contact.data?.name ?? "Contact"}>
-      👤 {contact.data?.name ?? "Contact"}
+    <span className="contact-chip" title={name}>
+      {photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className="contact-photo" src={photo} alt="" />
+      ) : (
+        <span
+          className="contact-photo initials"
+          style={{ background: avatarColor(contactId) }}
+        >
+          {initials(name)}
+        </span>
+      )}
+      <span className="contact-name">{name}</span>
+      <button
+        className="contact-chat"
+        onClick={openConversation}
+        title="Open conversation"
+        aria-label="Open conversation"
+      >
+        💬
+      </button>
     </span>
   );
 }

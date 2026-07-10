@@ -79,6 +79,7 @@ export type GhlContact = {
   name: string;
   email?: string;
   phone?: string;
+  photoUrl?: string;
 };
 
 type RawContact = {
@@ -89,6 +90,9 @@ type RawContact = {
   lastName?: string;
   email?: string;
   phone?: string;
+  profilePhoto?: string;
+  avatar?: string;
+  photoUrl?: string;
 };
 
 function normalizeContact(c: RawContact): GhlContact {
@@ -102,7 +106,24 @@ function normalizeContact(c: RawContact): GhlContact {
       c.id,
     email: c.email,
     phone: c.phone,
+    photoUrl: c.profilePhoto || c.avatar || c.photoUrl || undefined,
   };
+}
+
+/**
+ * Resolve the id of the contact's conversation (for a deep link). Needs the
+ * conversations read scope; callers fall back to the contact page if this
+ * fails or returns nothing.
+ */
+export async function getConversationId(
+  locationId: string,
+  contactId: string,
+): Promise<string | null> {
+  const raw = await ghlFetch<{ conversations?: Array<{ id: string }> }>(
+    locationId,
+    `/conversations/search?locationId=${encodeURIComponent(locationId)}&contactId=${encodeURIComponent(contactId)}&limit=1`,
+  );
+  return raw.conversations?.[0]?.id ?? null;
 }
 
 export async function searchContacts(

@@ -1161,16 +1161,17 @@ select {
   border: 2px solid var(--surface);
 }
 .notif-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  /* Fixed (not absolute) so the pipeline tabs bar's overflow can't clip it. */
+  position: fixed;
+  top: 56px;
+  right: 14px;
   width: 340px;
   max-width: calc(100vw - 32px);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow-lg);
-  z-index: 70;
+  z-index: 90;
   overflow: hidden;
   animation: slide-up 0.14s ease-out;
 }
@@ -1394,9 +1395,9 @@ select {
    -------------------------------------------------------------------------- */
 .card-check {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
+  top: 9px;
+  left: 8px;
+  z-index: 3;
   opacity: 0;
   transition: opacity 0.12s;
   accent-color: var(--primary);
@@ -1408,6 +1409,60 @@ select {
 .card-check:checked,
 .selection-active .card-check {
   opacity: 1;
+}
+/* Give the title room for the checkbox when selecting is active. */
+.selection-active .card .card-title {
+  padding-left: 20px;
+}
+
+/* GHL-style quick actions — small icon buttons revealed on card hover */
+.quick-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 4;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.12s, transform 0.12s;
+  pointer-events: none;
+}
+.card:hover .quick-actions {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.qa-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.1s, color 0.1s, transform 0.1s, border-color 0.1s;
+}
+.qa-btn:hover {
+  transform: translateY(-1px);
+}
+.qa-btn:first-child:hover {
+  background: #ecfdf3;
+  color: #067647;
+  border-color: #a6f4c5;
+}
+.qa-btn.qa-done {
+  background: #ecfdf3;
+  color: #067647;
+  border-color: #a6f4c5;
+}
+.qa-btn:hover {
+  border-color: var(--border-strong);
 }
 
 /* In-flow selection strip under the filters (not viewport-fixed, so it's

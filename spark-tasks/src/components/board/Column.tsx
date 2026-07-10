@@ -24,6 +24,9 @@ export function Column({
   dragDisabled,
   selected,
   onToggleSelect,
+  currentUserId,
+  openStageId,
+  doneStageId,
 }: {
   stage: Stage;
   tasks: Task[];
@@ -38,6 +41,9 @@ export function Column({
   dragDisabled: boolean;
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
+  currentUserId: string | undefined;
+  openStageId: string;
+  doneStageId: string;
 }) {
   const [visible, setVisible] = useState(PAGE);
   const [draft, setDraft] = useState<string | null>(null);
@@ -202,6 +208,9 @@ export function Column({
                       isDone={!!stage.isDone}
                       dragging={dragSnapshot.isDragging}
                       onClick={() => onCardClick(task)}
+                      currentUserId={currentUserId}
+                      openStageId={openStageId}
+                      doneStageId={doneStageId}
                     />
                   </div>
                 )}

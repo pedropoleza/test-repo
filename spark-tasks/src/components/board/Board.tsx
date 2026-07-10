@@ -69,6 +69,9 @@ export function Board() {
   const activeBoard = boardsQ.data?.find((b) => b.id === activeBoardId);
   const stages: Stage[] = activeBoard?.stages ?? [];
   const doneIds = useMemo(() => doneStageIds(stages), [stages]);
+  const openStageId = stages[0]?.id ?? "todo";
+  const doneStageId =
+    (stages.find((s) => s.isDone) ?? stages[stages.length - 1])?.id ?? "done";
 
   const usersById = useMemo(
     () => new Map((users.data ?? []).map((u) => [u.id, u.name])),
@@ -517,6 +520,9 @@ export function Board() {
                 canDelete={stages.length > 1}
                 selected={selected}
                 onToggleSelect={toggleSelect}
+                currentUserId={myUserId}
+                openStageId={openStageId}
+                doneStageId={doneStageId}
                 onEditStage={editStage}
                 onDeleteStage={deleteStage}
                 onQuickAdd={(title, stageId) =>

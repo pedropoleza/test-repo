@@ -245,6 +245,7 @@ export function TaskModal({
               <label>Note</label>
               <textarea
                 className="textarea"
+                style={{ minHeight: 150 }}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Details, context, next steps…"

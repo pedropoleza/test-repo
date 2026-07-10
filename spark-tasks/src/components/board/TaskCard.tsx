@@ -18,6 +18,9 @@ export function TaskCard({
   isDone,
   onClick,
   dragging,
+  currentUserId,
+  openStageId,
+  doneStageId,
 }: {
   task: Task;
   usersById: Map<string, string>;
@@ -25,11 +28,41 @@ export function TaskCard({
   isDone: boolean;
   onClick: () => void;
   dragging: boolean;
+  currentUserId: string | undefined;
+  openStageId: string;
+  doneStageId: string;
 }) {
+  const utils = api.useUtils();
+  const move = api.task.move.useMutation({
+    onSettled: () => utils.task.list.invalidate(),
+  });
+  const assign = api.task.assign.useMutation({
+    onSettled: () => utils.task.list.invalidate(),
+  });
+
   const overdue = isOverdue(task.dueDate, isDone);
   const checkDone = task.checklist.filter((c) => c.done).length;
   const checkTotal = task.checklist.length;
   const archived = !!task.archivedAt;
+  const mineAlready = !!currentUserId && task.assigneeIds.includes(currentUserId);
+
+  const stop = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+
+  async function openConversation(e: React.MouseEvent) {
+    stop(e);
+    const w = window.open("", "_blank", "noopener");
+    try {
+      const { url } = await utils.ghl.conversationUrl.fetch({
+        contactId: task.contactId!,
+      });
+      if (w) w.location.href = url;
+    } catch {
+      if (w) w.close();
+    }
+  }
 
   return (
     <div
@@ -40,6 +73,36 @@ export function TaskCard({
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onClick()}
     >
+      {/* GHL-style quick actions (revealed on hover) */}
+      <div className="quick-actions" onMouseDown={stop}>
+        <button
+          className={`qa-btn${isDone ? " qa-done" : ""}`}
+          title={isDone ? "Reopen" : "Mark complete"}
+          onClick={(e) => {
+            stop(e);
+            move.mutate({ id: task.id, status: isDone ? openStageId : doneStageId });
+          }}
+        >
+          ✓
+        </button>
+        {currentUserId && !mineAlready && (
+          <button
+            className="qa-btn"
+            title="Assign to me"
+            onClick={(e) => {
+              stop(e);
+              assign.mutate({ id: task.id, add: [currentUserId] });
+            }}
+          >
+            🙋
+          </button>
+        )}
+        {task.contactId && (
+          <button className="qa-btn" title="Message client" onClick={openConversation}>
+            💬
+          </button>
+        )}
+      </div>
       <div className="card-title">
         {task.priority !== "none" && (
           <span

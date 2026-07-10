@@ -55,9 +55,14 @@ export async function POST(req: Request) {
   }
 
   const type = body?.type ?? "unknown";
+  // Always log the event type (+ shape) so real deliveries are diagnosable.
+  console.info(
+    `[webhook] type=${type} loc=${body?.locationId ?? "-"} id=${body?.id ?? "-"} keys=${Object.keys(body ?? {}).join(",")}`,
+  );
   if (TASK_EVENTS.has(type)) {
     try {
       await ingestTaskEvent(body);
+      console.info(`[webhook] ingested ${type} id=${body.id}`);
     } catch (err) {
       console.error(
         `[webhook] task ingest failed (${type}): ${err instanceof Error ? err.message : "unknown"}`,
@@ -65,8 +70,6 @@ export async function POST(req: Request) {
       // 200 anyway — retries would re-run the same idempotent upsert; we log
       // and move on rather than trigger a retry storm.
     }
-  } else {
-    console.info(`[webhook] ghl event type=${type}`);
   }
   return NextResponse.json({ ok: true });
 }

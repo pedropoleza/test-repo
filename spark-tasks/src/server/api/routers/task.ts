@@ -18,6 +18,7 @@ import {
 import { runContactWriteback } from "~/server/ghl/writeback";
 import { locationRequiresOwner } from "~/server/config";
 import { pushTaskCompletion, pushTaskFields } from "~/server/ghl/task-sync";
+import { sendPushToUser } from "~/server/push";
 
 const statusId = z.string().trim().min(1).max(40);
 const colorEnum = z.enum(TASK_COLORS);
@@ -75,7 +76,11 @@ function stageIsDone(stages: Stage[], id: string): boolean {
   return !!stages.find((s) => s.id === id)?.isDone;
 }
 
-/** Insert "assigned" notifications for newly-added users (skips the actor). */
+/**
+ * Insert "assigned" notifications for newly-added users (skips the actor) and
+ * schedule a Web Push per recipient (post-response; no-op until VAPID is set),
+ * so users are reminded even with the module closed.
+ */
 async function notifyAssigned(
   db: Db,
   opts: {
@@ -84,6 +89,7 @@ async function notifyAssigned(
     userIds: string[];
     taskId: string;
     taskTitle: string;
+    contactId?: string | null;
   },
 ) {
   const recipients = [...new Set(opts.userIds)].filter(
@@ -101,6 +107,20 @@ async function notifyAssigned(
       actorId: opts.actorId,
     })),
   );
+  const url = opts.contactId
+    ? `https://app.gohighlevel.com/v2/location/${opts.locationId}/contacts/detail/${opts.contactId}`
+    : `https://app.gohighlevel.com/v2/location/${opts.locationId}/dashboard`;
+  for (const userId of recipients) {
+    const { locationId, taskTitle, taskId } = opts;
+    after(() =>
+      sendPushToUser(locationId, userId, {
+        title: "New task assigned to you",
+        body: taskTitle,
+        url,
+        tag: `task-${taskId}`,
+      }),
+    );
+  }
 }
 
 /** Renumber a column 0..n-1 (only writes rows whose position changed). */
@@ -117,6 +137,25 @@ async function renumber(
 }
 
 export const taskRouter = createTRPCRouter({
+  /** Single-task lookup (notification pop-ups resolve contact/note by id). */
+  get: locationProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [task] = await ctx.db
+        .select({
+          id: tasks.id,
+          title: tasks.title,
+          note: tasks.note,
+          contactId: tasks.contactId,
+          boardId: tasks.boardId,
+        })
+        .from(tasks)
+        .where(eq(tasks.id, input.id))
+        .limit(1);
+      if (!task) throw new TRPCError({ code: "NOT_FOUND" });
+      return task;
+    }),
+
   list: locationProcedure
     .input(
       z
@@ -243,6 +282,7 @@ export const taskRouter = createTRPCRouter({
           userIds: input.assigneeIds,
           taskId: created.id,
           taskTitle: created.title,
+          contactId: created.contactId,
         });
       }
       return created;
@@ -446,6 +486,7 @@ export const taskRouter = createTRPCRouter({
           userIds: input.add.filter((u) => !already.has(u)),
           taskId: input.id,
           taskTitle: task.title,
+          contactId: task.contactId,
         });
       }
       if (input.remove.length) {
@@ -623,6 +664,7 @@ export const taskRouter = createTRPCRouter({
             userIds: input.addAssigneeIds,
             taskId: r.id,
             taskTitle: r.title,
+            contactId: r.contactId,
           });
         }
       }

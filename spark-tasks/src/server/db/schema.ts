@@ -205,6 +205,27 @@ export const notifications = sparkTasks.table(
   ],
 );
 
+/** Web Push subscriptions — one row per user+browser (endpoint unique). */
+export const pushSubscriptions = sparkTasks.table(
+  "push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    locationId: text("location_id").notNull(),
+    userId: text("user_id").notNull(),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("push_subs_recipient_idx").on(t.locationId, t.userId)],
+);
+
 /**
  * Agency-level GHL OAuth installation (plan §4.2). One row per company.
  *

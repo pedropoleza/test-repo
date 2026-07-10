@@ -13,7 +13,9 @@
  * app.location_id), same backstop as the rest of the app.
  */
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { after } from "next/server";
 import { db } from "~/server/db";
+import { sendPushToUser } from "~/server/push";
 import {
   boards,
   tasks,
@@ -196,6 +198,21 @@ export async function ingestTaskEvent(evt: GhlTaskEvent): Promise<void> {
           body: evt.title ?? null,
           actorId: null,
         });
+        // Desktop alert even with the module closed (no-op until VAPID set).
+        const url = evt.contactId
+          ? `https://app.gohighlevel.com/v2/location/${evt.locationId}/contacts/detail/${evt.contactId}`
+          : `https://app.gohighlevel.com/v2/location/${evt.locationId}/dashboard`;
+        const { locationId } = evt;
+        const userId = evt.assignedTo;
+        const title = evt.title ?? "Task";
+        after(() =>
+          sendPushToUser(locationId, userId, {
+            title: "New task assigned to you",
+            body: title,
+            url,
+            tag: `task-${created.id}`,
+          }),
+        );
       }
       return;
     }

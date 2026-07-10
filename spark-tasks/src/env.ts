@@ -51,6 +51,12 @@ export const env = createEnv({
     /** Tag added to the GHL contact on task completion (D7). */
     GHL_WRITEBACK_TAG: z.string().min(1).optional(),
 
+    // --- Web Push (desktop alerts even with the module closed) ---
+    // Optional: push is silently disabled until the VAPID pair is set.
+    VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+    VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+    VAPID_SUBJECT: z.string().min(1).optional(),
+
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -69,6 +75,9 @@ export const env = createEnv({
     SESSION_SECRET: process.env.SESSION_SECRET,
     TRIGGER_SECRET_KEY: process.env.TRIGGER_SECRET_KEY,
     GHL_WRITEBACK_TAG: process.env.GHL_WRITEBACK_TAG,
+    VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT: process.env.VAPID_SUBJECT,
     NODE_ENV: process.env.NODE_ENV,
   },
   emptyStringAsUndefined: true,

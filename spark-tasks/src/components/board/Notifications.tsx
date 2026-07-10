@@ -12,7 +12,16 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { avatarColor, initials } from "./palette";
 
-type Toast = { id: string; title: string; body: string | null; actorId: string | null };
+type Toast = {
+  id: string;
+  title: string;
+  body: string | null;
+  actorId: string | null;
+  taskId: string | null;
+  /** Resolved lazily from the task: contact for the 💬 action + note text. */
+  contactId?: string | null;
+  note?: string | null;
+};
 
 export function Notifications({
   usersById,
@@ -21,6 +30,7 @@ export function Notifications({
   usersById: Map<string, string>;
   onOpenTask: (taskId: string) => void;
 }) {
+  const utils = api.useUtils();
   const [open, setOpen] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const ref = useRef<HTMLDivElement>(null);
@@ -71,18 +81,36 @@ export function Notifications({
             title: n.title,
             body: n.body,
             actorId: n.actorId,
+            taskId: n.taskId,
           })),
           ...prev,
         ].slice(0, 4),
       );
+      // Enrich each pop-up with the task's contact + note (for the 💬 action
+      // and the reminder text) — non-blocking.
+      for (const n of freshUnread) {
+        if (!n.taskId) continue;
+        void utils.task.get
+          .fetch({ id: n.taskId })
+          .then((t) =>
+            setToasts((prev) =>
+              prev.map((x) =>
+                x.id === n.id
+                  ? { ...x, contactId: t.contactId, note: t.note }
+                  : x,
+              ),
+            ),
+          )
+          .catch(() => undefined);
+      }
     }
-  }, [list.data]);
+  }, [list.data, utils]);
 
   // Auto-dismiss toasts after a few seconds.
   useEffect(() => {
     if (!toasts.length) return;
     const timers = toasts.map((t) =>
-      setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== t.id)), 6500),
+      setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== t.id)), 9000),
     );
     return () => timers.forEach(clearTimeout);
   }, [toasts]);
@@ -120,15 +148,31 @@ export function Notifications({
           <div className="notif-panel">
             <div className="notif-head">
               <span>Notifications</span>
-              {count > 0 && (
+              <span style={{ display: "flex", gap: 4 }}>
                 <button
                   className="btn btn-ghost"
                   style={{ padding: "2px 8px", fontSize: 12 }}
-                  onClick={() => markAll.mutate()}
+                  title="Get OS notifications even with the module closed"
+                  onClick={() =>
+                    window.open(
+                      "/enable-alerts",
+                      "spark-alerts",
+                      "width=430,height=560,popup=yes",
+                    )
+                  }
                 >
-                  Mark all read
+                  🖥 Enable alerts
                 </button>
-              )}
+                {count > 0 && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ padding: "2px 8px", fontSize: 12 }}
+                    onClick={() => markAll.mutate()}
+                  >
+                    Mark all read
+                  </button>
+                )}
+              </span>
             </div>
             <div className="notif-list">
               {list.isLoading && <div className="notif-empty">Loading…</div>}
@@ -182,43 +226,67 @@ export function Notifications({
         )}
       </div>
 
-      {/* Live toasts for newly-arrived notifications */}
+      {/* Live reminder pop-ups for newly-arrived notifications */}
       {toasts.length > 0 && (
         <div className="toast-wrap">
           {toasts.map((t) => {
-            const who = t.actorId ? usersById.get(t.actorId) ?? "Someone" : "System";
+            const who = t.actorId ? usersById.get(t.actorId) ?? "Someone" : "Spark";
+            const dismiss = () =>
+              setToasts((prev) => prev.filter((x) => x.id !== t.id));
+            const openTheTask = () => {
+              openTask(t.id);
+              if (!markRead.isPending) markRead.mutate({ id: t.id });
+              dismiss();
+            };
             return (
-              <button
-                key={t.id}
-                className="toast"
-                onClick={() => {
-                  openTask(t.id);
-                  if (!markRead.isPending) markRead.mutate({ id: t.id });
-                  setToasts((prev) => prev.filter((x) => x.id !== t.id));
-                }}
-              >
-                <span
-                  className="avatar"
-                  style={{ background: avatarColor(t.actorId ?? "sys"), marginLeft: 0 }}
-                >
-                  {t.actorId ? initials(who) : "✓"}
-                </span>
-                <div className="toast-body">
-                  <div className="toast-title">🔔 {t.title}</div>
-                  {t.body && <div className="toast-sub">{t.body}</div>}
-                </div>
-                <span
+              <div key={t.id} className="toast" role="alert">
+                <button
                   className="toast-close"
-                  role="button"
                   aria-label="Dismiss"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setToasts((prev) => prev.filter((x) => x.id !== t.id));
-                  }}
+                  onClick={dismiss}
                 >
                   ✕
-                </span>
-              </button>
+                </button>
+                <div className="toast-main" onClick={openTheTask}>
+                  <span
+                    className="avatar"
+                    style={{ background: avatarColor(t.actorId ?? "sys"), marginLeft: 0 }}
+                  >
+                    {t.actorId ? initials(who) : "⚡"}
+                  </span>
+                  <div className="toast-body">
+                    <div className="toast-kicker">🔔 {t.title}</div>
+                    {t.body && <div className="toast-task">{t.body}</div>}
+                    {t.note && <div className="toast-sub">{t.note}</div>}
+                    <div className="toast-meta">by {who}</div>
+                  </div>
+                </div>
+                <div className="toast-actions">
+                  <button className="toast-btn primary" onClick={openTheTask}>
+                    Open task
+                  </button>
+                  {t.contactId && (
+                    <button
+                      className="toast-btn"
+                      onClick={async () => {
+                        const w = window.open("", "_blank", "noopener");
+                        try {
+                          const { url } = await utils.ghl.conversationUrl.fetch({
+                            contactId: t.contactId!,
+                          });
+                          if (w) w.location.href = url;
+                        } catch {
+                          if (w) w.close();
+                        }
+                        if (!markRead.isPending) markRead.mutate({ id: t.id });
+                        dismiss();
+                      }}
+                    >
+                      💬 Contact
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>

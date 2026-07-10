@@ -33,7 +33,7 @@ export function TaskCard({
 
   return (
     <div
-      className={`card${dragging ? " dragging" : ""}${isDone ? " done" : ""}${archived ? " archived" : ""}${task.cardStyle === "filled" ? " filled" : ""}`}
+      className={`card${dragging ? " dragging" : ""}${isDone ? " done" : ""}${archived ? " archived" : ""}${task.cardStyle === "filled" ? " filled" : ""}${task.recurring ? " recurring" : ""}`}
       style={{ ["--card-color" as string]: COLOR_HEX[task.color] }}
       onClick={onClick}
       role="button"
@@ -66,9 +66,14 @@ export function TaskCard({
         </div>
       )}
       <div className="card-footer">
+        {task.recurring && (
+          <span className="pill recurring-pill" title="Recurring task">
+            🔁 Recurring
+          </span>
+        )}
         {task.source === "ghl" && (
-          <span className="pill ghl-pill" title="Imported from GoHighLevel">
-            ⚡ GHL
+          <span className="pill spark-pill" title="Synced from Spark">
+            ⚡ Spark
           </span>
         )}
         {archived && <span className="pill archived-pill">Archived</span>}

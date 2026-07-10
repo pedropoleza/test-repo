@@ -21,6 +21,7 @@ import {
   index,
   primaryKey,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 export const sparkTasks = pgSchema("spark_tasks");
@@ -110,6 +111,8 @@ export const tasks = sparkTasks.table(
     source: text("source").notNull().default("native").$type<"native" | "ghl">(),
     /** GHL task id this card mirrors (null for native tasks). */
     externalId: text("external_id"),
+    /** True for recurring source tasks — rendered with a distinct badge. */
+    recurring: boolean("recurring").notNull().default(false),
     labels: jsonb("labels").notNull().default(sql`'[]'::jsonb`).$type<string[]>(),
     checklist: jsonb("checklist")
       .notNull()

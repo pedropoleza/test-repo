@@ -883,10 +883,30 @@ select {
   background: #eaecf0;
   color: var(--text-muted);
 }
-.pill.ghl-pill {
+.pill.spark-pill {
   background: #eef4ff;
   color: #155eef;
   border: 1px solid rgba(21, 94, 239, 0.25);
+}
+.pill.recurring-pill {
+  background: #f4f0ff;
+  color: #6938ef;
+  border: 1px solid rgba(105, 56, 239, 0.25);
+}
+
+/* Recurring tasks read differently: a dashed accent + a subtle repeat glyph. */
+.card.recurring::before {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--card-color, var(--c-gray)),
+    var(--card-color, var(--c-gray)) 5px,
+    transparent 5px,
+    transparent 9px
+  );
+}
+.card.recurring {
+  border-style: dashed;
+  border-color: color-mix(in srgb, #6938ef 30%, var(--border));
 }
 
 /* --------------------------------------------------------------------------

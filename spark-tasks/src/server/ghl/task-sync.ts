@@ -34,7 +34,46 @@ export type GhlTaskEvent = {
   assignedTo?: string;
   contactId?: string;
   dateAdded?: string;
+  // Possible recurrence indicators (GHL field name TBD — we check several).
+  isRecurring?: boolean;
+  recurring?: unknown;
+  recurringTask?: unknown;
+  rrule?: string;
+  repeat?: unknown;
+  repeatInterval?: unknown;
 };
+
+/** GHL sends the description as HTML — flatten to plain text. */
+function htmlToText(html?: string | null): string | null {
+  if (html == null) return null;
+  let s = String(html)
+    // block/line boundaries -> newlines
+    .replace(/<\s*(br|\/p|\/div|\/li|\/h[1-6]|\/tr)\s*\/?>/gi, "\n")
+    // strip all remaining tags
+    .replace(/<[^>]+>/g, "")
+    // decode the common entities
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return s.length ? s : null;
+}
+
+/** Best-effort recurrence detection across possible payload shapes. */
+function isRecurring(evt: GhlTaskEvent): boolean {
+  return !!(
+    evt.isRecurring ||
+    evt.recurring ||
+    evt.recurringTask ||
+    evt.rrule ||
+    evt.repeat ||
+    evt.repeatInterval
+  );
+}
 
 const MAX_ATTEMPTS = 3;
 const BACKOFF_MS = [1_000, 4_000, 10_000];
@@ -125,8 +164,8 @@ export async function ingestTaskEvent(evt: GhlTaskEvent): Promise<void> {
         .values({
           locationId: evt.locationId,
           boardId: board.id,
-          title: evt.title?.trim() || "(untitled GHL task)",
-          note: evt.body ?? null,
+          title: evt.title?.trim() || "(untitled task)",
+          note: htmlToText(evt.body),
           status,
           color: "blue",
           dueDate: parseDue(evt.dueDate),
@@ -135,6 +174,7 @@ export async function ingestTaskEvent(evt: GhlTaskEvent): Promise<void> {
           createdBy: evt.assignedTo || "ghl",
           source: "ghl",
           externalId: evt.id,
+          recurring: isRecurring(evt),
         })
         .onConflictDoNothing()
         .returning({ id: tasks.id });
@@ -152,7 +192,7 @@ export async function ingestTaskEvent(evt: GhlTaskEvent): Promise<void> {
           userId: evt.assignedTo,
           type: "assigned",
           taskId: created.id,
-          title: "New task assigned to you (from GHL)",
+          title: "New task assigned to you",
           body: evt.title ?? null,
           actorId: null,
         });
@@ -163,9 +203,10 @@ export async function ingestTaskEvent(evt: GhlTaskEvent): Promise<void> {
     // Existing mirror — update mapped fields; completion moves the stage.
     const set: Record<string, unknown> = {
       title: evt.title?.trim() || existing.title,
-      note: evt.body ?? existing.note,
+      note: htmlToText(evt.body) ?? existing.note,
       dueDate: parseDue(evt.dueDate) ?? existing.dueDate,
       contactId: evt.contactId ?? existing.contactId,
+      recurring: isRecurring(evt) || existing.recurring,
       updatedAt: sql`now()`,
     };
     if (kind === "TaskComplete") set.status = doneStageId(stages);

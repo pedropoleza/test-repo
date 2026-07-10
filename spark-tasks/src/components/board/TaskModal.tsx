@@ -620,7 +620,8 @@ export function TaskModal({
             <span>
               {editing.source === "ghl" ? (
                 <>
-                  Imported from <b>GoHighLevel</b>
+                  {editing.recurring && "🔁 Recurring · "}
+                  Synced from <b>Spark</b>
                 </>
               ) : (
                 <>

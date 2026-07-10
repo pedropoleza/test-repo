@@ -17,6 +17,7 @@ import {
 } from "~/server/db/schema";
 import { runContactWriteback } from "~/server/ghl/writeback";
 import { locationRequiresOwner } from "~/server/config";
+import { pushTaskCompletion, pushTaskFields } from "~/server/ghl/task-sync";
 
 const statusId = z.string().trim().min(1).max(40);
 const colorEnum = z.enum(TASK_COLORS);
@@ -281,6 +282,20 @@ export const taskRouter = createTRPCRouter({
         .where(eq(tasks.id, id))
         .returning();
       if (!updated) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Two-way: mirror field edits of a GHL task back to GHL.
+      if (
+        updated.source === "ghl" &&
+        updated.externalId &&
+        updated.contactId &&
+        (patch.title !== undefined ||
+          patch.note !== undefined ||
+          patch.dueDate !== undefined)
+      ) {
+        const uid = updated.id;
+        const locationId = ctx.locationId;
+        after(() => pushTaskFields(uid, locationId));
+      }
       return updated;
     }),
 
@@ -369,6 +384,17 @@ export const taskRouter = createTRPCRouter({
         after(() => runContactWriteback(id, locationId));
       }
 
+      // Two-way: a mirrored GHL task changing done-state pushes back to GHL.
+      if (task.source === "ghl" && task.externalId && task.contactId) {
+        const toIsDone = stageIsDone(stages, toStatus);
+        const fromIsDone = stageIsDone(stages, fromStatus);
+        if (toIsDone !== fromIsDone) {
+          const id = task.id;
+          const locationId = ctx.locationId;
+          after(() => pushTaskCompletion(id, locationId, toIsDone));
+        }
+      }
+
       return { id: task.id, status: toStatus, index: idx };
     }),
 
@@ -383,7 +409,13 @@ export const taskRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const [task] = await ctx.db
-        .select({ id: tasks.id, title: tasks.title })
+        .select({
+          id: tasks.id,
+          title: tasks.title,
+          source: tasks.source,
+          externalId: tasks.externalId,
+          contactId: tasks.contactId,
+        })
         .from(tasks)
         .where(eq(tasks.id, input.id))
         .limit(1);
@@ -433,6 +465,12 @@ export const taskRouter = createTRPCRouter({
       // Keep an owner on subaccounts that require one (rolls back the removal).
       if (locationRequiresOwner(ctx.locationId) && current.length === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "owner_required" });
+      }
+      // Two-way: mirror the assignee change back to the GHL task.
+      if (task.source === "ghl" && task.externalId && task.contactId) {
+        const id = input.id;
+        const locationId = ctx.locationId;
+        after(() => pushTaskFields(id, locationId));
       }
       return { id: input.id, assigneeIds: current.map((c) => c.userId) };
     }),

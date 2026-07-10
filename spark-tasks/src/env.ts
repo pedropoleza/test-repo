@@ -24,6 +24,8 @@ export const env = createEnv({
     GHL_APP_CLIENT_SECRET: z.string().min(1),
     /** Agency "Shared Secret Key" used to decrypt the iframe SSO payload. */
     GHL_SSO_KEY: z.string().min(1),
+    /** GHL webhook public key (PEM) to verify inbound task webhooks. */
+    GHL_WEBHOOK_PUBLIC_KEY: z.string().min(1).optional(),
     /**
      * Agency/company id. Optional: the OAuth callback captures companyId from
      * the token response; set this only to pin a specific agency.
@@ -61,6 +63,7 @@ export const env = createEnv({
     GHL_APP_CLIENT_ID: process.env.GHL_APP_CLIENT_ID,
     GHL_APP_CLIENT_SECRET: process.env.GHL_APP_CLIENT_SECRET,
     GHL_SSO_KEY: process.env.GHL_SSO_KEY,
+    GHL_WEBHOOK_PUBLIC_KEY: process.env.GHL_WEBHOOK_PUBLIC_KEY,
     GHL_COMPANY_ID: process.env.GHL_COMPANY_ID,
     ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
     SESSION_SECRET: process.env.SESSION_SECRET,

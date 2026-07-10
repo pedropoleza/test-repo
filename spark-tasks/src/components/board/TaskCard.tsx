@@ -66,6 +66,11 @@ export function TaskCard({
         </div>
       )}
       <div className="card-footer">
+        {task.source === "ghl" && (
+          <span className="pill ghl-pill" title="Imported from GoHighLevel">
+            ⚡ GHL
+          </span>
+        )}
         {archived && <span className="pill archived-pill">Archived</span>}
         {task.dueDate && (
           <span className={`pill${overdue ? " overdue" : ""}`}>

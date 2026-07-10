@@ -106,6 +106,10 @@ export const tasks = sparkTasks.table(
     createdBy: text("created_by").notNull(),
     priority: text("priority").notNull().default("none").$type<TaskPriority>(),
     cardStyle: text("card_style").notNull().default("strip").$type<CardStyle>(),
+    /** 'native' (created here) or 'ghl' (mirrored from a GHL native task). */
+    source: text("source").notNull().default("native").$type<"native" | "ghl">(),
+    /** GHL task id this card mirrors (null for native tasks). */
+    externalId: text("external_id"),
     labels: jsonb("labels").notNull().default(sql`'[]'::jsonb`).$type<string[]>(),
     checklist: jsonb("checklist")
       .notNull()

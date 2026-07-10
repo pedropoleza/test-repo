@@ -883,6 +883,11 @@ select {
   background: #eaecf0;
   color: var(--text-muted);
 }
+.pill.ghl-pill {
+  background: #eef4ff;
+  color: #155eef;
+  border: 1px solid rgba(21, 94, 239, 0.25);
+}
 
 /* --------------------------------------------------------------------------
    Pipelines (board tabs)

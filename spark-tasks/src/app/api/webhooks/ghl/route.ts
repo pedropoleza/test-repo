@@ -1,27 +1,76 @@
 /**
- * POST /api/webhooks/ghl — optional GHL app webhook receiver.
+ * POST /api/webhooks/ghl — GHL marketplace webhook receiver.
  *
- * V1 needs no inbound webhook for task features (the D7 write-back is an
- * OUTBOUND call). This endpoint exists so the app's "Webhook URL" field can be
- * filled in and install/uninstall events are acknowledged + logged. Event
- * bodies are untrusted input: we log only the event type, never act on them.
+ * Handles native task events (TaskCreate / TaskComplete / TaskDelete) by
+ * mirroring them into the location's board (see task-sync). Install/uninstall
+ * events are acknowledged + logged. Authenticity is verified against GHL's
+ * webhook public key when GHL_WEBHOOK_PUBLIC_KEY is set.
+ *
+ * External input: the body is untrusted. We verify the signature, act only on
+ * known event types, and the location scope comes from the (verified) payload.
  */
 import { NextResponse } from "next/server";
+import { createVerify } from "node:crypto";
+import { env } from "~/env";
+import { ingestTaskEvent, type GhlTaskEvent } from "~/server/ghl/task-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
+const TASK_EVENTS = new Set(["TaskCreate", "TaskComplete", "TaskDelete"]);
+
+function verifySignature(rawBody: string, signature: string | null): boolean {
+  const pubKey = env.GHL_WEBHOOK_PUBLIC_KEY;
+  if (!pubKey) {
+    // Not configured yet (Stage 0). Process but warn — set the key before
+    // go-live so we can fail closed.
+    console.warn("[webhook] GHL_WEBHOOK_PUBLIC_KEY not set — skipping verify");
+    return true;
+  }
+  if (!signature) return false;
   try {
-    const body = (await req.json()) as { type?: string } | null;
-    console.info(`[webhook] ghl event type=${body?.type ?? "unknown"}`);
+    const v = createVerify("RSA-SHA256");
+    v.update(rawBody);
+    v.end();
+    return v.verify(pubKey, signature, "base64");
   } catch {
-    // Non-JSON body — still acknowledge; GHL retries otherwise.
+    return false;
+  }
+}
+
+export async function POST(req: Request) {
+  const raw = await req.text();
+  const signature =
+    req.headers.get("x-wh-signature") ?? req.headers.get("x-ghl-signature");
+
+  if (!verifySignature(raw, signature)) {
+    return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
+  }
+
+  let body: GhlTaskEvent & { type?: string };
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return NextResponse.json({ ok: true }); // ack non-JSON so GHL stops retrying
+  }
+
+  const type = body?.type ?? "unknown";
+  if (TASK_EVENTS.has(type)) {
+    try {
+      await ingestTaskEvent(body);
+    } catch (err) {
+      console.error(
+        `[webhook] task ingest failed (${type}): ${err instanceof Error ? err.message : "unknown"}`,
+      );
+      // 200 anyway — retries would re-run the same idempotent upsert; we log
+      // and move on rather than trigger a retry storm.
+    }
+  } else {
+    console.info(`[webhook] ghl event type=${type}`);
   }
   return NextResponse.json({ ok: true });
 }
 
 export function GET() {
-  // Some portals ping the URL to validate it.
   return NextResponse.json({ ok: true, service: "spark-tasks" });
 }

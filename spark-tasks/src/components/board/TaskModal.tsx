@@ -608,13 +608,26 @@ export function TaskModal({
           <div className="modal-created">
             <span
               className="avatar"
-              style={{ background: avatarColor(editing.createdBy), marginLeft: 0 }}
+              style={{
+                background: editing.source === "ghl" ? "#155eef" : avatarColor(editing.createdBy),
+                marginLeft: 0,
+              }}
             >
-              {initials(users.find((u) => u.id === editing.createdBy)?.name ?? "?")}
+              {editing.source === "ghl"
+                ? "⚡"
+                : initials(users.find((u) => u.id === editing.createdBy)?.name ?? "?")}
             </span>
             <span>
-              Created by{" "}
-              <b>{users.find((u) => u.id === editing.createdBy)?.name ?? "Unknown user"}</b>
+              {editing.source === "ghl" ? (
+                <>
+                  Imported from <b>GoHighLevel</b>
+                </>
+              ) : (
+                <>
+                  Created by{" "}
+                  <b>{users.find((u) => u.id === editing.createdBy)?.name ?? "Unknown user"}</b>
+                </>
+              )}
               {" · "}
               {editing.createdAt.toLocaleString("en-US", {
                 day: "2-digit",

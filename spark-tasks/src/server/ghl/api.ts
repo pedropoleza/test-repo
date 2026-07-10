@@ -153,3 +153,47 @@ export async function addContactTags(
     body: { tags },
   });
 }
+
+// ---------------------------------------------------------------------------
+// Native GHL tasks (two-way sync). Tasks are contact-scoped in GHL.
+// ---------------------------------------------------------------------------
+
+export type GhlTaskPatch = {
+  title?: string;
+  body?: string | null;
+  dueDate?: string | null; // ISO
+  assignedTo?: string | null;
+};
+
+/** Update a GHL native task's fields (mirrors our edits back to GHL). */
+export async function updateGhlTask(
+  locationId: string,
+  contactId: string,
+  taskId: string,
+  patch: GhlTaskPatch,
+): Promise<void> {
+  const body: Record<string, unknown> = {};
+  if (patch.title !== undefined) body.title = patch.title;
+  if (patch.body !== undefined) body.body = patch.body ?? "";
+  if (patch.dueDate !== undefined) body.dueDate = patch.dueDate ?? null;
+  if (patch.assignedTo !== undefined) body.assignedTo = patch.assignedTo ?? null;
+  await ghlFetch(
+    locationId,
+    `/contacts/${encodeURIComponent(contactId)}/tasks/${encodeURIComponent(taskId)}`,
+    { method: "PUT", body },
+  );
+}
+
+/** Mark a GHL native task completed / reopened. */
+export async function completeGhlTask(
+  locationId: string,
+  contactId: string,
+  taskId: string,
+  completed: boolean,
+): Promise<void> {
+  await ghlFetch(
+    locationId,
+    `/contacts/${encodeURIComponent(contactId)}/tasks/${encodeURIComponent(taskId)}/completed`,
+    { method: "PUT", body: { completed } },
+  );
+}

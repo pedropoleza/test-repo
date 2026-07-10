@@ -39,6 +39,12 @@ export function TaskCard({
   const assign = api.task.assign.useMutation({
     onSettled: () => utils.task.list.invalidate(),
   });
+  const setArchived = api.task.setArchived.useMutation({
+    onSettled: () => utils.task.list.invalidate(),
+  });
+  const deleteTask = api.task.delete.useMutation({
+    onSettled: () => utils.task.list.invalidate(),
+  });
 
   const overdue = isOverdue(task.dueDate, isDone);
   const checkDone = task.checklist.filter((c) => c.done).length;
@@ -102,6 +108,28 @@ export function TaskCard({
             💬
           </button>
         )}
+        <button
+          className="qa-btn"
+          title={archived ? "Restore" : "Archive"}
+          onClick={(e) => {
+            stop(e);
+            setArchived.mutate({ id: task.id, archived: !archived });
+          }}
+        >
+          {archived ? "↩" : "🗃"}
+        </button>
+        <button
+          className="qa-btn qa-danger"
+          title="Delete"
+          onClick={(e) => {
+            stop(e);
+            if (window.confirm("Delete this task? This cannot be undone.")) {
+              deleteTask.mutate({ id: task.id });
+            }
+          }}
+        >
+          🗑
+        </button>
       </div>
       <div className="card-title">
         {task.priority !== "none" && (

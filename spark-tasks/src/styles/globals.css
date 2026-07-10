@@ -1464,6 +1464,10 @@ select {
 .qa-btn:hover {
   border-color: var(--border-strong);
 }
+.qa-btn.qa-danger:hover {
+  background: var(--danger-soft);
+  border-color: #fecdca;
+}
 
 /* In-flow selection strip under the filters (not viewport-fixed, so it's
    never cut at the bottom of a tall GHL iframe). */

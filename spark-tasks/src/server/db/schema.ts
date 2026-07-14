@@ -237,14 +237,15 @@ export const pushSubscriptions = sparkTasks.table(
  * location-scoped request can never reach agency credentials.
  */
 export const ghlInstallations = sparkTasks.table("ghl_installations", {
-  companyId: text("company_id").primaryKey(),
+  id: uuid("id").primaryKey().defaultRandom(),
+  companyId: text("company_id").notNull(),
   accessTokenEnc: text("access_token_enc").notNull(),
   refreshTokenEnc: text("refresh_token_enc"),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   scopes: text("scopes"),
   /** 'Company' (agency install) or 'Location' (subaccount install). */
   userType: text("user_type"),
-  /** For Location installs: the location the token is scoped to. */
+  /** For Location installs: the location the token is scoped to (null = agency). */
   locationId: text("location_id"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

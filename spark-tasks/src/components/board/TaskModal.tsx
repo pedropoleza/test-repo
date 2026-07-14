@@ -457,7 +457,10 @@ export function TaskModal({
                 </div>
               )}
               {usersError ? (
-                <div className="hint">Users unavailable (check the GHL app).</div>
+                <div className="hint">
+                  Users unavailable — make sure Spark Tasks is installed on this
+                  subaccount (or install it at the agency level to cover all).
+                </div>
               ) : sortedUsers.length === 0 ? (
                 <div className="hint">Loading…</div>
               ) : (

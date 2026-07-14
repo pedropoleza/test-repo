@@ -17,7 +17,11 @@ const GHL_APP = "https://app.gohighlevel.com";
  */
 function mapGhlError(err: unknown): never {
   const msg = err instanceof Error ? err.message : "unknown";
-  if (msg.includes("agency_not_installed") || msg.includes("no_refresh_token")) {
+  if (
+    msg.includes("not_installed") ||
+    msg.includes("agency_not_installed") ||
+    msg.includes("no_refresh_token")
+  ) {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "ghl_not_connected",

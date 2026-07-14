@@ -458,8 +458,11 @@ export function TaskModal({
               )}
               {usersError ? (
                 <div className="hint">
-                  Users unavailable — make sure Spark Tasks is installed on this
-                  subaccount (or install it at the agency level to cover all).
+                  This subaccount isn&apos;t connected yet.{" "}
+                  <a href="/api/oauth/connect" target="_blank" rel="noreferrer">
+                    Connect it
+                  </a>{" "}
+                  to load users.
                 </div>
               ) : sortedUsers.length === 0 ? (
                 <div className="hint">Loading…</div>

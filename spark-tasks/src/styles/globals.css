@@ -1624,6 +1624,22 @@ select {
   margin: 0 2px;
 }
 
+/* Connect-subaccount banner (shown when the GHL token is missing) */
+.connect-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  flex-shrink: 0;
+  background: #fffaeb;
+  border-bottom: 1px solid #fedf89;
+  color: #b54708;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 /* In-flow selection strip under the filters (not viewport-fixed, so it's
    never cut at the bottom of a tall GHL iframe). */
 .bulkbar {

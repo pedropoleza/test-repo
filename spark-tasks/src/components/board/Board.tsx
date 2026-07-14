@@ -482,6 +482,24 @@ export function Board() {
         </button>
       </header>
 
+      {users.isError && (
+        <div className="connect-banner">
+          <span>
+            ⚠️ This subaccount isn't connected to Spark Tasks yet — assignees and
+            contacts can't load.
+          </span>
+          <a
+            className="btn btn-primary"
+            style={{ padding: "7px 14px", fontSize: 13 }}
+            href="/api/oauth/connect"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Connect subaccount
+          </a>
+        </div>
+      )}
+
       {selected.size > 0 && (
         <BulkBar
           selected={selected}

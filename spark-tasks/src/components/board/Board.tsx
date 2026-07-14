@@ -10,24 +10,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropContext, type DropResult } from "@hello-pangea/dnd";
 import { api } from "~/trpc/react";
 import type { Stage, TaskColor } from "~/server/db/schema";
-import {
-  PRIORITY_META,
-  avatarColor,
-  initials,
-  doneStageIds,
-  slugStageId,
-} from "./palette";
+import { PRIORITY_META, doneStageIds, slugStageId } from "./palette";
 import { Column, type StagePatch } from "./Column";
 import { ListView } from "./ListView";
 import { BulkBar } from "./BulkBar";
 import { Notifications } from "./Notifications";
 import { NewPipelineModal } from "./NewPipelineModal";
 import { TaskModal, type ModalState } from "./TaskModal";
+import { SortMenu, type SortMode } from "./SortMenu";
+import {
+  FilterDrawer,
+  EMPTY_FILTERS,
+  activeFilterCount,
+  type Filters,
+} from "./FilterDrawer";
+import { IconSliders } from "./Icons";
 import type { Task } from "./TaskCard";
 
 type ViewMode = "kanban" | "list";
-type DueFilter = "all" | "overdue" | "today" | "week";
-type SortMode = "manual" | "priority" | "due";
 
 export function Board() {
   const utils = api.useUtils();
@@ -36,10 +36,11 @@ export function Board() {
   const [boardId, setBoardId] = useState<string | null>(null);
   const activeBoardId = boardId ?? boardsQ.data?.[0]?.id ?? null;
 
-  const [showArchived, setShowArchived] = useState(false);
+  const [filters, setFilters] = useState<Filters>({ ...EMPTY_FILTERS });
+  const [filterOpen, setFilterOpen] = useState(false);
   const listKey = {
     boardId: activeBoardId ?? undefined,
-    includeArchived: showArchived,
+    includeArchived: filters.archived,
   };
   const taskList = api.task.list.useQuery(listKey, {
     enabled: !!activeBoardId,
@@ -53,9 +54,6 @@ export function Board() {
 
   const [view, setView] = useState<ViewMode>("kanban");
   const [search, setSearch] = useState("");
-  const [assigneeFilter, setAssigneeFilter] = useState("");
-  const [myTasks, setMyTasks] = useState(false);
-  const [dueFilter, setDueFilter] = useState<DueFilter>("all");
   const [sort, setSort] = useState<SortMode>("manual");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<ModalState | null>(null);
@@ -151,26 +149,39 @@ export function Board() {
 
   const myUserId = whoami.data?.userId;
   const requiresOwner = whoami.data?.requiresOwner ?? false;
+  const filterCount = activeFilterCount(filters);
+
+  const allLabels = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of taskList.data ?? []) for (const l of t.labels) set.add(l);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [taskList.data]);
 
   const filtered = useMemo(() => {
     let list = taskList.data ?? [];
-    if (assigneeFilter) {
-      list = list.filter((t) => t.assigneeIds.includes(assigneeFilter));
+    if (filters.assigneeId) {
+      list = list.filter((t) => t.assigneeIds.includes(filters.assigneeId));
     }
-    if (myTasks && myUserId) {
+    if (filters.myTasks && myUserId) {
       list = list.filter((t) => t.assigneeIds.includes(myUserId));
     }
-    if (dueFilter !== "all") {
+    if (filters.priority !== "all") {
+      list = list.filter((t) => t.priority === filters.priority);
+    }
+    if (filters.label) {
+      list = list.filter((t) => t.labels.includes(filters.label));
+    }
+    if (filters.due !== "all") {
       const now = new Date();
       const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const endToday = new Date(startToday.getTime() + 86_400_000);
       const endWeek = new Date(startToday.getTime() + 7 * 86_400_000);
       list = list.filter((t) => {
         if (!t.dueDate) return false;
-        if (dueFilter === "overdue") {
+        if (filters.due === "overdue") {
           return t.dueDate.getTime() < now.getTime() && !doneIds.has(t.status);
         }
-        if (dueFilter === "today") {
+        if (filters.due === "today") {
           return t.dueDate >= startToday && t.dueDate < endToday;
         }
         return t.dueDate >= startToday && t.dueDate < endWeek;
@@ -186,7 +197,7 @@ export function Board() {
       );
     }
     return list;
-  }, [taskList.data, assigneeFilter, myTasks, myUserId, dueFilter, search, doneIds]);
+  }, [taskList.data, filters, myUserId, search, doneIds]);
 
   const sortTasks = useMemo(() => {
     return (list: Task[]) => {
@@ -406,71 +417,18 @@ export function Board() {
           placeholder="Search…  ( / )"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ width: 160 }}
+          style={{ width: 190 }}
         />
 
-        <button
-          className={`chip-toggle${myTasks ? " on" : ""}`}
-          onClick={() => setMyTasks((v) => !v)}
-          title="Only tasks assigned to you"
-        >
-          {myUserId && (
-            <span
-              className="avatar"
-              style={{ background: avatarColor(myUserId), marginLeft: 0 }}
-            >
-              {initials(usersById.get(myUserId) ?? "Me")}
-            </span>
-          )}
-          My tasks
-        </button>
-
-        <select
-          className="select"
-          value={dueFilter}
-          onChange={(e) => setDueFilter(e.target.value as DueFilter)}
-          title="Due date filter"
-        >
-          <option value="all">Due: all</option>
-          <option value="overdue">⚠ Overdue</option>
-          <option value="today">Today</option>
-          <option value="week">Next 7 days</option>
-        </select>
-
-        <select
-          className="select"
-          value={assigneeFilter}
-          onChange={(e) => setAssigneeFilter(e.target.value)}
-          title="Filter by assignee"
-        >
-          <option value="">All assignees</option>
-          {(users.data ?? [])
-            .slice()
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-        </select>
-
-        <select
-          className="select"
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortMode)}
-          title="Column ordering"
-        >
-          <option value="manual">Manual order</option>
-          <option value="priority">By priority</option>
-          <option value="due">By due date</option>
-        </select>
+        <SortMenu value={sort} onChange={setSort} />
 
         <button
-          className={`chip-toggle${showArchived ? " on" : ""}`}
-          onClick={() => setShowArchived((v) => !v)}
-          title="Show archived tasks"
+          className={`toolbar-btn${filterCount > 0 ? " active" : ""}`}
+          onClick={() => setFilterOpen(true)}
         >
-          🗃 Archived
+          <IconSliders size={15} />
+          <span>Filters</span>
+          {filterCount > 0 && <span className="toolbar-badge">{filterCount}</span>}
         </button>
 
         <button
@@ -610,6 +568,18 @@ export function Board() {
           onToggleSelect={toggleSelect}
           onToggleSelectAll={toggleSelectAll}
           onRowClick={(task) => setModal({ mode: "edit", task })}
+        />
+      )}
+
+      {filterOpen && (
+        <FilterDrawer
+          filters={filters}
+          onChange={setFilters}
+          users={users.data ?? []}
+          labels={allLabels}
+          currentUserId={myUserId}
+          usersById={usersById}
+          onClose={() => setFilterOpen(false)}
         />
       )}
 

@@ -107,3 +107,60 @@ export const IconChecklist = (p: P) => (
     <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
   </Svg>
 );
+
+export const IconSliders = (p: P) => (
+  <Svg {...p}>
+    <line x1="4" y1="21" x2="4" y2="14" />
+    <line x1="4" y1="10" x2="4" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12" y2="3" />
+    <line x1="20" y1="21" x2="20" y2="16" />
+    <line x1="20" y1="12" x2="20" y2="3" />
+    <line x1="1" y1="14" x2="7" y2="14" />
+    <line x1="9" y1="8" x2="15" y2="8" />
+    <line x1="17" y1="16" x2="23" y2="16" />
+  </Svg>
+);
+
+export const IconSort = (p: P) => (
+  <Svg {...p}>
+    <line x1="4" y1="7" x2="20" y2="7" />
+    <line x1="6" y1="12" x2="18" y2="12" />
+    <line x1="9" y1="17" x2="15" y2="17" />
+  </Svg>
+);
+
+export const IconChevron = (p: P) => (
+  <Svg {...p}>
+    <polyline points="6 9 12 15 18 9" />
+  </Svg>
+);
+
+export const IconX = (p: P) => (
+  <Svg {...p}>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </Svg>
+);
+
+export const IconBell = (p: P) => (
+  <Svg {...p}>
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </Svg>
+);
+
+export const IconMonitor = (p: P) => (
+  <Svg {...p}>
+    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+  </Svg>
+);
+
+export const IconInbox = (p: P) => (
+  <Svg {...p}>
+    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+    <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+  </Svg>
+);

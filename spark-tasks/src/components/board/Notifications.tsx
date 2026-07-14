@@ -11,6 +11,14 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { avatarColor, initials } from "./palette";
+import {
+  IconBell,
+  IconMonitor,
+  IconInbox,
+  IconCheck,
+  IconChat,
+  IconX,
+} from "./Icons";
 
 type Toast = {
   id: string;
@@ -159,31 +167,35 @@ export function Notifications({
     <>
       <div className="notif" ref={ref}>
         <button
-          className="notif-bell"
+          className={`notif-bell${count > 0 ? " has-unread" : ""}`}
           onClick={() => setOpen((v) => !v)}
           title="Notifications"
           aria-label="Notifications"
         >
-          🔔
+          <IconBell size={18} />
           {count > 0 && <span className="notif-badge">{count > 9 ? "9+" : count}</span>}
         </button>
 
         {open && (
           <div className="notif-panel">
             <div className="notif-head">
-              <span>Notifications</span>
+              <span className="notif-head-title">
+                <IconBell size={15} />
+                Notifications
+              </span>
               <span className="notif-head-actions">
                 <a
-                  className="btn btn-ghost notif-action"
+                  className="notif-action"
                   title="Get OS notifications even with the module closed"
                   href="/enable-alerts"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  🖥 Alerts
+                  <IconMonitor size={13} />
+                  Alerts
                 </a>
                 <button
-                  className="btn btn-ghost notif-action"
+                  className="notif-action"
                   title="Send yourself a test alert (pop-up + desktop)"
                   disabled={sendTest.isPending}
                   onClick={() => sendTest.mutate()}
@@ -192,10 +204,11 @@ export function Notifications({
                 </button>
                 {count > 0 && (
                   <button
-                    className="btn btn-ghost notif-action"
+                    className="notif-action"
                     title="Mark all notifications as read"
                     onClick={() => markAll.mutate()}
                   >
+                    <IconCheck size={13} />
                     Read all
                   </button>
                 )}
@@ -218,7 +231,10 @@ export function Notifications({
             <div className="notif-list">
               {list.isLoading && <div className="notif-empty">Loading…</div>}
               {list.data && list.data.length === 0 && (
-                <div className="notif-empty">No notifications yet</div>
+                <div className="notif-empty">
+                  <IconInbox size={26} />
+                  <span>No notifications yet</span>
+                </div>
               )}
               {list.data?.map((n) => {
                 const who = n.actorId ? usersById.get(n.actorId) ?? "Someone" : "System";
@@ -242,8 +258,8 @@ export function Notifications({
                         {initials(who)}
                       </span>
                     ) : (
-                      <span className="avatar" style={{ background: "#667085", marginLeft: 0 }}>
-                        ✓
+                      <span className="notif-sys-icon">
+                        <IconBell size={13} />
                       </span>
                     )}
                     <div className="notif-body">
@@ -286,17 +302,20 @@ export function Notifications({
                   aria-label="Dismiss"
                   onClick={dismiss}
                 >
-                  ✕
+                  <IconX size={13} />
                 </button>
                 <div className="toast-main" onClick={openTheTask}>
                   <span
                     className="avatar"
                     style={{ background: avatarColor(t.actorId ?? "sys"), marginLeft: 0 }}
                   >
-                    {t.actorId ? initials(who) : "⚡"}
+                    {t.actorId ? initials(who) : <IconBell size={13} />}
                   </span>
                   <div className="toast-body">
-                    <div className="toast-kicker">🔔 {t.title}</div>
+                    <div className="toast-kicker">
+                      <IconBell size={11} />
+                      {t.title}
+                    </div>
                     {t.body && <div className="toast-task">{t.body}</div>}
                     {t.note && <div className="toast-sub">{t.note}</div>}
                     <div className="toast-meta">by {who}</div>
@@ -323,7 +342,8 @@ export function Notifications({
                         dismiss();
                       }}
                     >
-                      💬 Contact
+                      <IconChat size={12} />
+                      Contact
                     </button>
                   )}
                 </div>

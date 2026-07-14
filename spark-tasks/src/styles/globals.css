@@ -76,6 +76,40 @@ select {
   color: var(--text);
 }
 
+/* Buttons and clickable chrome are NOT text fields: no text caret, no text
+   selection, no tap highlight. Prevents the "blinking caret on a button"
+   feeling. Real inputs keep selection (they aren't targeted here). */
+button,
+a,
+label,
+[role="button"],
+.tab,
+.f-chip,
+.chip-toggle,
+.view-toggle button,
+.swatch,
+.avatar,
+.card {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Focus ring only for keyboard navigation, never on mouse click. */
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+[role="button"]:focus:not(:focus-visible),
+[tabindex]:focus:not(:focus-visible) {
+  outline: none;
+}
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgba(21, 94, 239, 0.55);
+  outline-offset: 2px;
+}
+
 /* --------------------------------------------------------------------------
    App shell — fills the GHL iframe edge-to-edge
    -------------------------------------------------------------------------- */

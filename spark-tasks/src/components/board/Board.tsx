@@ -427,7 +427,7 @@ export function Board() {
           onClick={() => setFilterOpen(true)}
         >
           <IconSliders size={15} />
-          <span>Filters</span>
+          <span>Advanced Filters</span>
           {filterCount > 0 && <span className="toolbar-badge">{filterCount}</span>}
         </button>
 

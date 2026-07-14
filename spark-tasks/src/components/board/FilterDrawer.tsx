@@ -66,7 +66,8 @@ export function FilterDrawer({
       <aside className="filter-drawer" role="dialog" aria-label="Filters">
         <header className="drawer-head">
           <h2>
-            Filters {count > 0 && <span className="drawer-count">{count}</span>}
+            Advanced Filters{" "}
+            {count > 0 && <span className="drawer-count">{count}</span>}
           </h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             <IconX size={16} />

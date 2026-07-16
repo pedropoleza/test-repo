@@ -24,6 +24,7 @@ import {
   initials,
 } from "./palette";
 import type { Task } from "./TaskCard";
+import { openResolvedTab } from "./open-tab";
 
 type GhlUser = { id: string; name: string; email?: string };
 
@@ -558,17 +559,14 @@ export function TaskModal({
                     className="lc-icon lc-chat"
                     title="Open conversation"
                     aria-label="Open conversation"
-                    onClick={async () => {
-                      const w = window.open("", "_blank", "noopener");
-                      try {
+                    onClick={() =>
+                      void openResolvedTab(async () => {
                         const { url } = await utils.ghl.conversationUrl.fetch({
                           contactId: contact.id,
                         });
-                        if (w) w.location.href = url;
-                      } catch {
-                        if (w) w.close();
-                      }
-                    }}
+                        return url;
+                      })
+                    }
                   >
                     💬
                   </button>

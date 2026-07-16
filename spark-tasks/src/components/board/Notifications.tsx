@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { avatarColor, initials } from "./palette";
+import { openResolvedTab } from "./open-tab";
 import {
   IconBell,
   IconMonitor,
@@ -329,15 +330,12 @@ export function Notifications({
                     <button
                       className="toast-btn"
                       onClick={async () => {
-                        const w = window.open("", "_blank", "noopener");
-                        try {
+                        await openResolvedTab(async () => {
                           const { url } = await utils.ghl.conversationUrl.fetch({
                             contactId: t.contactId!,
                           });
-                          if (w) w.location.href = url;
-                        } catch {
-                          if (w) w.close();
-                        }
+                          return url;
+                        });
                         if (!markRead.isPending) markRead.mutate({ id: t.id });
                         dismiss();
                       }}

@@ -33,6 +33,7 @@ import {
   IconUserPlus,
   IconZap,
 } from "./Icons";
+import { openResolvedTab } from "./open-tab";
 
 export type Task = RouterOutputs["task"]["list"][number];
 
@@ -88,15 +89,12 @@ export function TaskCard({
 
   async function openConversation(e: React.MouseEvent) {
     stop(e);
-    const w = window.open("", "_blank", "noopener");
-    try {
+    await openResolvedTab(async () => {
       const { url } = await utils.ghl.conversationUrl.fetch({
         contactId: task.contactId!,
       });
-      if (w) w.location.href = url;
-    } catch {
-      if (w) w.close();
-    }
+      return url;
+    });
   }
 
   return (
@@ -293,13 +291,10 @@ export function ContactPill({ contactId }: { contactId: string }) {
   async function openConversation(e: React.MouseEvent) {
     e.stopPropagation();
     e.preventDefault();
-    const w = window.open("", "_blank", "noopener");
-    try {
+    await openResolvedTab(async () => {
       const { url } = await utils.ghl.conversationUrl.fetch({ contactId });
-      if (w) w.location.href = url;
-    } catch {
-      if (w) w.close();
-    }
+      return url;
+    });
   }
 
   return (

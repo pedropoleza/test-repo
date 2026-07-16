@@ -21,6 +21,7 @@ import {
   tasks,
   taskAssignees,
   notifications,
+  locationSettings,
   DEFAULT_STAGES,
   type Stage,
 } from "~/server/db/schema";
@@ -127,6 +128,15 @@ export async function ingestTaskEvent(evt: GhlTaskEvent): Promise<void> {
   const kind = evt.type;
 
   await scoped(evt.locationId, async (tx) => {
+    // Respect the per-location toggle: if GHL sync is off, do nothing — GHL
+    // tasks stay entirely out of the app.
+    const [setRow] = await tx
+      .select({ e: locationSettings.ghlSyncEnabled })
+      .from(locationSettings)
+      .where(eq(locationSettings.locationId, evt.locationId))
+      .limit(1);
+    if (setRow && !setRow.e) return;
+
     const [existing] = await tx
       .select()
       .from(tasks)

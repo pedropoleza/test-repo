@@ -205,6 +205,15 @@ export const notifications = sparkTasks.table(
   ],
 );
 
+/** Per-location settings (e.g. whether GHL native tasks sync into the board). */
+export const locationSettings = sparkTasks.table("location_settings", {
+  locationId: text("location_id").primaryKey(),
+  ghlSyncEnabled: boolean("ghl_sync_enabled").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 /** Web Push subscriptions — one row per user+browser (endpoint unique). */
 export const pushSubscriptions = sparkTasks.table(
   "push_subscriptions",

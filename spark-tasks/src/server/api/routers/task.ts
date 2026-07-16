@@ -9,6 +9,7 @@ import {
   taskAssignees,
   taskComments,
   notifications,
+  locationSettings,
   TASK_COLORS,
   TASK_PRIORITIES,
   CARD_STYLES,
@@ -172,6 +173,14 @@ export const taskRouter = createTRPCRouter({
       const filters = [eq(tasks.locationId, ctx.locationId)];
       if (input?.boardId) filters.push(eq(tasks.boardId, input.boardId));
       if (!input?.includeArchived) filters.push(isNull(tasks.archivedAt));
+      // When GHL sync is disabled for this location, keep internal tasks fully
+      // separate: hide GHL-sourced cards (data is kept; reversible).
+      const [setRow] = await ctx.db
+        .select({ e: locationSettings.ghlSyncEnabled })
+        .from(locationSettings)
+        .where(eq(locationSettings.locationId, ctx.locationId))
+        .limit(1);
+      if (setRow && !setRow.e) filters.push(eq(tasks.source, "native"));
       if (input?.status) filters.push(eq(tasks.status, input.status));
       if (input?.contactId) filters.push(eq(tasks.contactId, input.contactId));
 

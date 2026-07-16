@@ -15,6 +15,7 @@ import { Column, type StagePatch } from "./Column";
 import { ListView } from "./ListView";
 import { BulkBar } from "./BulkBar";
 import { Notifications } from "./Notifications";
+import { SettingsMenu } from "./SettingsMenu";
 import { NewPipelineModal } from "./NewPipelineModal";
 import { TaskModal, type ModalState } from "./TaskModal";
 import { SortMenu, type SortMode } from "./SortMenu";
@@ -386,6 +387,7 @@ export function Board() {
         )}
 
         <div className="tabs-right">
+          <SettingsMenu />
           <Notifications usersById={usersById} onOpenTask={openTaskById} />
           <div className="view-toggle" role="tablist" aria-label="View">
             <button

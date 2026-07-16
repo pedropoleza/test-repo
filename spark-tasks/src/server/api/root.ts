@@ -7,6 +7,7 @@ import { taskRouter } from "./routers/task";
 import { ghlRouter } from "./routers/ghl";
 import { notificationsRouter } from "./routers/notifications";
 import { pushRouter } from "./routers/push";
+import { settingsRouter } from "./routers/settings";
 import { locationRequiresOwner } from "~/server/config";
 
 export const appRouter = createTRPCRouter({
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   ghl: ghlRouter,
   notifications: notificationsRouter,
   push: pushRouter,
+  settings: settingsRouter,
   system: createTRPCRouter({
     // Session probe: proves SSO -> session -> scoped-tx and gives the client
     // its location id for display/deep-links. Always session-derived.

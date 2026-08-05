@@ -51,7 +51,9 @@ const DEFAULT_CALL_LISTS: CallListConfig[] = [
   {
     locationId: "l02PcA5r4TL2umdwpWgn",
     pipelineName: "VENDAS",
-    stageName: "LIGAÇÕES LUCIANA",
+    // The client called it "LIGAÇÕES LUCIANA"; the actual GHL stage is
+    // "LUCIANA LIGAR" (verified against the live pipeline).
+    stageName: "LUCIANA LIGAR",
     assigneeName: "Luciana",
     maxTasks: 30,
     label: "Ligações Luciana",

@@ -31,6 +31,7 @@ import {
   searchOpportunities,
 } from "./api";
 import type { CallListConfig } from "~/server/config";
+import { ghlContactUrl } from "~/lib/ghl-app";
 
 export type CallListResult = {
   locationId: string;
@@ -307,7 +308,7 @@ export async function runCallList(
       pushJobs.push({
         userId: assigneeId,
         title: "Nova ligação para hoje",
-        url: `https://app.gohighlevel.com/v2/location/${cfg.locationId}/contacts/detail/${contactId}`,
+        url: ghlContactUrl(cfg.locationId, contactId),
         tag: `call-${row.id}`,
       });
 

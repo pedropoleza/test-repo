@@ -9,8 +9,7 @@ import {
   getConversationId,
   getPipelines,
 } from "~/server/ghl/api";
-
-const GHL_APP = "https://app.gohighlevel.com";
+import { ghlContactUrl, ghlConversationUrl } from "~/lib/ghl-app";
 
 /**
  * GHL-facing queries. Always scoped to the SESSION's location — the client
@@ -109,15 +108,14 @@ export const ghlRouter = createTRPCRouter({
   conversationUrl: locationProcedure
     .input(z.object({ contactId: z.string().min(1).max(100) }))
     .query(async ({ ctx, input }) => {
-      const base = `${GHL_APP}/v2/location/${ctx.locationId}`;
       try {
         const convId = await getConversationId(ctx.locationId, input.contactId);
         if (convId) {
-          return { url: `${base}/conversations/conversations/${convId}` };
+          return { url: ghlConversationUrl(ctx.locationId, convId) };
         }
       } catch {
         // scope missing / no conversation — fall back below
       }
-      return { url: `${base}/contacts/detail/${input.contactId}` };
+      return { url: ghlContactUrl(ctx.locationId, input.contactId) };
     }),
 });

@@ -26,6 +26,7 @@ import {
 } from "~/server/ghl/api";
 import { sendPushToUser } from "~/server/push";
 import { CALL_OUTCOME_IDS, callOutcomeLabel } from "~/lib/call-outcomes";
+import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
 
 const statusId = z.string().trim().min(1).max(40);
 const colorEnum = z.enum(TASK_COLORS);
@@ -115,8 +116,8 @@ async function notifyAssigned(
     })),
   );
   const url = opts.contactId
-    ? `https://app.gohighlevel.com/v2/location/${opts.locationId}/contacts/detail/${opts.contactId}`
-    : `https://app.gohighlevel.com/v2/location/${opts.locationId}/dashboard`;
+    ? ghlContactUrl(opts.locationId, opts.contactId)
+    : ghlDashboardUrl(opts.locationId);
   for (const userId of recipients) {
     const { locationId, taskTitle, taskId } = opts;
     after(() =>

@@ -25,6 +25,7 @@ import {
 } from "./palette";
 import type { Task } from "./TaskCard";
 import { openResolvedTab } from "./open-tab";
+import { ghlContactUrl } from "~/lib/ghl-app";
 
 type GhlUser = { id: string; name: string; email?: string };
 
@@ -573,8 +574,8 @@ export function TaskModal({
                   {locationId && (
                     <a
                       className="lc-icon"
-                      title="Open contact in GHL"
-                      href={`https://app.gohighlevel.com/v2/location/${locationId}/contacts/detail/${contact.id}`}
+                      title="Open contact"
+                      href={ghlContactUrl(locationId, contact.id)}
                       target="_blank"
                       rel="noreferrer"
                     >

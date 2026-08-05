@@ -26,6 +26,7 @@ import {
   type Stage,
 } from "~/server/db/schema";
 import { completeGhlTask, updateGhlTask } from "./api";
+import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
 
 export type GhlTaskEvent = {
   type: string;
@@ -210,8 +211,8 @@ export async function ingestTaskEvent(evt: GhlTaskEvent): Promise<void> {
         });
         // Desktop alert even with the module closed (no-op until VAPID set).
         const url = evt.contactId
-          ? `https://app.gohighlevel.com/v2/location/${evt.locationId}/contacts/detail/${evt.contactId}`
-          : `https://app.gohighlevel.com/v2/location/${evt.locationId}/dashboard`;
+          ? ghlContactUrl(evt.locationId, evt.contactId)
+          : ghlDashboardUrl(evt.locationId);
         const { locationId } = evt;
         const userId = evt.assignedTo;
         const title = evt.title ?? "Task";

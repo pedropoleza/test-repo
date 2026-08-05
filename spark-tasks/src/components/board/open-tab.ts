@@ -1,10 +1,10 @@
 /**
  * Open a new browser tab for a URL that is resolved asynchronously.
  *
- * The app runs inside a GHL iframe, so links to app.gohighlevel.com must NOT
- * open in the iframe (GHL sends X-Frame-Options / frame-ancestors and the load
- * is refused — the "error" users saw when clicking a contact). A new top-level
- * tab (_blank) avoids that entirely.
+ * The app runs inside a GHL iframe, so links to the CRM (the white-label
+ * domain, e.g. app.sparkleads.pro) must NOT open in the iframe — the CRM sends
+ * X-Frame-Options / frame-ancestors and the load is refused (the "error" users
+ * saw when clicking a contact). A new top-level tab (_blank) avoids that.
  *
  * Two gotchas this handles:
  *  - `window.open(url, "_blank", "noopener")` returns `null` per spec, so the

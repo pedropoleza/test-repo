@@ -103,9 +103,15 @@ const SCAN_WINDOW = 200;
 
 export async function runCallList(
   cfg: CallListConfig,
-  opts: { dryRun?: boolean } = {},
+  opts: { dryRun?: boolean; maxOverride?: number } = {},
 ): Promise<CallListResult> {
   const dryRun = !!opts.dryRun;
+  // A manual override (e.g. ?max=1 for a production smoke test) wins, bounded
+  // by a hard ceiling; otherwise the configured daily cap applies.
+  const cap =
+    opts.maxOverride != null && opts.maxOverride > 0
+      ? Math.min(opts.maxOverride, 200)
+      : cfg.maxTasks;
   const base: CallListResult = {
     locationId: cfg.locationId,
     ok: false,
@@ -239,7 +245,7 @@ export async function runCallList(
     let skipped = 0;
 
     for (const lead of withContact) {
-      if (created >= cfg.maxTasks) break;
+      if (created >= cap) break;
       const contactId = lead.contactId!;
       if (covered.has(contactId)) {
         skipped += 1;
@@ -326,7 +332,7 @@ export async function runCallList(
 /** Run every configured call list; returns one result per location. */
 export async function runAllCallLists(
   configs: CallListConfig[],
-  opts: { dryRun?: boolean } = {},
+  opts: { dryRun?: boolean; maxOverride?: number } = {},
 ): Promise<CallListResult[]> {
   const results: CallListResult[] = [];
   for (const cfg of configs) {

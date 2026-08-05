@@ -31,7 +31,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const dryRun = req.nextUrl.searchParams.get("dry") === "1";
-  const results = await runAllCallLists(CALL_LISTS, { dryRun });
+  const maxRaw = req.nextUrl.searchParams.get("max");
+  const maxOverride = maxRaw ? Number(maxRaw) : undefined;
+  const results = await runAllCallLists(CALL_LISTS, {
+    dryRun,
+    maxOverride: Number.isFinite(maxOverride) ? maxOverride : undefined,
+  });
   const ok = results.every((r) => r.ok);
   return NextResponse.json({ ok, dryRun, results }, { status: ok ? 200 : 207 });
 }

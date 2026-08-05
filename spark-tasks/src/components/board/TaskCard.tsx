@@ -34,6 +34,7 @@ import {
   IconZap,
 } from "./Icons";
 import { openResolvedTab } from "./open-tab";
+import { useContactsCtx } from "./ContactsContext";
 
 export type Task = RouterOutputs["task"]["list"][number];
 
@@ -281,12 +282,22 @@ export function TaskCard({
 
 export function ContactPill({ contactId }: { contactId: string }) {
   const utils = api.useUtils();
+  const ctx = useContactsCtx();
+  // Prefer the board's batched resolution. Only fall back to an individual
+  // lookup when there's no provider, or the batch is done and didn't cover it.
+  const fromBatch = ctx?.requestedIds.has(contactId)
+    ? ctx.contacts[contactId]
+    : undefined;
+  const useIndividual = ctx
+    ? !ctx.pending && !ctx.requestedIds.has(contactId)
+    : true;
   const contact = api.ghl.contactGet.useQuery(
     { contactId },
-    { staleTime: 10 * 60_000, retry: 1 },
+    { staleTime: 10 * 60_000, retry: 1, enabled: useIndividual },
   );
-  const name = contact.data?.name ?? "Contact";
-  const photo = contact.data?.photoUrl;
+  const resolved = fromBatch ?? contact.data;
+  const name = resolved?.name ?? "Contact";
+  const photo = resolved?.photoUrl;
 
   async function openConversation(e: React.MouseEvent) {
     e.stopPropagation();

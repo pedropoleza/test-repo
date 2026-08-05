@@ -137,20 +137,71 @@ export async function searchContacts(
   return (raw.contacts ?? []).map(normalizeContact);
 }
 
+// Contacts change rarely; cache the resolved display data per (location,id) so
+// a board full of contact-linked cards doesn't fan out one GHL call per card on
+// every load/poll. Serverless-instance-local, like the users cache.
+const contactsCache = new Map<
+  string,
+  { data: GhlContact | null; expMs: number }
+>();
+const CONTACTS_TTL_MS = 15 * 60_000;
+const contactKey = (loc: string, id: string) => `${loc}:${id}`;
+
 /** Fetch a single contact; null if it doesn't belong to this location. */
 export async function getContact(
   locationId: string,
   contactId: string,
 ): Promise<GhlContact | null> {
+  const key = contactKey(locationId, contactId);
+  const hit = contactsCache.get(key);
+  if (hit && hit.expMs > Date.now()) return hit.data;
+
   const raw = await ghlFetch<{ contact?: RawContact }>(
     locationId,
     `/contacts/${encodeURIComponent(contactId)}`,
   );
   const c = raw.contact;
-  if (!c) return null;
   // The location token already scopes access, but double-check the tenant.
-  if (c.locationId && c.locationId !== locationId) return null;
-  return normalizeContact(c);
+  const data = !c || (c.locationId && c.locationId !== locationId)
+    ? null
+    : normalizeContact(c);
+  contactsCache.set(key, { data, expMs: Date.now() + CONTACTS_TTL_MS });
+  return data;
+}
+
+/**
+ * Resolve many contacts at once (card chips). Cache hits are free; misses are
+ * fetched with bounded concurrency so a big board doesn't hammer GHL serially
+ * or all at once. Returns a map id -> contact|null (null = not found).
+ */
+export async function getContactsByIds(
+  locationId: string,
+  ids: string[],
+): Promise<Map<string, GhlContact | null>> {
+  const uniq = [...new Set(ids)].filter(Boolean);
+  const out = new Map<string, GhlContact | null>();
+  const missing: string[] = [];
+  for (const id of uniq) {
+    const hit = contactsCache.get(contactKey(locationId, id));
+    if (hit && hit.expMs > Date.now()) out.set(id, hit.data);
+    else missing.push(id);
+  }
+
+  const CONCURRENCY = 6;
+  for (let i = 0; i < missing.length; i += CONCURRENCY) {
+    const slice = missing.slice(i, i + CONCURRENCY);
+    const resolved = await Promise.all(
+      slice.map(async (id) => {
+        try {
+          return [id, await getContact(locationId, id)] as const;
+        } catch {
+          return [id, null] as const;
+        }
+      }),
+    );
+    for (const [id, data] of resolved) out.set(id, data);
+  }
+  return out;
 }
 
 export async function createContactNote(

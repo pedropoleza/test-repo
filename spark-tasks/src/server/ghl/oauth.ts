@@ -135,13 +135,20 @@ export async function handleOAuthCallback(
 
 /** Decrypt the row's access token, refreshing (and persisting) if near expiry. */
 async function validAccessToken(row: Install): Promise<string> {
+  return (await validAccessTokenWithExpiry(row)).token;
+}
+
+/** Like validAccessToken but also returns the token's expiry (for caching). */
+async function validAccessTokenWithExpiry(
+  row: Install,
+): Promise<{ token: string; expMs: number }> {
   const expMs = row.expiresAt ? row.expiresAt.getTime() : 0;
   if (expMs - Date.now() > REFRESH_MARGIN_MS) {
-    return decryptToken(row.accessTokenEnc);
+    return { token: decryptToken(row.accessTokenEnc), expMs };
   }
   if (!row.refreshTokenEnc) {
     // No refresh token but token still present — try it; API will 401 if dead.
-    return decryptToken(row.accessTokenEnc);
+    return { token: decryptToken(row.accessTokenEnc), expMs };
   }
   const tok = await postForm(TOKEN_URL, {
     client_id: env.GHL_APP_CLIENT_ID,
@@ -161,7 +168,10 @@ async function validAccessToken(row: Install): Promise<string> {
       updatedAt: sql`now()`,
     })
     .where(eq(ghlInstallations.id, row.id));
-  return tok.access_token;
+  return {
+    token: tok.access_token,
+    expMs: expiryFrom(tok.expires_in).getTime(),
+  };
 }
 
 async function findLocationInstall(locationId: string): Promise<Install | null> {
@@ -212,7 +222,11 @@ export async function getLocationToken(locationId: string): Promise<string> {
   // 1) Direct subaccount install.
   const locInstall = await findLocationInstall(locationId);
   if (locInstall) {
-    return validAccessToken(locInstall);
+    const { token, expMs } = await validAccessTokenWithExpiry(locInstall);
+    // Cache so a burst of GHL calls (a board full of cards) doesn't re-read and
+    // decrypt the install row every time.
+    if (expMs > Date.now()) locationTokenCache.set(locationId, { token, expMs });
+    return token;
   }
 
   // 2) Agency install → mint a per-location token.

@@ -19,6 +19,7 @@ import { SettingsMenu } from "./SettingsMenu";
 import { NewPipelineModal } from "./NewPipelineModal";
 import { TaskModal, type ModalState } from "./TaskModal";
 import { CallOutcomeModal } from "./CallOutcomeModal";
+import { ContactsContext } from "./ContactsContext";
 import { isCallTask } from "~/lib/call-outcomes";
 import { SortMenu, type SortMode } from "./SortMenu";
 import {
@@ -54,6 +55,26 @@ export function Board() {
     staleTime: 5 * 60_000,
     retry: 1,
   });
+
+  // Resolve every linked contact in ONE batched request and share it with all
+  // cards (see ContactsContext) — avoids one GHL lookup per card.
+  const contactIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const t of taskList.data ?? []) if (t.contactId) set.add(t.contactId);
+    return [...set];
+  }, [taskList.data]);
+  const contactsQ = api.ghl.contactsBatch.useQuery(
+    { ids: contactIds },
+    { enabled: contactIds.length > 0, staleTime: 5 * 60_000, retry: 1 },
+  );
+  const contactsCtx = useMemo(
+    () => ({
+      contacts: contactsQ.data ?? {},
+      requestedIds: new Set(contactIds),
+      pending: contactsQ.isFetching,
+    }),
+    [contactsQ.data, contactsQ.isFetching, contactIds],
+  );
 
   const [view, setView] = useState<ViewMode>("kanban");
   const [search, setSearch] = useState("");
@@ -355,6 +376,7 @@ export function Board() {
   }
 
   return (
+    <ContactsContext.Provider value={contactsCtx}>
     <div className={`shell${selected.size ? " selection-active" : ""}`}>
       {/* Pipelines + view toggle + notifications */}
       <nav className="tabs-bar" aria-label="Pipelines">
@@ -627,5 +649,6 @@ export function Board() {
         />
       )}
     </div>
+    </ContactsContext.Provider>
   );
 }

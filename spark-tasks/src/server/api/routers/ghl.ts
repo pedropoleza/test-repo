@@ -5,6 +5,7 @@ import {
   getLocationUsers,
   searchContacts,
   getContact,
+  getContactsByIds,
   getConversationId,
   getPipelines,
 } from "~/server/ghl/api";
@@ -66,6 +67,35 @@ export const ghlRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       try {
         return await getContact(ctx.locationId, input.contactId);
+      } catch (err) {
+        mapGhlError(err);
+      }
+    }),
+
+  /**
+   * Resolve many linked contacts in one request (card chips for the whole
+   * board). Server-side cache + bounded concurrency, so a board full of
+   * contact-linked cards costs one round-trip instead of one per card.
+   * Returns a record of found contacts keyed by id (missing ids are absent).
+   */
+  contactsBatch: locationProcedure
+    .input(z.object({ ids: z.array(z.string().min(1).max(100)).max(300) }))
+    .query(async ({ ctx, input }) => {
+      if (input.ids.length === 0)
+        return {} as Record<
+          string,
+          { id: string; name: string; photoUrl?: string }
+        >;
+      try {
+        const map = await getContactsByIds(ctx.locationId, input.ids);
+        const out: Record<
+          string,
+          { id: string; name: string; photoUrl?: string }
+        > = {};
+        for (const [id, c] of map) {
+          if (c) out[id] = { id: c.id, name: c.name, photoUrl: c.photoUrl };
+        }
+        return out;
       } catch (err) {
         mapGhlError(err);
       }

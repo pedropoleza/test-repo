@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "~/trpc/react";
 import { CALL_OUTCOMES } from "~/lib/call-outcomes";
+import { IconPhone, IconArrowRight, IconX, IconRepeat } from "./Icons";
 import type { Task } from "./TaskCard";
 
 export function CallOutcomeModal({
@@ -71,38 +72,51 @@ export function CallOutcomeModal({
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="modal call-modal" role="dialog" aria-modal="true">
-        <div className="modal-header">
-          <h2>Resultado da ligação</h2>
-          <button className="btn btn-ghost" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
+        <button
+          className="call-close"
+          onClick={onClose}
+          aria-label="Fechar"
+          type="button"
+        >
+          <IconX size={16} />
+        </button>
+
+        <div className="call-hero">
+          <span className="call-hero-icon">
+            <IconPhone size={18} />
+          </span>
+          <div className="call-hero-text">
+            <div className="call-hero-title">Resultado da ligação</div>
+            <div className="call-hero-sub">{task.title}</div>
+          </div>
         </div>
 
         <div className="modal-body call-modal-body">
-          <div className="call-task-title">{task.title}</div>
-
           {/* Outcome */}
-          <div className="field">
-            <label className="field-label">Como foi a ligação?</label>
+          <div className="call-section">
+            <div className="call-section-label">Como foi a ligação?</div>
             <div className="outcome-grid">
               {CALL_OUTCOMES.map((o) => (
                 <button
                   key={o.id}
                   type="button"
-                  className={`outcome-chip${outcomeId === o.id ? " on" : ""}`}
+                  className={`outcome-chip tone-${o.tone}${
+                    outcomeId === o.id ? " on" : ""
+                  }`}
                   onClick={() => setOutcomeId(o.id)}
                 >
-                  {o.label}
+                  <span className="outcome-dot" />
+                  <span className="outcome-label">{o.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Move opportunity */}
-          <div className="field">
-            <label className="field-label">Mover oportunidade para</label>
+          <div className="call-section">
+            <div className="call-section-label">Mover oportunidade</div>
             {pipelines.isError ? (
-              <div className="hint">
+              <div className="call-note">
                 Não foi possível carregar os funis (verifique a conexão do GHL).
                 O resultado é registrado mesmo assim.
               </div>
@@ -124,6 +138,9 @@ export function CallOutcomeModal({
                     </option>
                   ))}
                 </select>
+                <span className="move-arrow">
+                  <IconArrowRight size={15} />
+                </span>
                 <select
                   className="select"
                   value={stageId}
@@ -142,24 +159,44 @@ export function CallOutcomeModal({
           </div>
 
           {/* Follow-up */}
-          <label className="follow-row">
-            <input
-              type="checkbox"
-              checked={followUp}
-              onChange={(e) => {
-                setTouchedFollowUp(true);
-                setFollowUp(e.target.checked);
-              }}
-            />
-            <span>Gerar nova ligação para este lead (vence amanhã)</span>
-          </label>
+          <button
+            type="button"
+            className={`follow-card${followUp ? " on" : ""}`}
+            onClick={() => {
+              setTouchedFollowUp(true);
+              setFollowUp((v) => !v);
+            }}
+          >
+            <span className="follow-icon">
+              <IconRepeat size={16} />
+            </span>
+            <span className="follow-text">
+              <span className="follow-title">Gerar nova ligação</span>
+              <span className="follow-sub">Cria um follow-up que vence amanhã</span>
+            </span>
+            <span
+              className={`switch${followUp ? " on" : ""}`}
+              role="switch"
+              aria-checked={followUp}
+            >
+              <span className="switch-knob" />
+            </span>
+          </button>
         </div>
 
-        <div className="modal-footer">
-          <button className="btn btn-ghost" onClick={onClose} disabled={dispose.isPending}>
+        <div className="modal-footer call-footer">
+          <button
+            className="btn btn-ghost"
+            onClick={onClose}
+            disabled={dispose.isPending}
+          >
             Pular
           </button>
-          <button className="btn btn-primary" onClick={save} disabled={dispose.isPending}>
+          <button
+            className="btn btn-primary"
+            onClick={save}
+            disabled={dispose.isPending}
+          >
             {dispose.isPending ? "Salvando…" : "Salvar resultado"}
           </button>
         </div>

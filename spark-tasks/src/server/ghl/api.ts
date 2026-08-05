@@ -218,3 +218,93 @@ export async function completeGhlTask(
     { method: "PUT", body: { completed } },
   );
 }
+
+// ---------------------------------------------------------------------------
+// Opportunities / pipelines (call-list automation).
+//
+// Requires the `opportunities.readonly` scope on the GHL app. Used to read
+// which leads sit in a given pipeline stage so we can generate the daily call
+// list. Read-only: we never move opportunities.
+// ---------------------------------------------------------------------------
+
+export type GhlStage = { id: string; name: string };
+export type GhlPipeline = { id: string; name: string; stages: GhlStage[] };
+
+/** List the location's opportunity pipelines with their stages. */
+export async function getPipelines(locationId: string): Promise<GhlPipeline[]> {
+  const raw = await ghlFetch<{
+    pipelines?: Array<{
+      id: string;
+      name?: string;
+      stages?: Array<{ id: string; name?: string }>;
+    }>;
+  }>(locationId, `/opportunities/pipelines?locationId=${encodeURIComponent(locationId)}`);
+
+  return (raw.pipelines ?? []).map((p) => ({
+    id: p.id,
+    name: (p.name ?? "").trim(),
+    stages: (p.stages ?? []).map((s) => ({ id: s.id, name: (s.name ?? "").trim() })),
+  }));
+}
+
+export type GhlOpportunity = {
+  id: string;
+  name: string;
+  contactId: string | null;
+  createdAt: string | null;
+};
+
+/**
+ * Fetch opportunities in a pipeline stage, oldest first (a proxy for
+ * "longest waiting in the stage"). Pages through the search endpoint up to
+ * `limit` results.
+ */
+export async function searchOpportunities(
+  locationId: string,
+  opts: { pipelineId: string; stageId: string; limit: number },
+): Promise<GhlOpportunity[]> {
+  const out: GhlOpportunity[] = [];
+  const pageSize = 100;
+  let page = 1;
+
+  while (out.length < opts.limit && page <= 20) {
+    const qs = new URLSearchParams({
+      location_id: locationId,
+      pipeline_id: opts.pipelineId,
+      pipeline_stage_id: opts.stageId,
+      limit: String(pageSize),
+      page: String(page),
+    });
+    const raw = await ghlFetch<{
+      opportunities?: Array<{
+        id: string;
+        name?: string;
+        contactId?: string;
+        contact?: { id?: string };
+        createdAt?: string;
+        dateAdded?: string;
+      }>;
+      meta?: { nextPageUrl?: string | null; total?: number };
+    }>(locationId, `/opportunities/search?${qs.toString()}`);
+
+    const batch = raw.opportunities ?? [];
+    for (const o of batch) {
+      out.push({
+        id: o.id,
+        name: (o.name ?? "").trim(),
+        contactId: o.contactId ?? o.contact?.id ?? null,
+        createdAt: o.createdAt ?? o.dateAdded ?? null,
+      });
+    }
+    if (batch.length < pageSize || !raw.meta?.nextPageUrl) break;
+    page += 1;
+  }
+
+  // Oldest first (longest in stage). Nulls sort last.
+  out.sort((a, b) => {
+    if (!a.createdAt) return 1;
+    if (!b.createdAt) return -1;
+    return a.createdAt.localeCompare(b.createdAt);
+  });
+  return out.slice(0, opts.limit);
+}

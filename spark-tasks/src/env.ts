@@ -50,6 +50,14 @@ export const env = createEnv({
     TRIGGER_SECRET_KEY: z.string().min(1).optional(),
     /** Tag added to the GHL contact on task completion (D7). */
     GHL_WRITEBACK_TAG: z.string().min(1).optional(),
+    /**
+     * Bearer secret for the scheduled cron endpoints (Vercel Cron sets this in
+     * the Authorization header). Optional: when unset, only Vercel's own cron
+     * invocations (x-vercel-cron header) are accepted.
+     */
+    CRON_SECRET: z.string().min(1).optional(),
+    /** Optional JSON override for the daily call-list automations. */
+    CALL_LISTS: z.string().min(1).optional(),
 
     // --- Web Push (desktop alerts even with the module closed) ---
     // Optional: push is silently disabled until the VAPID pair is set.
@@ -75,6 +83,8 @@ export const env = createEnv({
     SESSION_SECRET: process.env.SESSION_SECRET,
     TRIGGER_SECRET_KEY: process.env.TRIGGER_SECRET_KEY,
     GHL_WRITEBACK_TAG: process.env.GHL_WRITEBACK_TAG,
+    CRON_SECRET: process.env.CRON_SECRET,
+    CALL_LISTS: process.env.CALL_LISTS,
     VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY,
     VAPID_SUBJECT: process.env.VAPID_SUBJECT,

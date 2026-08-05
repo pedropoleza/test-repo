@@ -308,3 +308,47 @@ export async function searchOpportunities(
   });
   return out.slice(0, opts.limit);
 }
+
+/** Resolve the id of a contact's opportunity (first match). Null if none. */
+export async function findOpportunityIdByContact(
+  locationId: string,
+  contactId: string,
+  pipelineId?: string,
+): Promise<string | null> {
+  const qs = new URLSearchParams({
+    location_id: locationId,
+    contact_id: contactId,
+    limit: "20",
+  });
+  const raw = await ghlFetch<{
+    opportunities?: Array<{ id: string; pipelineId?: string }>;
+  }>(locationId, `/opportunities/search?${qs.toString()}`);
+  const opps = raw.opportunities ?? [];
+  if (pipelineId) {
+    const inPipe = opps.find((o) => o.pipelineId === pipelineId);
+    if (inPipe) return inPipe.id;
+  }
+  return opps[0]?.id ?? null;
+}
+
+/**
+ * Move an opportunity to a pipeline stage (needs opportunities.write). Used
+ * when a call is dispositioned and the rep chooses where the lead goes next.
+ */
+export async function moveOpportunity(
+  locationId: string,
+  opportunityId: string,
+  target: { pipelineId: string; stageId: string },
+): Promise<void> {
+  await ghlFetch(
+    locationId,
+    `/opportunities/${encodeURIComponent(opportunityId)}`,
+    {
+      method: "PUT",
+      body: {
+        pipelineId: target.pipelineId,
+        pipelineStageId: target.stageId,
+      },
+    },
+  );
+}

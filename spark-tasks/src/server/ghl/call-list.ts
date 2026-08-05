@@ -275,6 +275,7 @@ export async function runCallList(
           priority: "high",
           source: "native",
           externalId: `call:${contactId}:${dayKey}`,
+          opportunityId: lead.id,
           labels: cfg.label ? [cfg.label] : [],
         })
         .returning({ id: tasks.id });

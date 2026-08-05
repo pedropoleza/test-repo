@@ -111,6 +111,11 @@ export const tasks = sparkTasks.table(
     source: text("source").notNull().default("native").$type<"native" | "ghl">(),
     /** GHL task id this card mirrors (null for native tasks). */
     externalId: text("external_id"),
+    /** GHL opportunity (lead) this card relates to — call-list tasks set this
+     * so completing the call can move the opportunity across pipeline stages. */
+    opportunityId: text("opportunity_id"),
+    /** Recorded outcome of a call task (e.g. "no_answer") — null until disposed. */
+    callOutcome: text("call_outcome"),
     /** True for recurring source tasks — rendered with a distinct badge. */
     recurring: boolean("recurring").notNull().default(false),
     labels: jsonb("labels").notNull().default(sql`'[]'::jsonb`).$type<string[]>(),

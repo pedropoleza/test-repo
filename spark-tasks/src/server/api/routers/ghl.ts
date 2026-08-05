@@ -6,6 +6,7 @@ import {
   searchContacts,
   getContact,
   getConversationId,
+  getPipelines,
 } from "~/server/ghl/api";
 
 const GHL_APP = "https://app.gohighlevel.com";
@@ -35,6 +36,15 @@ export const ghlRouter = createTRPCRouter({
   users: locationProcedure.query(async ({ ctx }) => {
     try {
       return await getLocationUsers(ctx.locationId);
+    } catch (err) {
+      mapGhlError(err);
+    }
+  }),
+
+  /** Pipelines + stages, for the call-disposition "move opportunity" picker. */
+  pipelines: locationProcedure.query(async ({ ctx }) => {
+    try {
+      return await getPipelines(ctx.locationId);
     } catch (err) {
       mapGhlError(err);
     }

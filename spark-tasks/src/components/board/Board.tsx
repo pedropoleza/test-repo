@@ -18,9 +18,7 @@ import { Notifications } from "./Notifications";
 import { SettingsMenu } from "./SettingsMenu";
 import { NewPipelineModal } from "./NewPipelineModal";
 import { TaskModal, type ModalState } from "./TaskModal";
-import { CallOutcomeModal } from "./CallOutcomeModal";
 import { ContactsContext } from "./ContactsContext";
-import { isCallTask } from "~/lib/call-outcomes";
 import { SortMenu, type SortMode } from "./SortMenu";
 import {
   FilterDrawer,
@@ -81,7 +79,6 @@ export function Board() {
   const [sort, setSort] = useState<SortMode>("manual");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<ModalState | null>(null);
-  const [disposeTask, setDisposeTask] = useState<Task | null>(null);
   const [newPipeline, setNewPipeline] = useState(false);
   const [addingStage, setAddingStage] = useState(false);
   const [newStageName, setNewStageName] = useState("");
@@ -265,21 +262,13 @@ export function Board() {
   }, [filtered, sortTasks, stages]);
 
   function onDragEnd(result: DropResult) {
-    const { destination, source, draggableId } = result;
+    const { destination, draggableId } = result;
     if (!destination || sort !== "manual") return;
     move.mutate({
       id: draggableId,
       status: destination.droppableId,
       index: destination.index,
     });
-    // Completing a call task (into a Done stage, from a non-done one) opens the
-    // disposition modal: record the outcome + move the opportunity + follow-up.
-    const movedIntoDone =
-      doneIds.has(destination.droppableId) && !doneIds.has(source.droppableId);
-    if (movedIntoDone) {
-      const t = taskList.data?.find((x) => x.id === draggableId);
-      if (t && isCallTask(t.externalId)) setDisposeTask(t);
-    }
   }
 
   function toggleSelect(id: string) {
@@ -642,12 +631,6 @@ export function Board() {
         />
       )}
 
-      {disposeTask && (
-        <CallOutcomeModal
-          task={disposeTask}
-          onClose={() => setDisposeTask(null)}
-        />
-      )}
     </div>
     </ContactsContext.Provider>
   );

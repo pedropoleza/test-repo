@@ -19,13 +19,7 @@ import {
 import { runContactWriteback } from "~/server/ghl/writeback";
 import { locationRequiresOwner } from "~/server/config";
 import { pushTaskCompletion, pushTaskFields } from "~/server/ghl/task-sync";
-import {
-  moveOpportunity,
-  findOpportunityIdByContact,
-  createContactNote,
-} from "~/server/ghl/api";
 import { sendPushToUser } from "~/server/push";
-import { CALL_OUTCOME_IDS, callOutcomeLabel } from "~/lib/call-outcomes";
 import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
 
 const statusId = z.string().trim().min(1).max(40);
@@ -129,17 +123,6 @@ async function notifyAssigned(
       }),
     );
   }
-}
-
-/** YYYY-MM-DD in America/Sao_Paulo, offset by `days` (Brazil is UTC-3, no DST). */
-function localDayKeyOffset(days: number): string {
-  const d = new Date(Date.now() + days * 86_400_000);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
 }
 
 /** Renumber a column 0..n-1 (only writes rows whose position changed). */
@@ -463,179 +446,6 @@ export const taskRouter = createTRPCRouter({
       }
 
       return { id: task.id, status: toStatus, index: idx };
-    }),
-
-  /**
-   * Disposition a completed call task: record the outcome, optionally move the
-   * linked GHL opportunity to a chosen pipeline/stage, and (optionally) spawn a
-   * follow-up call task due the next day. Opportunity move + contact note run
-   * post-response via after() and are best-effort; the follow-up is created in
-   * band so the UI can reflect it immediately.
-   */
-  disposeCall: locationProcedure
-    .input(
-      z.object({
-        taskId: z.string().uuid(),
-        outcome: z.enum(CALL_OUTCOME_IDS),
-        move: z
-          .object({
-            pipelineId: z.string().trim().min(1).max(100),
-            stageId: z.string().trim().min(1).max(100),
-          })
-          .optional(),
-        followUp: z.boolean().default(false),
-      }),
-    )
-    .mutation(async ({ ctx, input }) => {
-      const [task] = await ctx.db
-        .select()
-        .from(tasks)
-        .where(eq(tasks.id, input.taskId))
-        .limit(1);
-      if (!task) throw new TRPCError({ code: "NOT_FOUND" });
-
-      const label = callOutcomeLabel(input.outcome) ?? input.outcome;
-
-      // Record the outcome + an audit comment.
-      await ctx.db
-        .update(tasks)
-        .set({ callOutcome: input.outcome, updatedAt: sql`now()` })
-        .where(eq(tasks.id, task.id));
-      await ctx.db.insert(taskComments).values({
-        taskId: task.id,
-        locationId: ctx.locationId,
-        authorId: ctx.userId,
-        body: `Resultado da ligação: ${label}`,
-      });
-
-      // Mirror the outcome onto the GHL contact as a note (best-effort).
-      if (task.contactId) {
-        const { locationId } = ctx;
-        const cid = task.contactId;
-        after(() =>
-          createContactNote(
-            locationId,
-            cid,
-            `Resultado da ligação (Spark Tasks): ${label}`,
-          ).catch((e) =>
-            console.error(`[disposeCall] contact note failed: ${String(e)}`),
-          ),
-        );
-      }
-
-      // Move the opportunity (best-effort, post-response). Resolve the id from
-      // the task, falling back to a contact lookup for legacy tasks.
-      let opportunityMoveEnqueued = false;
-      if (input.move) {
-        const { locationId } = ctx;
-        const target = input.move;
-        const knownOppId = task.opportunityId;
-        const contactId = task.contactId;
-        opportunityMoveEnqueued = true;
-        after(async () => {
-          try {
-            let oppId = knownOppId;
-            if (!oppId && contactId) {
-              oppId = await findOpportunityIdByContact(
-                locationId,
-                contactId,
-                target.pipelineId,
-              );
-            }
-            if (oppId) await moveOpportunity(locationId, oppId, target);
-            else
-              console.warn(
-                `[disposeCall] no opportunity resolved for task ${task.id}`,
-              );
-          } catch (e) {
-            console.error(`[disposeCall] move opportunity failed: ${String(e)}`);
-          }
-        });
-      }
-
-      // Follow-up call for the next day (idempotent on external_id).
-      let followUpId: string | null = null;
-      if (input.followUp) {
-        const tomorrowKey = localDayKeyOffset(1);
-        const marker = `call:${task.opportunityId ?? task.contactId ?? task.id}:${tomorrowKey}`;
-        const [dupe] = await ctx.db
-          .select({ id: tasks.id })
-          .from(tasks)
-          .where(
-            and(
-              eq(tasks.boardId, task.boardId),
-              eq(tasks.externalId, marker),
-              isNull(tasks.archivedAt),
-            ),
-          )
-          .limit(1);
-        if (!dupe) {
-          const board = await getBoard(ctx.db, ctx.locationId, task.boardId);
-          const status = board.stages[0]?.id ?? "todo";
-          const [{ count }] = (await ctx.db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(tasks)
-            .where(
-              and(eq(tasks.boardId, board.id), eq(tasks.status, status)),
-            )) as [{ count: number }];
-          const due = new Date(`${tomorrowKey}T23:59:00-03:00`);
-          const [created] = await ctx.db
-            .insert(tasks)
-            .values({
-              locationId: ctx.locationId,
-              boardId: board.id,
-              title: task.title,
-              note: task.note,
-              status,
-              color: "blue",
-              dueDate: due,
-              contactId: task.contactId,
-              opportunityId: task.opportunityId,
-              position: count,
-              createdBy: "system",
-              priority: "high",
-              source: "native",
-              externalId: marker,
-              labels: task.labels,
-            })
-            .returning();
-          if (created) {
-            followUpId = created.id;
-            const assignees = await ctx.db
-              .select({ userId: taskAssignees.userId })
-              .from(taskAssignees)
-              .where(eq(taskAssignees.taskId, task.id));
-            const assigneeIds = assignees.map((a) => a.userId);
-            if (assigneeIds.length) {
-              await ctx.db
-                .insert(taskAssignees)
-                .values(
-                  assigneeIds.map((userId) => ({
-                    taskId: created.id,
-                    userId,
-                    locationId: ctx.locationId,
-                  })),
-                )
-                .onConflictDoNothing();
-              await notifyAssigned(ctx.db, {
-                locationId: ctx.locationId,
-                actorId: ctx.userId,
-                userIds: assigneeIds,
-                taskId: created.id,
-                taskTitle: created.title,
-                contactId: created.contactId,
-              });
-            }
-          }
-        }
-      }
-
-      return {
-        ok: true,
-        outcome: input.outcome,
-        opportunityMoveEnqueued,
-        followUpId,
-      };
     }),
 
   /** Add/remove assignees (Stage 3). RLS pins everything to the session. */

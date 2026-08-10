@@ -7,7 +7,6 @@ import {
   getContact,
   getContactsByIds,
   getConversationId,
-  getPipelines,
 } from "~/server/ghl/api";
 import { ghlContactUrl, ghlConversationUrl } from "~/lib/ghl-app";
 
@@ -36,15 +35,6 @@ export const ghlRouter = createTRPCRouter({
   users: locationProcedure.query(async ({ ctx }) => {
     try {
       return await getLocationUsers(ctx.locationId);
-    } catch (err) {
-      mapGhlError(err);
-    }
-  }),
-
-  /** Pipelines + stages, for the call-disposition "move opportunity" picker. */
-  pipelines: locationProcedure.query(async ({ ctx }) => {
-    try {
-      return await getPipelines(ctx.locationId);
     } catch (err) {
       mapGhlError(err);
     }

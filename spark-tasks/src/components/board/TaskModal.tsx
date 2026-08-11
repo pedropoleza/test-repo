@@ -66,6 +66,21 @@ export function TaskModal({
   const [note, setNote] = useState(editing?.note ?? "");
   const [color, setColor] = useState<TaskColor>(editing?.color ?? stageColor);
   const [status, setStatus] = useState<string>(initialStatus);
+  // Pipeline (board) the task lives in — editable, so a card can be moved to
+  // another pipeline + column. Defaults to the current board.
+  const boardsQ = api.board.list.useQuery(undefined, { staleTime: 60_000 });
+  const [boardSel, setBoardSel] = useState<string | undefined>(
+    editing?.boardId ?? boardId,
+  );
+  const selectedStages =
+    boardsQ.data?.find((b) => b.id === boardSel)?.stages ?? stages;
+  function changeBoard(nextId: string) {
+    setBoardSel(nextId);
+    const next = boardsQ.data?.find((b) => b.id === nextId)?.stages ?? [];
+    if (next.length && !next.some((s) => s.id === status)) {
+      setStatus(next[0]!.id);
+    }
+  }
   const [priority, setPriority] = useState<TaskPriority>(editing?.priority ?? "none");
   const [cardStyle, setCardStyle] = useState<CardStyle>(editing?.cardStyle ?? "strip");
   const [due, setDue] = useState(editing?.dueDate ? toDateInput(editing.dueDate) : "");
@@ -123,6 +138,7 @@ export function TaskModal({
   const create = api.task.create.useMutation();
   const update = api.task.update.useMutation();
   const move = api.task.move.useMutation();
+  const moveToBoard = api.task.moveToBoard.useMutation();
   const assign = api.task.assign.useMutation();
   const duplicate = api.task.duplicate.useMutation();
   const setArchived = api.task.setArchived.useMutation();
@@ -138,7 +154,7 @@ export function TaskModal({
     try {
       if (state.mode === "create") {
         const created = await create.mutateAsync({
-          boardId,
+          boardId: boardSel ?? boardId,
           title: title.trim(),
           note: note.trim() || null,
           status,
@@ -167,7 +183,13 @@ export function TaskModal({
           dueDate,
           contactId: contact?.id ?? null,
         });
-        if (status !== t.status) await move.mutateAsync({ id: t.id, status });
+        // Moving to another pipeline (or a stage on it) goes through
+        // moveToBoard; a same-pipeline stage change uses move.
+        if (boardSel && boardSel !== t.boardId) {
+          await moveToBoard.mutateAsync({ id: t.id, boardId: boardSel, status });
+        } else if (status !== t.status) {
+          await move.mutateAsync({ id: t.id, status });
+        }
         const add = [...assignees].filter((u) => !t.assigneeIds.includes(u));
         const remove = t.assigneeIds.filter((u) => !assignees.has(u));
         if (add.length || remove.length) await assign.mutateAsync({ id: t.id, add, remove });
@@ -376,15 +398,34 @@ export function TaskModal({
 
           {/* ---------- Properties sidebar ---------- */}
           <div className="modal-side">
+            {(boardsQ.data?.length ?? 0) > 1 && (
+              <div className="side-field">
+                <label>Pipeline</label>
+                <select
+                  className="select"
+                  value={boardSel ?? ""}
+                  onChange={(e) => changeBoard(e.target.value)}
+                >
+                  {boardsQ.data?.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="side-field">
               <label>Stage</label>
               <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
-                {stages.map((s) => (
+                {selectedStages.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
                   </option>
                 ))}
-                {!stages.some((s) => s.id === status) && <option value={status}>{status}</option>}
+                {!selectedStages.some((s) => s.id === status) && (
+                  <option value={status}>{status}</option>
+                )}
               </select>
             </div>
 

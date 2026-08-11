@@ -448,6 +448,82 @@ export const taskRouter = createTRPCRouter({
       return { id: task.id, status: toStatus, index: idx };
     }),
 
+  /**
+   * Move a task to ANOTHER board (pipeline) and, optionally, a specific stage
+   * (column) on that board. Appends to the end of the target column and closes
+   * the gap in the source column. The target board is validated to belong to
+   * the session's location (RLS scopes the read).
+   */
+  moveToBoard: locationProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        boardId: z.string().uuid(),
+        status: statusId.optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [task] = await ctx.db
+        .select()
+        .from(tasks)
+        .where(eq(tasks.id, input.id))
+        .limit(1);
+      if (!task) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const [board] = await ctx.db
+        .select({ id: boards.id, stages: boards.stages })
+        .from(boards)
+        .where(eq(boards.id, input.boardId))
+        .limit(1);
+      if (!board) throw new TRPCError({ code: "NOT_FOUND", message: "board" });
+
+      const status =
+        input.status && board.stages.some((s) => s.id === input.status)
+          ? input.status
+          : board.stages[0]?.id ?? "todo";
+
+      // No-op if already on that board+stage.
+      if (task.boardId === board.id && task.status === status) {
+        return { id: task.id, boardId: board.id, status };
+      }
+
+      const fromBoardId = task.boardId;
+      const fromStatus = task.status;
+
+      // Append to the end of the target column.
+      const [{ count }] = (await ctx.db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(tasks)
+        .where(and(eq(tasks.boardId, board.id), eq(tasks.status, status)))) as [
+        { count: number },
+      ];
+      await ctx.db
+        .update(tasks)
+        .set({
+          boardId: board.id,
+          status,
+          position: count,
+          updatedAt: sql`now()`,
+        })
+        .where(eq(tasks.id, task.id));
+
+      // Close the gap in the source column.
+      const source = await ctx.db
+        .select({ id: tasks.id, position: tasks.position })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.boardId, fromBoardId),
+            eq(tasks.status, fromStatus),
+            ne(tasks.id, task.id),
+          ),
+        )
+        .orderBy(asc(tasks.position), asc(tasks.createdAt));
+      await renumber(ctx.db, source);
+
+      return { id: task.id, boardId: board.id, status };
+    }),
+
   /** Add/remove assignees (Stage 3). RLS pins everything to the session. */
   assign: locationProcedure
     .input(

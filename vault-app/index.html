@@ -11,275 +11,290 @@
     <link rel="stylesheet" href="./styles/tokens.css" />
     <link rel="stylesheet" href="./styles/components.css" />
     <style>
-      .badge--warn   { background: var(--warn-bg);   color: var(--warn); }
-      .badge--danger { background: var(--danger-bg); color: var(--danger); }
+      .badge--warn { background: var(--warn-bg); color: var(--warn); }
+      .topbar { position:sticky; top:0; z-index:30; height:56px; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:0 var(--content-pad); background:var(--white); border-bottom:1px solid var(--gray-200); }
       .lang-switch { display:inline-flex; align-items:center; gap:2px; background:var(--gray-100); padding:3px; border-radius:var(--r-pill); }
       .lang-switch button { border:0; background:transparent; padding:5px 10px; border-radius:var(--r-pill); font-weight:700; font-size:var(--fs-xs); letter-spacing:.04em; color:var(--gray-500); }
       .lang-switch button.is-active { background:var(--white); color:var(--ghl-700); box-shadow:var(--shadow-sm); }
-      .mode-pill { display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 12px; border-radius:var(--r-md); font-size:var(--fs-sm); font-weight:600; border:1px solid var(--gray-200); background:var(--gray-50); color:var(--gray-600); }
+      .mode-pill { display:inline-flex; align-items:center; gap:8px; height:34px; padding:0 12px; border-radius:var(--r-md); font-size:var(--fs-sm); font-weight:600; border:1px solid var(--gray-200); background:var(--gray-50); color:var(--gray-600); }
       .mode-pill[data-mode="live"] { background:var(--success-bg); color:#047857; border-color:#a7f3d0; }
       .mode-pill[data-mode="demo"] { background:var(--warn-bg); color:var(--warn); border-color:#fde68a; }
-      .stat-strip { display:flex; gap:12px; flex-wrap:wrap; }
-      .stat { flex:1 1 160px; background:var(--white); border:1px solid var(--gray-200); border-radius:var(--r-lg); padding:16px 18px; }
-      .stat__label { font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.06em; color:var(--gray-500); font-weight:600; }
-      .stat__value { margin-top:6px; font-size:var(--fs-2xl); font-weight:800; letter-spacing:-.02em; color:var(--gray-900); font-variant-numeric:tabular-nums; }
+
+      .wrap { padding:var(--content-pad); position:relative; z-index:1; }
+
+      /* Pastas */
       .folders { display:flex; align-items:flex-end; gap:4px; flex-wrap:wrap; padding:0 6px; position:relative; z-index:2; }
       .folder-tab { display:inline-flex; align-items:center; gap:9px; padding:11px 16px 13px; background:var(--gray-100); border:1px solid var(--gray-200); border-bottom:none; border-radius:12px 12px 0 0; color:var(--gray-600); font-weight:600; font-size:var(--fs-base); transition:background var(--d-fast),color var(--d-fast); position:relative; top:1px; max-width:260px; }
       .folder-tab:hover { background:var(--gray-50); color:var(--gray-900); }
       .folder-tab .fico { width:18px; height:18px; flex-shrink:0; color:var(--ghl-500); }
       .folder-tab .fname { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
       .folder-tab .fcount { font-variant-numeric:tabular-nums; background:var(--gray-200); color:var(--gray-600); padding:1px 8px; border-radius:var(--r-pill); font-size:11px; font-weight:700; }
-      .folder-tab .fdot { width:7px; height:7px; border-radius:50%; background:var(--warn); box-shadow:0 0 0 3px var(--warn-bg); }
       .folder-tab.is-active { background:var(--white); color:var(--ghl-700); box-shadow:0 -6px 16px -10px rgba(15,23,42,.22); z-index:3; }
       .folder-tab.is-active .fico { color:var(--ghl-600); }
       .folder-tab.is-active .fcount { background:var(--ghl-100); color:var(--ghl-700); }
-      .folder-body { background:var(--white); border:1px solid var(--gray-200); border-radius:0 var(--r-lg) var(--r-lg) var(--r-lg); box-shadow:var(--shadow-sm); padding:24px; position:relative; z-index:1; }
+      .folder-tab--new { background:transparent; border-style:dashed; color:var(--ghl-600); }
+      .folder-tab--new:hover { background:var(--ghl-50); }
+
+      .folder-body { background:var(--white); border:1px solid var(--gray-200); border-radius:0 var(--r-lg) var(--r-lg) var(--r-lg); box-shadow:var(--shadow-sm); padding:24px; position:relative; z-index:1; min-height:220px; }
       .folder-head { display:flex; align-items:center; gap:16px; padding-bottom:18px; border-bottom:1px solid var(--gray-150); }
       .avatar-lg { width:52px; height:52px; border-radius:14px; flex-shrink:0; background:linear-gradient(135deg,var(--ghl-500),var(--ghl-700)); color:#fff; font-weight:800; font-size:17px; display:inline-flex; align-items:center; justify-content:center; box-shadow:var(--shadow-blue); }
       .folder-head__name { margin:0; font-size:var(--fs-xl); font-weight:800; letter-spacing:-.02em; color:var(--gray-900); }
+      .folder-head__sub { margin:3px 0 0; color:var(--gray-500); font-size:var(--fs-sm); }
       .info-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
       .info-chip { display:inline-flex; align-items:center; gap:7px; padding:5px 11px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:var(--r-pill); font-size:var(--fs-sm); color:var(--gray-700); }
       .info-chip svg { width:13px; height:13px; color:var(--gray-400); }
       .info-chip strong { color:var(--gray-900); font-weight:600; }
-      .svc-group { margin-top:22px; }
-      .svc-group__head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
-      .svc-group__title { font-size:var(--fs-md); font-weight:700; color:var(--gray-900); }
-      .svc-group__progress { display:inline-flex; align-items:center; gap:10px; }
-      .progress { width:120px; height:6px; border-radius:999px; background:var(--gray-150); overflow:hidden; }
-      .progress > i { display:block; height:100%; background:linear-gradient(90deg,var(--ghl-600),#6366f1); }
-      .doc-item { display:grid; grid-template-columns:24px 1fr auto auto auto; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid var(--gray-150); }
-      .doc-item:last-child { border-bottom:none; }
-      .doc-item__ico { width:24px; height:24px; border-radius:7px; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; }
-      .doc-item[data-have="true"]  .doc-item__ico { background:var(--ghl-50); color:var(--ghl-600); }
-      .doc-item[data-have="false"] .doc-item__ico { background:var(--gray-100); color:var(--gray-400); }
-      .doc-item__name { font-weight:600; color:var(--gray-900); }
-      .doc-item[data-have="false"] .doc-item__name { color:var(--gray-400); font-weight:500; }
-      .doc-item__meta { font-size:var(--fs-sm); color:var(--gray-500); }
+
+      /* Uploader */
+      .uploader { margin-top:18px; border:1.5px dashed var(--gray-300); border-radius:var(--r-lg); padding:18px; display:flex; align-items:center; gap:14px; background:var(--gray-50); transition:all var(--d-fast); }
+      .uploader.is-drag { border-color:var(--ghl-400); background:var(--ghl-50); box-shadow:var(--shadow-blue-soft); }
+      .uploader__txt { color:var(--gray-500); font-size:var(--fs-sm); }
+      .btn-primary { height:36px; padding:0 16px; border-radius:var(--r-md); border:0; background:var(--ghl-600); color:#fff; font-weight:700; font-size:var(--fs-sm); box-shadow:var(--shadow-blue); transition:all var(--d-fast); }
+      .btn-primary:hover { background:var(--ghl-700); }
+      .btn-primary:disabled { background:var(--gray-300); box-shadow:none; cursor:not-allowed; }
+
+      /* Lista de arquivos */
+      .files { margin-top:18px; display:flex; flex-direction:column; }
+      .file { display:grid; grid-template-columns:40px 1fr auto auto auto; align-items:center; gap:14px; padding:12px 6px; border-bottom:1px solid var(--gray-150); }
+      .file:last-child { border-bottom:none; }
+      .file__ico { width:40px; height:40px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; }
+      .file__ico svg { width:20px; height:20px; }
+      .file__ico[data-kind="image"] { background:#eef4ff; color:var(--ghl-600); }
+      .file__ico[data-kind="pdf"]   { background:var(--danger-bg); color:var(--danger); }
+      .file__ico[data-kind="doc"]   { background:var(--gray-100); color:var(--gray-600); }
+      .file__name { font-weight:600; color:var(--gray-900); word-break:break-word; }
+      .file__meta { font-size:var(--fs-xs); color:var(--gray-500); margin-top:2px; }
       .src { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-sm); color:var(--gray-700); font-weight:500; }
       .src .dot { width:8px; height:8px; border-radius:50%; }
       .src[data-source="media"] .dot { background:var(--ghl-500); }
       .src[data-source="conversation"] .dot { background:var(--success); }
       .src[data-source="form"] .dot { background:var(--warn); }
-      .btn-ghost { height:30px; padding:0 13px; border-radius:var(--r-md); border:1px solid var(--gray-200); background:var(--white); color:var(--ghl-700); font-weight:600; font-size:var(--fs-sm); transition:all var(--d-fast); }
+      .src[data-source="upload"] .dot { background:#6366f1; }
+      .btn-ghost { height:32px; padding:0 14px; border-radius:var(--r-md); border:1px solid var(--gray-200); background:var(--white); color:var(--ghl-700); font-weight:600; font-size:var(--fs-sm); transition:all var(--d-fast); text-decoration:none; display:inline-flex; align-items:center; }
       .btn-ghost:hover { border-color:var(--ghl-300); box-shadow:var(--shadow-blue-soft); }
-      .btn-ghost:disabled { color:var(--gray-300); cursor:not-allowed; border-color:var(--gray-150); }
-      .checklist-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:18px; }
-      .check-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--gray-150); }
-      .check-row:last-child { border-bottom:0; }
-      .check-row__name { display:inline-flex; align-items:center; gap:10px; color:var(--gray-800); }
-      .check-row__ico { width:20px; height:20px; border-radius:50%; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; }
-      .check-row[data-have="true"]  .check-row__ico { background:var(--success-bg); color:var(--success); }
-      .check-row[data-have="false"] .check-row__ico { background:var(--gray-100); color:var(--gray-400); }
-      .check-row[data-have="false"] .check-row__name { color:var(--gray-400); }
+      .btn-ghost.is-disabled { color:var(--gray-300); border-color:var(--gray-150); pointer-events:none; }
+      .empty-files { padding:34px 0; text-align:center; color:var(--gray-400); }
     </style>
   </head>
   <body>
     <div class="ambient" aria-hidden="true"><span class="orb orb--a"></span><span class="orb orb--b"></span><span class="orb orb--c"></span></div>
 
-    <header class="appbar">
-      <div class="brand"><span class="logo">S</span><span class="name" data-i18n="brand">Spark · Cofre</span></div>
-      <nav class="tabs" id="tabs">
-        <button class="tab is-active" data-tab="cofre" data-i18n="tab_cofre">Cofre</button>
-        <button class="tab" data-tab="pendencias" data-i18n="tab_pendencias">Pendências</button>
-      </nav>
-      <div class="appbar__right">
+    <header class="topbar">
+      <span class="location-pill" title="Location ativa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.686-7-11a7 7 0 0114 0c0 5.314-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span id="loc-name">—</span>
+      </span>
+      <div style="display:inline-flex; align-items:center; gap:12px;">
         <span class="mode-pill" id="mode" data-mode="demo">demo</span>
-        <span class="location-pill" title="Location ativa">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.686-7-11a7 7 0 0114 0c0 5.314-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-          <span id="loc-name">—</span>
-        </span>
         <div class="lang-switch" id="lang"><button data-lang="pt" class="is-active">PT</button><button data-lang="en">EN</button></div>
-        <span class="avatar">SA</span>
       </div>
     </header>
 
     <div class="toasts" id="toasts" aria-live="polite"></div>
 
-    <main class="page">
-      <section class="panel" data-panel="cofre">
-        <div class="page-head">
-          <h1 data-i18n="cofre_title">Cofre de Documentos</h1>
-          <p data-i18n="cofre_sub">Uma pasta por contato. Clique para abrir e ver os dados básicos e os documentos dentro.</p>
-        </div>
-        <div class="stat-strip" id="stats"></div>
-        <div><div class="folders" id="folders"></div><div class="folder-body" id="folder-body"></div></div>
-      </section>
-
-      <section class="panel" data-panel="pendencias" hidden>
-        <div class="page-head">
-          <h1 data-i18n="pend_title">Pendências</h1>
-          <p data-i18n="pend_sub">O que falta por contato e serviço, comparado com o checklist esperado da taxonomia.</p>
-        </div>
-        <div class="checklist-grid" id="checklist"></div>
-      </section>
+    <main class="wrap">
+      <div class="folders" id="folders"></div>
+      <div class="folder-body" id="folder-body"></div>
     </main>
 
+    <input type="file" id="file-input" multiple hidden accept="image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx" />
+
     <script>
-      /* Cofre de Documentos — Custom Page (iframe GHL) com fallback demo. */
+      /* Cofre de Documentos — Custom Page (iframe GHL) só com pastas + arquivos + upload. */
       const I18N = {
-        pt: { brand:"Spark · Cofre", tab_cofre:"Cofre", tab_pendencias:"Pendências",
-          cofre_title:"Cofre de Documentos", cofre_sub:"Uma pasta por contato. Clique para abrir e ver os dados básicos e os documentos dentro.",
-          pend_title:"Pendências", pend_sub:"O que falta por contato e serviço, comparado com o checklist esperado da taxonomia.",
-          st_folders:"Pastas", st_docs:"Documentos", st_mirrored:"Espelhados", st_missing:"Faltando",
-          f_phone:"Telefone", f_email:"Email", f_lang:"Idioma", f_status:"Status", status_active:"Ativo",
-          src_media:"Nuvem", src_conversation:"WhatsApp", src_form:"Formulário",
-          status_mirrored:"Espelhado", status_pending:"Pendente", status_failed:"Falha",
-          download:"Baixar", missing:"falta", of:"de", complete:"Completo", empty:"Sem documentos ainda",
-          toast_dl_title:"Link seguro gerado", toast_dl_sub:"URL assinada de curta duração · acesso registrado no audit log" },
-        en: { brand:"Spark · Vault", tab_cofre:"Vault", tab_pendencias:"Missing",
-          cofre_title:"Document Vault", cofre_sub:"One folder per contact. Click to open and see the basic info and documents inside.",
-          pend_title:"Missing documents", pend_sub:"What's missing per contact and service, against the taxonomy's expected checklist.",
-          st_folders:"Folders", st_docs:"Documents", st_mirrored:"Mirrored", st_missing:"Missing",
-          f_phone:"Phone", f_email:"Email", f_lang:"Language", f_status:"Status", status_active:"Active",
-          src_media:"Cloud", src_conversation:"WhatsApp", src_form:"Form",
-          status_mirrored:"Mirrored", status_pending:"Pending", status_failed:"Failed",
-          download:"Download", missing:"missing", of:"of", complete:"Complete", empty:"No documents yet",
-          toast_dl_title:"Secure link generated", toast_dl_sub:"Short-lived signed URL · access recorded in audit log" },
+        pt: { f_phone:"Telefone", f_email:"Email", add:"+ Adicionar arquivos", drag:"ou arraste os arquivos aqui (até 4MB)",
+          open:"Abrir", pending:"Processando", files_n:(n)=>`${n} arquivo${n===1?"":"s"}`, empty:"Nenhum arquivo nesta pasta ainda",
+          newfolder:"+ Nova pasta", prompt_name:"Nome do contato/pasta:",
+          src_media:"Nuvem", src_conversation:"WhatsApp", src_form:"Formulário", src_upload:"Enviado",
+          up_ok:"Arquivo adicionado", up_fail:"Falha ao enviar", too_big:"Arquivo acima de 4MB", uploading:"Enviando…" },
+        en: { f_phone:"Phone", f_email:"Email", add:"+ Add files", drag:"or drop files here (up to 4MB)",
+          open:"Open", pending:"Processing", files_n:(n)=>`${n} file${n===1?"":"s"}`, empty:"No files in this folder yet",
+          newfolder:"+ New folder", prompt_name:"Contact / folder name:",
+          src_media:"Cloud", src_conversation:"WhatsApp", src_form:"Form", src_upload:"Uploaded",
+          up_ok:"File added", up_fail:"Upload failed", too_big:"File over 4MB", uploading:"Uploading…" },
       };
-
-      // Estado (populado por bootstrap: live via API, ou demo).
       let lang = "pt";
-      let SERVICES = {};       // service_key -> { pt, en, docs:[[key,pt,en],...] }
-      let CONTACTS = [];       // { id, name, phone?, email?, lang?, status? }
-      let DOCS = [];           // { contact, service, doc, source, status, at }
-      let activeContact = null;
-
-      const t = (k) => I18N[lang][k] || k;
-      const svcName = (key) => (SERVICES[key] ? SERVICES[key][lang] : key);
+      const t = (k) => I18N[lang][k];
       const $ = (s, r = document) => r.querySelector(s);
       const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
       const initials = (name) => (name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+      const humanSize = (b) => !b && b!==0 ? "" : b < 1024 ? b+" B" : b < 1048576 ? (b/1024).toFixed(0)+" KB" : (b/1048576).toFixed(1)+" MB";
 
       const ICONS = {
         folder: '<svg class="fico" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-8l-2-2z"/></svg>',
         phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg>',
         mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 6L2 7"/></svg>',
-        globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20"/></svg>',
+        image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+        pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>',
+        doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M13 2v7h7"/></svg>',
+      };
+      const kindOf = (mime, name) => {
+        const m = (mime || "").toLowerCase(), n = (name || "").toLowerCase();
+        if (m.startsWith("image/") || /\.(png|jpe?g|gif|webp|heic|bmp)$/.test(n)) return "image";
+        if (m === "application/pdf" || n.endsWith(".pdf")) return "pdf";
+        return "doc";
       };
 
-      const docLabel = (key, docKey) => { const d = SERVICES[key]?.docs.find((x) => x[0] === docKey); return d ? d[lang === "pt" ? 1 : 2] : docKey; };
-      function docsOf(id){ const m={}; for(const d of DOCS) if(d.contact===id) m[d.service+"|"+d.doc]=d; return m; }
-      function servicesOfContact(id){ const s=new Set(); for(const d of DOCS) if(d.contact===id) s.add(d.service); return [...s]; }
-      function tally(id){ const have=docsOf(id); let expected=0,mirrored=0; for(const svc of servicesOfContact(id)){ const list=SERVICES[svc]?.docs||[]; expected+=list.length; for(const e of list) if(have[svc+"|"+e[0]]?.status==="mirrored") mirrored++; } return {expected,mirrored,missing:expected-mirrored}; }
+      // Estado
+      let MODE = "demo";            // "live" | "demo"
+      let SESSION = null;           // JWT (live)
+      let LOCATION = null;
+      let FOLDERS = [];             // [{ id, name, phone?, email? }]
+      let FILES = [];               // [{ id, contact, name, mime, size, source, status, at, has_content, blobUrl? }]
+      let active = null;
 
-      function renderStats(){
-        const docs=DOCS.length, mirrored=DOCS.filter(d=>d.status==="mirrored").length;
-        let missing=0; for(const c of CONTACTS) missing+=tally(c.id).missing;
-        const cards=[[t("st_folders"),CONTACTS.length],[t("st_docs"),docs],[t("st_mirrored"),mirrored],[t("st_missing"),missing]];
-        $("#stats").innerHTML=cards.map(([l,v])=>`<div class="stat"><div class="stat__label">${l}</div><div class="stat__value">${v}</div></div>`).join("");
-      }
-      function renderFolders(){
-        $("#folders").innerHTML=CONTACTS.map(c=>{const tl=tally(c.id);const a=c.id===activeContact;
-          return `<button class="folder-tab ${a?"is-active":""}" data-folder="${c.id}">${ICONS.folder}<span class="fname">${c.name}</span><span class="fcount">${tl.mirrored}/${tl.expected}</span>${tl.missing?'<span class="fdot"></span>':""}</button>`;}).join("");
-        $("#folders").querySelectorAll(".folder-tab").forEach(b=>b.addEventListener("click",()=>{activeContact=b.dataset.folder;renderFolders();renderFolderBody();}));
-      }
-      const STATUS_BADGE={mirrored:"badge--qualified",pending:"badge--warn",failed:"badge--danger"};
-      function renderFolderBody(){
-        const c=CONTACTS.find(x=>x.id===activeContact); if(!c){ $("#folder-body").innerHTML=""; return; }
-        const have=docsOf(c.id);
-        const chips=[];
-        if(c.phone) chips.push(`<span class="info-chip">${ICONS.phone}<span>${t("f_phone")}:</span> <strong>${c.phone}</strong></span>`);
-        if(c.email) chips.push(`<span class="info-chip">${ICONS.mail}<span>${t("f_email")}:</span> <strong>${c.email}</strong></span>`);
-        if(c.lang)  chips.push(`<span class="info-chip">${ICONS.globe}<span>${t("f_lang")}:</span> <strong>${c.lang==="PT"?"Português":c.lang==="EN"?"English":c.lang}</strong></span>`);
-        chips.push(`<span class="info-chip"><span class="badge badge--qualified" style="padding:2px 8px">${t("status_active")}</span></span>`);
-        const head=`<div class="folder-head"><span class="avatar-lg">${initials(c.name)}</span><div><h2 class="folder-head__name">${c.name}</h2><div class="info-chips">${chips.join("")}</div></div></div>`;
-        const groups=servicesOfContact(c.id).map(svc=>{
-          const list=SERVICES[svc]?.docs||[]; const mirrored=list.filter(e=>have[svc+"|"+e[0]]?.status==="mirrored").length;
-          const pct=list.length?Math.round(mirrored/list.length*100):0;
-          const rows=list.map(e=>{const d=have[svc+"|"+e[0]];const has=!!d;const isM=d?.status==="mirrored";
-            const right=has?`<span class="src" data-source="${d.source}"><span class="dot"></span>${t("src_"+d.source)}</span><span class="badge ${STATUS_BADGE[d.status]}">${t("status_"+d.status)}</span><button class="btn-ghost" data-dl ${isM?"":"disabled"}>${t("download")}</button>`
-              :`<span class="doc-item__meta">—</span><span class="badge badge--warn">${t("missing")}</span><button class="btn-ghost" disabled>${t("download")}</button>`;
-            return `<div class="doc-item" data-have="${has&&isM}"><span class="doc-item__ico">${has&&isM?"✓":"•"}</span><span class="doc-item__name">${e[lang==="pt"?1:2]}</span>${right}</div>`;}).join("");
-          return `<div class="svc-group"><div class="svc-group__head"><span class="svc-group__title">${svcName(svc)}</span><span class="svc-group__progress"><span class="progress"><i style="width:${pct}%"></i></span><span class="badge ${pct===100?"badge--qualified":"badge--current"}">${mirrored} ${t("of")} ${list.length}</span></span></div>${rows}</div>`;
+      const filesOf = (cid) => FILES.filter((f) => f.contact === cid);
+
+      function renderFolders() {
+        const html = FOLDERS.map((c) => {
+          const n = filesOf(c.id).length;
+          return `<button class="folder-tab ${c.id===active?"is-active":""}" data-folder="${c.id}">${ICONS.folder}<span class="fname">${c.name}</span><span class="fcount">${n}</span></button>`;
         }).join("");
-        $("#folder-body").innerHTML=head+(groups||`<div class="empty-state"><div class="empty-state__title">${t("empty")}</div></div>`);
-        $("#folder-body").querySelectorAll("[data-dl]:not([disabled])").forEach(b=>b.addEventListener("click",()=>toast("success",t("toast_dl_title"),t("toast_dl_sub"))));
-      }
-      function renderChecklist(){
-        const cards=[];
-        for(const c of CONTACTS){const have=docsOf(c.id);
-          for(const svc of servicesOfContact(c.id)){const list=SERVICES[svc]?.docs||[];const mirrored=list.filter(e=>have[svc+"|"+e[0]]?.status==="mirrored").length;
-            if(mirrored===list.length) continue; const pct=list.length?Math.round(mirrored/list.length*100):0;
-            const rows=list.map(e=>{const has=have[svc+"|"+e[0]]?.status==="mirrored";return `<div class="check-row" data-have="${has}"><span class="check-row__name"><span class="check-row__ico">${has?"✓":"•"}</span>${e[lang==="pt"?1:2]}</span>${has?"":`<span class="badge badge--warn">${t("missing")}</span>`}</div>`;}).join("");
-            cards.push(`<div class="card"><div class="card__head"><div><h3 class="card__title">${c.name}</h3><p class="card__sub">${svcName(svc)} · ${mirrored} ${t("of")} ${list.length}</p></div><span class="badge badge--current">${pct}%</span></div><div class="progress" style="width:100%"><i style="width:${pct}%"></i></div><div style="margin-top:12px">${rows}</div></div>`);}}
-        $("#checklist").innerHTML=cards.join("")||`<div class="empty-state"><div class="empty-state__title">${t("complete")} ✓</div></div>`;
-      }
-      function toast(kind,title,sub){const n=el("div",`toast toast--${kind}`);n.innerHTML=`<div class="toast__icon">✓</div><div><div class="toast__title">${title}</div><div class="toast__sub">${sub}</div></div>`;$("#toasts").appendChild(n);setTimeout(()=>{n.classList.add("is-out");setTimeout(()=>n.remove(),260);},3200);}
-
-      $("#tabs").addEventListener("click",(e)=>{const tab=e.target.closest(".tab");if(!tab)return;$("#tabs").querySelectorAll(".tab").forEach(x=>x.classList.toggle("is-active",x===tab));document.querySelectorAll(".panel").forEach(p=>p.hidden=p.dataset.panel!==tab.dataset.tab);});
-      $("#lang").addEventListener("click",(e)=>{const b=e.target.closest("button");if(!b)return;lang=b.dataset.lang;document.documentElement.lang=lang==="pt"?"pt-BR":"en";$("#lang").querySelectorAll("button").forEach(x=>x.classList.toggle("is-active",x===b));applyI18n();renderAll();});
-      function applyI18n(){document.querySelectorAll("[data-i18n]").forEach(n=>n.textContent=t(n.dataset.i18n));}
-      function renderAll(){ if(!activeContact&&CONTACTS[0]) activeContact=CONTACTS[0].id; renderStats();renderFolders();renderFolderBody();renderChecklist(); }
-      function setMode(mode,locName){const m=$("#mode");m.dataset.mode=mode;m.textContent=mode==="live"?"live":"demo";if(locName)$("#loc-name").textContent=locName;}
-
-      // ---- Transformação da resposta da API para o estado do front ----
-      function ingest(api){
-        SERVICES={};
-        for(const s of api.taxonomy.services){ SERVICES[s.service_key]={pt:s.name_pt,en:s.name_en,docs:(s.docs||[]).map(d=>[d.doc_key,d.label_pt,d.label_en])}; }
-        const byContact={};
-        DOCS=api.documents.map(d=>{const cid=d.contact_id||"__unassigned__";(byContact[cid] ||= {id:cid,name:d.contact_name||d.contact_id||"Sem contato"});return {contact:cid,service:d.service_key,doc:d.doc_key,source:d.source,status:d.status,at:d.created_at_ghl};});
-        CONTACTS=Object.values(byContact);
+        $("#folders").innerHTML = html + `<button class="folder-tab folder-tab--new" id="new-folder">${t("newfolder")}</button>`;
+        $("#folders").querySelectorAll(".folder-tab[data-folder]").forEach((b) => b.addEventListener("click", () => { active = b.dataset.folder; renderFolders(); renderBody(); }));
+        $("#new-folder").addEventListener("click", newFolder);
       }
 
-      // ---- GHL Custom Page: handshake de contexto ----
-      function requestGhlContext(){
-        return new Promise((resolve,reject)=>{
+      function renderBody() {
+        const c = FOLDERS.find((x) => x.id === active);
+        if (!c) { $("#folder-body").innerHTML = `<div class="empty-files">${t("empty")}</div>`; return; }
+        const chips = [];
+        if (c.phone) chips.push(`<span class="info-chip">${ICONS.phone}<span>${t("f_phone")}:</span> <strong>${c.phone}</strong></span>`);
+        if (c.email) chips.push(`<span class="info-chip">${ICONS.mail}<span>${t("f_email")}:</span> <strong>${c.email}</strong></span>`);
+        const list = filesOf(c.id);
+        const head = `<div class="folder-head">
+          <span class="avatar-lg">${initials(c.name)}</span>
+          <div><h2 class="folder-head__name">${c.name}</h2><p class="folder-head__sub">${t("files_n")(list.length)}</p>${chips.length?`<div class="info-chips">${chips.join("")}</div>`:""}</div>
+        </div>`;
+        const uploader = `<div class="uploader" id="uploader"><button class="btn-primary" id="add-files">${t("add")}</button><span class="uploader__txt">${t("drag")}</span></div>`;
+        const files = list.length ? `<div class="files">${list.map(fileRow).join("")}</div>` : `<div class="empty-files">${t("empty")}</div>`;
+        $("#folder-body").innerHTML = head + uploader + files;
+        wireUploader();
+      }
+
+      function fileRow(f) {
+        const kind = kindOf(f.mime, f.name);
+        const ico = `<span class="file__ico" data-kind="${kind}">${ICONS[kind]}</span>`;
+        const meta = [humanSize(f.size), (f.at||"").slice(0,10)].filter(Boolean).join(" · ");
+        const srcBadge = `<span class="src" data-source="${f.source}"><span class="dot"></span>${t("src_"+f.source)}</span>`;
+        let action;
+        if (f.blobUrl) action = `<a class="btn-ghost" href="${f.blobUrl}" target="_blank" rel="noopener">${t("open")}</a>`;
+        else if (f.has_content && MODE==="live") action = `<a class="btn-ghost" href="/api/file?id=${encodeURIComponent(f.id)}&session=${encodeURIComponent(SESSION)}" target="_blank" rel="noopener">${t("open")}</a>`;
+        else action = `<span class="btn-ghost is-disabled">${t("pending")}</span>`;
+        return `<div class="file"><div>${ico}</div><div><div class="file__name">${f.name||"—"}</div><div class="file__meta">${meta}</div></div>${srcBadge}<span></span>${action}</div>`;
+      }
+
+      // ---- Upload ----
+      function wireUploader() {
+        const z = $("#uploader"); if (!z) return;
+        $("#add-files").addEventListener("click", () => $("#file-input").click());
+        ["dragover","dragenter"].forEach(ev => z.addEventListener(ev, (e)=>{ e.preventDefault(); z.classList.add("is-drag"); }));
+        ["dragleave","drop"].forEach(ev => z.addEventListener(ev, (e)=>{ e.preventDefault(); z.classList.remove("is-drag"); }));
+        z.addEventListener("drop", (e) => handleFiles(e.dataTransfer.files));
+      }
+      $("#file-input").addEventListener("change", (e) => { handleFiles(e.target.files); e.target.value = ""; });
+
+      async function handleFiles(fileList) {
+        const c = FOLDERS.find((x) => x.id === active); if (!c) return;
+        for (const file of fileList) {
+          if (file.size > 4*1024*1024) { toast("warn", t("too_big"), file.name); continue; }
+          if (MODE === "demo") { addDemoFile(c, file); continue; }
+          try {
+            toast("info", t("uploading"), file.name);
+            const dataBase64 = await fileToBase64(file);
+            const r = await fetch("/api/upload", { method:"POST", headers:{ "Content-Type":"application/json", "x-vault-session":SESSION },
+              body: JSON.stringify({ contactId:c.id, contactName:c.name, filename:file.name, mime:file.type, dataBase64 }) });
+            if (!r.ok) throw new Error("http_"+r.status);
+            const j = await r.json();
+            FILES.unshift({ id:j.document.id, contact:c.id, name:file.name, mime:file.type, size:file.size, source:"upload", status:"mirrored", at:new Date().toISOString(), has_content:true });
+            toast("success", t("up_ok"), file.name);
+            renderFolders(); renderBody();
+          } catch (err) { toast("warn", t("up_fail"), file.name+" · "+err.message); }
+        }
+      }
+      function addDemoFile(c, file) {
+        const blobUrl = URL.createObjectURL(file);
+        FILES.unshift({ id:"demo-"+Math.random().toString(36).slice(2), contact:c.id, name:file.name, mime:file.type, size:file.size, source:"upload", status:"mirrored", at:new Date().toISOString(), blobUrl });
+        toast("success", t("up_ok"), file.name);
+        renderFolders(); renderBody();
+      }
+      function fileToBase64(file) {
+        return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(file); });
+      }
+
+      function newFolder() {
+        const name = window.prompt(t("prompt_name"));
+        if (!name || !name.trim()) return;
+        const id = "local-" + Math.random().toString(36).slice(2, 10);
+        FOLDERS.push({ id, name: name.trim() });
+        active = id; renderFolders(); renderBody();
+      }
+
+      function toast(kind, title, sub) {
+        const map = { success:"success", info:"info", warn:"warn" };
+        const n = el("div", `toast toast--${map[kind]||"info"}`);
+        n.innerHTML = `<div class="toast__icon">${kind==="warn"?"!":"✓"}</div><div><div class="toast__title">${title}</div><div class="toast__sub">${sub||""}</div></div>`;
+        $("#toasts").appendChild(n); setTimeout(()=>{ n.classList.add("is-out"); setTimeout(()=>n.remove(),260); }, 3200);
+      }
+
+      // idioma
+      $("#lang").addEventListener("click", (e) => { const b=e.target.closest("button"); if(!b) return; lang=b.dataset.lang; document.documentElement.lang=lang==="pt"?"pt-BR":"en"; $("#lang").querySelectorAll("button").forEach(x=>x.classList.toggle("is-active",x===b)); renderFolders(); renderBody(); });
+      function setMode(mode, locName) { MODE=mode; const m=$("#mode"); m.dataset.mode=mode; m.textContent=mode; if(locName) $("#loc-name").textContent=locName; }
+
+      function ingest(docs) {
+        const byC = {}; const files = [];
+        for (const d of docs) {
+          const cid = d.contact_id || "__sem_contato__";
+          (byC[cid] ||= { id: cid, name: d.contact_name || d.contact_id || "Sem contato" });
+          files.push({ id:d.id, contact:cid, name:d.filename||"(sem nome)", mime:d.mime, size:d.size_bytes, source:d.source, status:d.status, at:d.at, has_content:d.has_content });
+        }
+        FOLDERS = Object.values(byC); FILES = files;
+        if (!active && FOLDERS[0]) active = FOLDERS[0].id;
+      }
+
+      function requestGhlContext() {
+        return new Promise((resolve, reject) => {
           let done=false;
           const onMsg=(e)=>{ const d=e.data; if(d&&d.message==="REQUEST_USER_DATA_RESPONSE"){ done=true; window.removeEventListener("message",onMsg); resolve(d.payload); } };
-          window.addEventListener("message",onMsg);
+          window.addEventListener("message", onMsg);
           try { window.parent.postMessage({message:"REQUEST_USER_DATA"},"*"); } catch {}
-          setTimeout(()=>{ if(!done){ window.removeEventListener("message",onMsg); reject(new Error("no_ghl_context")); } },4000);
+          setTimeout(()=>{ if(!done){ window.removeEventListener("message",onMsg); reject(new Error("no_ghl_context")); } }, 4000);
         });
       }
 
-      async function boot(){
-        applyI18n();
-        const inIframe = window.self !== window.top;
-        if(inIframe){
-          try{
+      async function boot() {
+        if (window.self !== window.top) {
+          try {
             const encrypted = await requestGhlContext();
-            const sres = await fetch("/api/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({encrypted})});
-            if(!sres.ok) throw new Error("session_"+sres.status);
-            const s = await sres.json();
-            const dres = await fetch("/api/documents",{headers:{"x-vault-session":s.sessionToken}});
-            if(!dres.ok) throw new Error("documents_"+dres.status);
-            ingest(await dres.json());
+            const sres = await fetch("/api/session", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({encrypted}) });
+            if (!sres.ok) throw new Error("session_"+sres.status);
+            const s = await sres.json(); SESSION = s.sessionToken; LOCATION = s.locationId;
+            const dres = await fetch("/api/documents", { headers:{ "x-vault-session":SESSION } });
+            if (!dres.ok) throw new Error("documents_"+dres.status);
+            ingest((await dres.json()).documents || []);
             setMode("live", s.locationName || s.locationId);
-            renderAll();
-            return;
-          }catch(err){ console.warn("[vault] live boot falhou, usando demo:", err.message); }
+            renderFolders(); renderBody(); return;
+          } catch (err) { console.warn("[vault] live falhou, demo:", err.message); }
         }
-        loadDemo(); setMode("demo","Spark Immigration (demo)"); renderAll();
+        loadDemo(); setMode("demo", "Spark Immigration (demo)"); renderFolders(); renderBody();
       }
 
-      // ---- Demo (fora do GHL) ----
-      function loadDemo(){
-        SERVICES={
-          passaporte:{pt:"Passaporte",en:"Passport",docs:[["passaporte_antigo","Passaporte antigo","Old passport"],["foto","Foto","Photo"],["comprovante","Comprovante","Proof of payment"],["protocolo","Protocolo","Protocol"]]},
-          empresa:{pt:"Empresa",en:"Company",docs:[["id","ID","ID"],["comprovante_end","Comprovante de endereço","Proof of address"],["reg_nj","Registro NJ","NJ registration"],["reg_irs","Registro IRS","IRS registration"],["reg_taxation","Registro Taxation","Taxation registration"],["reg_corecore","Registro Corecore","Corecore registration"]]},
-          seguro_vida:{pt:"Seguro de Vida",en:"Life Insurance",docs:[["id","ID","ID"],["aplicacao","Aplicação","Application"],["ilustracao","Ilustração","Illustration"],["beneficiarios","Beneficiários","Beneficiaries"]]},
-          traducao:{pt:"Tradução",en:"Translation",docs:[["doc_origem","Documento de origem","Source document"],["doc_traduzido","Documento traduzido","Translated document"]]},
-        };
-        CONTACTS=[
-          {id:"josiane",name:"Josiane Ramos",phone:"+1 (973) 555-0142",email:"josiane.ramos@email.com",lang:"PT"},
-          {id:"ana",name:"Ana Beatriz",phone:"+1 (862) 555-0199",email:"ana.beatriz@email.com",lang:"PT"},
-          {id:"carlos",name:"Carlos Nunes",phone:"+1 (201) 555-0177",email:"carlos.nunes@email.com",lang:"EN"},
-          {id:"marina",name:"Marina Alves",phone:"+1 (973) 555-0163",email:"marina.alves@email.com",lang:"PT"},
+      function loadDemo() {
+        FOLDERS = [
+          { id:"josiane", name:"Josiane Ramos", phone:"+1 (973) 555-0142", email:"josiane.ramos@email.com" },
+          { id:"ana", name:"Ana Beatriz", phone:"+1 (862) 555-0199", email:"ana.beatriz@email.com" },
+          { id:"carlos", name:"Carlos Nunes", phone:"+1 (201) 555-0177", email:"carlos.nunes@email.com" },
         ];
-        DOCS=[
-          {contact:"josiane",service:"passaporte",doc:"passaporte_antigo",source:"media",status:"mirrored",at:"2026-08-20"},
-          {contact:"josiane",service:"passaporte",doc:"foto",source:"form",status:"mirrored",at:"2026-08-20"},
-          {contact:"josiane",service:"passaporte",doc:"comprovante",source:"conversation",status:"mirrored",at:"2026-08-19"},
-          {contact:"ana",service:"empresa",doc:"id",source:"conversation",status:"mirrored",at:"2026-08-18"},
-          {contact:"ana",service:"empresa",doc:"comprovante_end",source:"media",status:"mirrored",at:"2026-08-18"},
-          {contact:"ana",service:"empresa",doc:"reg_nj",source:"media",status:"pending",at:"2026-08-21"},
-          {contact:"carlos",service:"seguro_vida",doc:"aplicacao",source:"form",status:"mirrored",at:"2026-08-17"},
-          {contact:"carlos",service:"seguro_vida",doc:"ilustracao",source:"media",status:"failed",at:"2026-08-21"},
-          {contact:"marina",service:"traducao",doc:"doc_origem",source:"conversation",status:"mirrored",at:"2026-08-16"},
+        FILES = [
+          { id:"1", contact:"josiane", name:"passaporte-antigo.pdf", mime:"application/pdf", size:842000, source:"media", status:"mirrored", at:"2026-08-20", has_content:false },
+          { id:"2", contact:"josiane", name:"foto-3x4.jpg", mime:"image/jpeg", size:210000, source:"form", status:"mirrored", at:"2026-08-20", has_content:false },
+          { id:"3", contact:"josiane", name:"comprovante-pagamento.pdf", mime:"application/pdf", size:120000, source:"conversation", status:"mirrored", at:"2026-08-19", has_content:false },
+          { id:"4", contact:"ana", name:"contrato-social.pdf", mime:"application/pdf", size:1500000, source:"media", status:"mirrored", at:"2026-08-18", has_content:false },
+          { id:"5", contact:"ana", name:"comprovante-endereco.jpg", mime:"image/jpeg", size:330000, source:"media", status:"mirrored", at:"2026-08-18", has_content:false },
         ];
+        active = "josiane";
       }
 
-      window.addEventListener("hashchange",()=>{const tab=(location.hash||"").replace("#","");const btn=tab&&$(`#tabs .tab[data-tab="${tab}"]`);if(btn)btn.click();});
       boot();
     </script>
   </body>

@@ -19,13 +19,14 @@ O `index.html` na raiz é a **Custom Page**; as funções ficam em `api/`.
 
 ## Config do app no GHL Marketplace
 
-Trocar `<DOMÍNIO>` pelo domínio do projeto Vercel:
+Projeto Vercel: **spark-document-vault** · domínio de produção
+`spark-document-vault.vercel.app` (deploy feito via API).
 
 | Campo | Valor |
 |-------|-------|
-| Redirect URL (OAuth) | `https://<DOMÍNIO>/api/oauth/callback` |
-| Webhook URL | `https://<DOMÍNIO>/api/webhooks/ghl` |
-| Custom Page URL | `https://<DOMÍNIO>/` |
+| Redirect URL (OAuth) | `https://spark-document-vault.vercel.app/api/oauth/callback` |
+| Webhook URL | `https://spark-document-vault.vercel.app/api/webhooks/ghl` |
+| Custom Page URL | `https://spark-document-vault.vercel.app/` |
 
 **Scopes** (read-only): `files.readonly`, `conversations.readonly`,
 `conversations/message.readonly`, `contacts.readonly`, `locations.readonly`.
@@ -40,7 +41,7 @@ Trocar `<DOMÍNIO>` pelo domínio do projeto Vercel:
 | `GHL_SHARED_SECRET` | Shared Secret Key — descriptografa o contexto SSO do iframe |
 | `GHL_WEBHOOK_PUBLIC_KEY` | (opcional) PEM público do GHL p/ validar assinatura do webhook |
 | `JWT_SIGNING_KEY` | assina o JWT curto da sessão (base64 de 32+ bytes) |
-| `PUBLIC_BASE_URL` | `https://<DOMÍNIO>` |
+| `PUBLIC_BASE_URL` | `https://spark-document-vault.vercel.app` |
 | `CRON_SECRET` | protege `/api/cron/harvest` fora do Vercel Cron |
 
 Gerar chaves: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`

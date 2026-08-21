@@ -16,7 +16,7 @@
  * {configured:false} em vez de estourar (evita ruído de cron vermelho).
  */
 import { timingSafeEqual } from "node:crypto";
-import { vaultDb } from "../../lib/server/vault/db.js";
+import { sql, vaultConfigured } from "../../lib/server/vault/db.js";
 import { getVaultLocationToken } from "../../lib/server/vault/ghl-token.js";
 import { encrypt } from "../../lib/server/vault/crypto.js";
 import { listMediaFiles, normalizeMediaFile } from "../../lib/server/vault/ghl.js";
@@ -43,18 +43,14 @@ export default async function handler(req, res) {
   }
 
   // Ainda não configurado → no-op silencioso (não é erro).
-  if (!process.env.VAULT_SUPABASE_URL || !process.env.VAULT_SUPABASE_SERVICE_ROLE_KEY) {
+  if (!vaultConfigured()) {
     return res.status(200).json({ ok: false, configured: false, reason: "vault_env_missing" });
   }
 
   let installs;
   try {
-    const { data, error } = await vaultDb()
-      .from("installations")
-      .select("location_id")
-      .eq("status", "active");
-    if (error) throw error;
-    installs = data || [];
+    installs = await sql()`
+      select location_id from document_vault.installations where status = 'active'`;
   } catch (err) {
     console.error("[vault-harvest] list installations failed:", err.message || err);
     return res.status(500).json({ error: "list_failed", message: err.message });
@@ -85,13 +81,10 @@ export default async function handler(req, res) {
  * Lê o cursor (createdAt), busca só o que veio depois, grava 'pending' e avança.
  */
 async function harvestMedia(locationId) {
-  const { data: st } = await vaultDb()
-    .from("sync_state")
-    .select("last_cursor")
-    .eq("location_id", locationId)
-    .eq("source", "media")
-    .maybeSingle();
-  const since = st?.last_cursor || null;
+  const st = await sql()`
+    select last_cursor from document_vault.sync_state
+    where location_id = ${locationId} and source = 'media' limit 1`;
+  const since = st[0]?.last_cursor || null;
 
   const token = await getVaultLocationToken(locationId);
   const files = await listMediaFiles(token, locationId, { limit: 100 });
@@ -122,19 +115,22 @@ async function harvestMedia(locationId) {
 
   let captured = 0;
   if (rows.length) {
-    const { error } = await vaultDb()
-      .from("documents")
-      .upsert(rows, { onConflict: "location_id,source,source_ref", ignoreDuplicates: true });
-    if (error) throw error;
+    const cols = [
+      "location_id", "contact_id", "contact_resolution", "source", "source_ref",
+      "ghl_url_enc", "filename", "mime", "size_bytes", "status", "created_at_ghl",
+    ];
+    await sql()`
+      insert into document_vault.documents ${sql()(rows, ...cols)}
+      on conflict (location_id, source, source_ref) do nothing`;
     captured = rows.length;
   }
 
-  await vaultDb()
-    .from("sync_state")
-    .upsert(
-      { location_id: locationId, source: "media", last_cursor: maxCursor, last_run_at: new Date().toISOString() },
-      { onConflict: "location_id,source" },
-    );
+  await sql()`
+    insert into document_vault.sync_state (location_id, source, last_cursor, last_run_at)
+    values (${locationId}, 'media', ${maxCursor}, ${new Date().toISOString()})
+    on conflict (location_id, source) do update set
+      last_cursor = excluded.last_cursor,
+      last_run_at = excluded.last_run_at`;
 
   return { seen: files.length, captured, cursor: maxCursor };
 }

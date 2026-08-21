@@ -15,7 +15,7 @@
  * GET retorna saúde do endpoint.
  */
 import { createVerify, createHash } from "node:crypto";
-import { vaultDb } from "../../lib/server/vault/db.js";
+import { sql } from "../../lib/server/vault/db.js";
 import { readRawBody } from "../../lib/server/raw-body.js";
 
 export const config = { api: { bodyParser: false } };
@@ -56,21 +56,19 @@ export default async function handler(req, res) {
     createHash("sha256").update(raw).digest("hex");
   const locationId = payload.locationId || payload.location_id || null;
 
-  // Persiste o evento (idempotente por event_id)
+  // Persiste o evento (idempotente por event_id). ON CONFLICT DO NOTHING +
+  // RETURNING: se não voltar linha, é duplicado.
   try {
-    const { error } = await vaultDb().from("webhook_events").insert({
-      event_id: eventId,
-      event_type: eventType,
-      payload,
-      headers: pickHeaders(req.headers),
-      signature_valid: signatureValid,
-      processed: false,
-    });
-    // 23505 = unique_violation → duplicado, já recebemos. Responde 200.
-    if (error && error.code === "23505") {
+    const inserted = await sql()`
+      insert into document_vault.webhook_events
+        (event_id, event_type, payload, headers, signature_valid, processed)
+      values
+        (${eventId}, ${eventType}, ${sql().json(payload)}, ${sql().json(pickHeaders(req.headers))}, ${signatureValid}, false)
+      on conflict (event_id) do nothing
+      returning event_id`;
+    if (!inserted.length) {
       return res.status(200).json({ ok: true, duplicate: true });
     }
-    if (error) throw error;
   } catch (err) {
     console.error("[vault-webhook] persist failed:", err.message || err);
     return res.status(500).json({ error: "persist_failed" });
@@ -80,8 +78,7 @@ export default async function handler(req, res) {
   const trusted = signatureValid !== false;
   try {
     if (trusted && locationId && /uninstall/i.test(eventType)) {
-      await vaultDb().from("installations")
-        .update({ status: "uninstalled" }).eq("location_id", locationId);
+      await sql()`update document_vault.installations set status = 'uninstalled' where location_id = ${locationId}`;
       await markProcessed(eventId);
     } else if (trusted && /install/i.test(eventType)) {
       // Instalação: a criação da row acontece no OAuth callback. Só registra.
@@ -108,9 +105,10 @@ function verifySignature(raw, sig) {
 }
 
 async function markProcessed(eventId) {
-  await vaultDb().from("webhook_events")
-    .update({ processed: true, processed_at: new Date().toISOString() })
-    .eq("event_id", eventId);
+  await sql()`
+    update document_vault.webhook_events
+    set processed = true, processed_at = ${new Date().toISOString()}
+    where event_id = ${eventId}`;
 }
 
 function pickHeaders(h) {

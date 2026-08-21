@@ -13,12 +13,11 @@
  *
  * Env vars necessárias na Vercel:
  *   VAULT_GHL_CLIENT_ID, VAULT_GHL_CLIENT_SECRET, PUBLIC_BASE_URL,
- *   VAULT_TOKEN_ENCRYPTION_KEY, VAULT_SUPABASE_URL,
- *   VAULT_SUPABASE_SERVICE_ROLE_KEY, JWT_SIGNING_KEY.
+ *   VAULT_TOKEN_ENCRYPTION_KEY, VAULT_DATABASE_URL, JWT_SIGNING_KEY.
  */
 import { encrypt } from "../../../lib/server/vault/crypto.js";
 import { sign as jwtSign } from "../../../lib/server/jwt.js";
-import { vaultDb } from "../../../lib/server/vault/db.js";
+import { sql } from "../../../lib/server/vault/db.js";
 
 const GHL_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token";
 
@@ -83,22 +82,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { error } = await vaultDb()
-      .from("installations")
-      .upsert(
-        {
-          location_id: locationId,
-          location_name: locationName,
-          company_id: companyId || null,
-          access_token: encAccess,
-          refresh_token: encRefresh,
-          expires_at: expiresAt,
-          scope: scope || null,
-          status: "active",
-        },
-        { onConflict: "location_id" },
-      );
-    if (error) throw error;
+    await sql()`
+      insert into document_vault.installations
+        (location_id, location_name, company_id, access_token, refresh_token, expires_at, scope, status)
+      values
+        (${locationId}, ${locationName}, ${companyId || null}, ${encAccess}, ${encRefresh}, ${expiresAt}, ${scope || null}, 'active')
+      on conflict (location_id) do update set
+        location_name = excluded.location_name,
+        company_id    = excluded.company_id,
+        access_token  = excluded.access_token,
+        refresh_token = excluded.refresh_token,
+        expires_at    = excluded.expires_at,
+        scope         = excluded.scope,
+        status        = 'active'`;
   } catch (err) {
     console.error("[oauth-vault] persist failed:", err.message || err);
     return renderError(res, "Falha ao salvar instalação", err.message || "DB error");

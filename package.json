@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
+    "postgres": "^3.4.9",
     "stripe": "^17.3.1"
   }
 }

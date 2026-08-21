@@ -131,28 +131,34 @@ endpoints, banco (schema `document_vault`) e chave de cripto próprios.
 | `contacts.readonly` | Resolver contato + campo `FILE_UPLOAD` do formulário |
 | `locations.readonly` | Nome/dados da location na instalação |
 
-**Env vars na Vercel** (segredos NUNCA vão pro repo):
+**Banco:** o Cofre conecta direto no Postgres (pooler) com o role dedicado
+`dv_app`, que só enxerga o schema `document_vault`. **Não usa a service_role key
+nem o PostgREST** — logo não precisa expor schema no Data API. Role/grants/policies
+em `db/migrations/0003_document_vault_role.sql` (senha fora do repo).
+
+**Env vars na Vercel** — no projeto que roda ESTE repo (deploy do Hub,
+`test-repo-ebon-nine.vercel.app`). NÃO no Supabase. Segredos nunca vão pro repo:
 
 | Env var | O que é |
 |---------|---------|
+| `VAULT_DATABASE_URL` | conexão pooler com `dv_app` (`postgresql://dv_app.<ref>:<senha>@aws-0-us-east-1.pooler.supabase.com:6543/postgres`) |
+| `VAULT_TOKEN_ENCRYPTION_KEY` | chave AES-256 PRÓPRIA do Cofre (base64 de 32 bytes) |
 | `VAULT_GHL_CLIENT_ID` | Client ID do app do Cofre |
 | `VAULT_GHL_CLIENT_SECRET` | Client Secret do app do Cofre |
 | `VAULT_GHL_SHARED_SECRET` | Shared Secret Key (descriptografa o contexto SSO do iframe) |
 | `VAULT_GHL_WEBHOOK_PUBLIC_KEY` | (opcional) PEM público do GHL p/ validar assinatura do webhook |
-| `VAULT_SUPABASE_URL` | `https://nsqwgjbgcdqyzozyaltz.supabase.co` (Sparkleads OS) |
-| `VAULT_SUPABASE_SERVICE_ROLE_KEY` | service role key do Sparkleads OS (copiar do dashboard) |
-| `VAULT_TOKEN_ENCRYPTION_KEY` | chave AES-256 PRÓPRIA do Cofre (base64 de 32 bytes) |
 | `PUBLIC_BASE_URL` | `https://test-repo-ebon-nine.vercel.app` (já existe) |
 | `JWT_SIGNING_KEY` | chave do JWT de sessão (já existe no Hub) |
 
-Gerar a chave própria:
+Gerar a chave de cripto:
 `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
 
-**Passo no Supabase:** expor o schema em Sparkleads OS → Settings → API →
-**Exposed schemas** → adicionar `document_vault` (senão o PostgREST recusa as queries).
+O host direto do Supabase é IPv6-only; a Vercel não tem IPv6, por isso a URL usa
+o **pooler** (IPv4, porta 6543, transaction mode → `prepare:false`).
 
 O Client Secret e a Shared Key foram expostos em chat durante o setup — **rotacionar
-no Marketplace** após configurar.
+no Marketplace** após configurar. A senha do `dv_app` pode ser rotacionada com
+`alter role dv_app with password '...'`.
 
 ## Fases de build
 

@@ -67,6 +67,16 @@ export default async function handler(req, res) {
 
   if (!locationId) return res.status(400).json({ error: "no_location_in_context" });
 
+  // Nome da subaccount: prefere o que foi salvo na instalação (via API do GHL)
+  // ao que vem no payload do SSO (que às vezes vem só com o id).
+  let resolvedName = locationName;
+  if (vaultConfigured()) {
+    try {
+      const rows = await sql()`select location_name from document_vault.installations where location_id = ${locationId} limit 1`;
+      if (rows[0]?.location_name) resolvedName = rows[0].location_name;
+    } catch (err) { console.warn("[session] location_name lookup failed:", err.message); }
+  }
+
   let sessionToken = null;
   try {
     sessionToken = jwtSign({ locationId, userId, role, companyId, app: "vault" }, { ttlSeconds: 900 });
@@ -75,7 +85,7 @@ export default async function handler(req, res) {
   }
 
   return res.status(200).json({
-    locationId, locationName, userId, userName, email, role, companyId, sessionToken,
+    locationId, locationName: resolvedName, userId, userName, email, role, companyId, sessionToken,
   });
 }
 

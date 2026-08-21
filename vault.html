@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#155EEF" />
+    <title>Cofre de Documentos · Spark</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    />
+    <!-- Mesmo design system do Referral Hub: tokens (cores/fontes) + componentes. -->
+    <link rel="stylesheet" href="./src/styles/tokens.css" />
+    <link rel="stylesheet" href="./src/styles/components.css" />
+    <style>
+      /* Extensões locais do Cofre — só o que não existe no components.css,
+         sempre em cima dos tokens (cores/raios/sombras) já definidos. */
+      .badge--warn   { background: var(--warn-bg);   color: var(--warn); }
+      .badge--danger { background: var(--danger-bg); color: var(--danger); }
+
+      .lang-switch {
+        display: inline-flex; align-items: center; gap: 2px;
+        background: var(--gray-100); padding: 3px; border-radius: var(--r-pill);
+      }
+      .lang-switch button {
+        border: 0; background: transparent; padding: 5px 10px;
+        border-radius: var(--r-pill); font-weight: 700; font-size: var(--fs-xs);
+        letter-spacing: 0.04em; color: var(--gray-500);
+      }
+      .lang-switch button.is-active {
+        background: var(--white); color: var(--ghl-700); box-shadow: var(--shadow-sm);
+      }
+
+      .stat-strip { display: flex; gap: 12px; flex-wrap: wrap; }
+      .stat {
+        flex: 1 1 160px; background: var(--white); border: 1px solid var(--gray-200);
+        border-radius: var(--r-lg); padding: 16px 18px;
+      }
+      .stat__label {
+        font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--gray-500); font-weight: 600;
+      }
+      .stat__value {
+        margin-top: 6px; font-size: var(--fs-2xl); font-weight: 800;
+        letter-spacing: -0.02em; color: var(--gray-900); font-variant-numeric: tabular-nums;
+      }
+      .stat__value small { font-size: var(--fs-sm); font-weight: 600; color: var(--gray-400); }
+
+      .doc-type { display: inline-flex; align-items: center; gap: 6px; }
+      .doc-type .svc { color: var(--gray-500); font-size: var(--fs-sm); }
+
+      .src {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: var(--fs-sm); color: var(--gray-700); font-weight: 500;
+      }
+      .src .dot { width: 8px; height: 8px; border-radius: 50%; }
+      .src[data-source="media"]        .dot { background: var(--ghl-500); }
+      .src[data-source="conversation"] .dot { background: var(--success); }
+      .src[data-source="form"]         .dot { background: var(--warn); }
+
+      .btn-ghost {
+        height: 32px; padding: 0 14px; border-radius: var(--r-md);
+        border: 1px solid var(--gray-200); background: var(--white);
+        color: var(--ghl-700); font-weight: 600; font-size: var(--fs-sm);
+        transition: all var(--d-fast);
+      }
+      .btn-ghost:hover { border-color: var(--ghl-300); box-shadow: var(--shadow-blue-soft); }
+
+      .checklist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
+      .check-row {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 10px 0; border-bottom: 1px solid var(--gray-150);
+      }
+      .check-row:last-child { border-bottom: 0; }
+      .check-row__name { display: inline-flex; align-items: center; gap: 10px; color: var(--gray-800); }
+      .check-row__ico {
+        width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 800;
+      }
+      .check-row[data-have="true"]  .check-row__ico { background: var(--success-bg); color: var(--success); }
+      .check-row[data-have="false"] .check-row__ico { background: var(--gray-100); color: var(--gray-400); }
+      .check-row[data-have="false"] .check-row__name { color: var(--gray-400); }
+      .progress { height: 6px; border-radius: 999px; background: var(--gray-150); overflow: hidden; margin-top: 4px; }
+      .progress > i { display: block; height: 100%; background: linear-gradient(90deg, var(--ghl-600), #6366f1); }
+    </style>
+  </head>
+  <body>
+    <!-- Fundo ambiente (mesmos orbs do Hub) -->
+    <div class="ambient" aria-hidden="true">
+      <span class="orb orb--a"></span>
+      <span class="orb orb--b"></span>
+      <span class="orb orb--c"></span>
+    </div>
+
+    <header class="appbar">
+      <div class="brand">
+        <span class="logo">S</span>
+        <span class="name" data-i18n="brand">Spark · Cofre</span>
+      </div>
+
+      <nav class="tabs" id="tabs">
+        <button class="tab is-active" data-tab="cofre" data-i18n="tab_cofre">Cofre</button>
+        <button class="tab" data-tab="pendencias" data-i18n="tab_pendencias">Pendências</button>
+        <button class="tab" data-tab="contatos" data-i18n="tab_contatos">Contatos</button>
+      </nav>
+
+      <div class="appbar__right">
+        <span class="location-pill" title="Location ativa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 21s-7-5.686-7-11a7 7 0 0114 0c0 5.314-7 11-7 11z" />
+            <circle cx="12" cy="10" r="2.5" />
+          </svg>
+          <span>Spark Immigration</span>
+        </span>
+        <div class="lang-switch" id="lang">
+          <button data-lang="pt" class="is-active">PT</button>
+          <button data-lang="en">EN</button>
+        </div>
+        <span class="avatar">SA</span>
+      </div>
+    </header>
+
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+
+    <main class="page">
+      <!-- ===================== COFRE ===================== -->
+      <section class="panel" data-panel="cofre">
+        <div class="page-head">
+          <h1 data-i18n="cofre_title">Cofre de Documentos</h1>
+          <p data-i18n="cofre_sub">
+            Todo documento salvo na nuvem do contato no GHL, espelhado e organizado
+            por contato, serviço e tipo.
+          </p>
+        </div>
+
+        <div class="stat-strip" id="stats"></div>
+
+        <div class="card card--padless">
+          <div class="filters" id="filters"></div>
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th data-i18n="col_contato">Contato</th>
+                  <th data-i18n="col_tipo">Tipo</th>
+                  <th data-i18n="col_fonte">Fonte</th>
+                  <th data-i18n="col_status">Status</th>
+                  <th data-i18n="col_recebido">Recebido</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="docs-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== PENDÊNCIAS ===================== -->
+      <section class="panel" data-panel="pendencias" hidden>
+        <div class="page-head">
+          <h1 data-i18n="pend_title">Pendências</h1>
+          <p data-i18n="pend_sub">
+            O que falta por contato e serviço, comparado com o checklist esperado da taxonomia.
+          </p>
+        </div>
+        <div class="checklist-grid" id="checklist"></div>
+      </section>
+
+      <!-- ===================== CONTATOS ===================== -->
+      <section class="panel" data-panel="contatos" hidden>
+        <div class="page-head">
+          <h1 data-i18n="cont_title">Contatos</h1>
+          <p data-i18n="cont_sub">Visão por contato — documentos capturados e pendências abertas.</p>
+        </div>
+        <div class="card card--padless">
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th data-i18n="col_contato">Contato</th>
+                  <th data-i18n="col_servicos">Serviços</th>
+                  <th data-i18n="col_docs">Documentos</th>
+                  <th data-i18n="col_pendencias">Pendências</th>
+                </tr>
+              </thead>
+              <tbody id="contacts-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      /* =========================================================
+       * Cofre de Documentos — shell de demo (frontend only).
+       * Dados reais virão de /api/vault/* (ver docs/document-vault.md).
+       * Use ?demo=1 (default aqui) para o dataset estático abaixo.
+       * ========================================================= */
+
+      // ---- i18n (base do portal bilíngue) ----
+      const I18N = {
+        pt: {
+          brand: "Spark · Cofre",
+          tab_cofre: "Cofre", tab_pendencias: "Pendências", tab_contatos: "Contatos",
+          cofre_title: "Cofre de Documentos",
+          cofre_sub: "Todo documento salvo na nuvem do contato no GHL, espelhado e organizado por contato, serviço e tipo.",
+          pend_title: "Pendências",
+          pend_sub: "O que falta por contato e serviço, comparado com o checklist esperado da taxonomia.",
+          cont_title: "Contatos",
+          cont_sub: "Visão por contato — documentos capturados e pendências abertas.",
+          col_contato: "Contato", col_tipo: "Tipo", col_fonte: "Fonte", col_status: "Status",
+          col_recebido: "Recebido", col_servicos: "Serviços", col_docs: "Documentos", col_pendencias: "Pendências",
+          st_total: "Documentos", st_mirrored: "Espelhados", st_pending: "Pendentes", st_contacts: "Contatos",
+          all: "Todos", download: "Baixar", missing: "falta", of: "de",
+          src_media: "Nuvem", src_conversation: "WhatsApp", src_form: "Formulário",
+          status_mirrored: "Espelhado", status_pending: "Pendente", status_failed: "Falha",
+          toast_dl_title: "Link seguro gerado",
+          toast_dl_sub: "URL assinada de curta duração · acesso registrado no audit log",
+          empty: "Nenhum documento ainda",
+        },
+        en: {
+          brand: "Spark · Vault",
+          tab_cofre: "Vault", tab_pendencias: "Missing", tab_contatos: "Contacts",
+          cofre_title: "Document Vault",
+          cofre_sub: "Every document saved to the contact's GHL cloud, mirrored and organized by contact, service and type.",
+          pend_title: "Missing documents",
+          pend_sub: "What's missing per contact and service, against the taxonomy's expected checklist.",
+          cont_title: "Contacts",
+          cont_sub: "Per-contact view — captured documents and open gaps.",
+          col_contato: "Contact", col_tipo: "Type", col_fonte: "Source", col_status: "Status",
+          col_recebido: "Received", col_servicos: "Services", col_docs: "Documents", col_pendencias: "Missing",
+          st_total: "Documents", st_mirrored: "Mirrored", st_pending: "Pending", st_contacts: "Contacts",
+          all: "All", download: "Download", missing: "missing", of: "of",
+          src_media: "Cloud", src_conversation: "WhatsApp", src_form: "Form",
+          status_mirrored: "Mirrored", status_pending: "Pending", status_failed: "Failed",
+          toast_dl_title: "Secure link generated",
+          toast_dl_sub: "Short-lived signed URL · access recorded in audit log",
+          empty: "No documents yet",
+        },
+      };
+
+      // ---- Taxonomia (espelha o seed do 0002_document_vault.sql) ----
+      const SERVICES = {
+        passaporte:   { pt: "Passaporte", en: "Passport",  docs: [["passaporte_antigo","Passaporte antigo","Old passport"],["foto","Foto","Photo"],["comprovante","Comprovante","Proof of payment"],["protocolo","Protocolo","Protocol"]] },
+        empresa:      { pt: "Empresa", en: "Company",       docs: [["id","ID","ID"],["comprovante_end","Comprovante de endereço","Proof of address"],["reg_nj","Registro NJ","NJ registration"],["reg_irs","Registro IRS","IRS registration"],["reg_taxation","Registro Taxation","Taxation registration"],["reg_corecore","Registro Corecore","Corecore registration"]] },
+        seguro_vida:  { pt: "Seguro de Vida", en: "Life Insurance", docs: [["id","ID","ID"],["aplicacao","Aplicação","Application"],["ilustracao","Ilustração","Illustration"],["beneficiarios","Beneficiários","Beneficiaries"]] },
+        traducao:     { pt: "Tradução", en: "Translation",  docs: [["doc_origem","Documento de origem","Source document"],["doc_traduzido","Documento traduzido","Translated document"]] },
+      };
+
+      // ---- Dataset de demo ----
+      const DOCS = [
+        { contact: "Josiane Ramos", service: "passaporte", doc: "passaporte_antigo", source: "media",        status: "mirrored", at: "2026-08-20" },
+        { contact: "Josiane Ramos", service: "passaporte", doc: "foto",              source: "form",         status: "mirrored", at: "2026-08-20" },
+        { contact: "Josiane Ramos", service: "passaporte", doc: "comprovante",       source: "conversation", status: "mirrored", at: "2026-08-19" },
+        { contact: "Ana Beatriz",   service: "empresa",    doc: "id",                source: "conversation", status: "mirrored", at: "2026-08-18" },
+        { contact: "Ana Beatriz",   service: "empresa",    doc: "comprovante_end",   source: "media",        status: "mirrored", at: "2026-08-18" },
+        { contact: "Ana Beatriz",   service: "empresa",    doc: "reg_nj",            source: "media",        status: "pending",  at: "2026-08-21" },
+        { contact: "Carlos Nunes",  service: "seguro_vida",doc: "aplicacao",         source: "form",         status: "mirrored", at: "2026-08-17" },
+        { contact: "Carlos Nunes",  service: "seguro_vida",doc: "ilustracao",        source: "media",        status: "failed",   at: "2026-08-21" },
+        { contact: "Marina Alves",  service: "traducao",   doc: "doc_origem",        source: "conversation", status: "mirrored", at: "2026-08-16" },
+      ];
+
+      // ---- Estado ----
+      let lang = "pt";
+      let filterService = "all";
+      const t = (k) => I18N[lang][k] || k;
+      const svcName = (key) => (SERVICES[key] ? SERVICES[key][lang] : key);
+      const docLabel = (key, docKey) => {
+        const d = SERVICES[key]?.docs.find((x) => x[0] === docKey);
+        return d ? d[lang === "pt" ? 1 : 2] : docKey;
+      };
+      const $ = (s, r = document) => r.querySelector(s);
+      const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+
+      // ---- Render: stats ----
+      function renderStats() {
+        const total = DOCS.length;
+        const mirrored = DOCS.filter((d) => d.status === "mirrored").length;
+        const pending = DOCS.filter((d) => d.status !== "mirrored").length;
+        const contacts = new Set(DOCS.map((d) => d.contact)).size;
+        const cards = [
+          [t("st_total"), total], [t("st_mirrored"), mirrored],
+          [t("st_pending"), pending], [t("st_contacts"), contacts],
+        ];
+        $("#stats").innerHTML = cards
+          .map(([l, v]) => `<div class="stat"><div class="stat__label">${l}</div><div class="stat__value">${v}</div></div>`)
+          .join("");
+      }
+
+      // ---- Render: filtros por serviço ----
+      function renderFilters() {
+        const services = ["all", ...Object.keys(SERVICES).filter((k) => DOCS.some((d) => d.service === k))];
+        $("#filters").innerHTML = services
+          .map((k) => {
+            const count = k === "all" ? DOCS.length : DOCS.filter((d) => d.service === k).length;
+            const label = k === "all" ? t("all") : svcName(k);
+            return `<button class="filter-chip ${k === filterService ? "is-active" : ""}" data-svc="${k}">${label}<span class="count">${count}</span></button>`;
+          })
+          .join("");
+        $("#filters").querySelectorAll(".filter-chip").forEach((c) =>
+          c.addEventListener("click", () => { filterService = c.dataset.svc; renderFilters(); renderDocs(); })
+        );
+      }
+
+      // ---- Render: tabela de documentos ----
+      const STATUS_BADGE = { mirrored: "badge--qualified", pending: "badge--warn", failed: "badge--danger" };
+      function renderDocs() {
+        const rows = DOCS.filter((d) => filterService === "all" || d.service === filterService);
+        const body = $("#docs-body");
+        if (!rows.length) {
+          body.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state__title">${t("empty")}</div></div></td></tr>`;
+          return;
+        }
+        body.innerHTML = rows
+          .map((d) => `
+            <tr data-status="${d.status}">
+              <td><span class="ref-name">${d.contact}</span></td>
+              <td><span class="doc-type">${docLabel(d.service, d.doc)}<span class="svc">· ${svcName(d.service)}</span></span></td>
+              <td><span class="src" data-source="${d.source}"><span class="dot"></span>${t("src_" + d.source)}</span></td>
+              <td><span class="badge ${STATUS_BADGE[d.status]}">${t("status_" + d.status)}</span></td>
+              <td>${d.at}</td>
+              <td style="text-align:right"><button class="btn-ghost" data-dl>${t("download")}</button></td>
+            </tr>`)
+          .join("");
+        body.querySelectorAll("[data-dl]").forEach((b) =>
+          b.addEventListener("click", () => toast("success", t("toast_dl_title"), t("toast_dl_sub")))
+        );
+      }
+
+      // ---- Render: checklist de pendências ----
+      function renderChecklist() {
+        // Agrupa (contato, serviço) e compara com a taxonomia.
+        const groups = {};
+        for (const d of DOCS) {
+          const key = d.contact + "|" + d.service;
+          (groups[key] ||= { contact: d.contact, service: d.service, have: new Set() });
+          if (d.status === "mirrored") groups[key].have.add(d.doc);
+        }
+        $("#checklist").innerHTML = Object.values(groups)
+          .map((g) => {
+            const expected = SERVICES[g.service]?.docs || [];
+            const haveN = expected.filter((e) => g.have.has(e[0])).length;
+            const pct = expected.length ? Math.round((haveN / expected.length) * 100) : 0;
+            const rows = expected
+              .map((e) => {
+                const have = g.have.has(e[0]);
+                return `<div class="check-row" data-have="${have}">
+                  <span class="check-row__name"><span class="check-row__ico">${have ? "✓" : "•"}</span>${e[lang === "pt" ? 1 : 2]}</span>
+                  ${have ? '' : `<span class="badge badge--warn">${t("missing")}</span>`}
+                </div>`;
+              })
+              .join("");
+            return `<div class="card">
+              <div class="card__head">
+                <div>
+                  <h3 class="card__title">${g.contact}</h3>
+                  <p class="card__sub">${svcName(g.service)} · ${haveN} ${t("of")} ${expected.length}</p>
+                </div>
+                <span class="badge ${haveN === expected.length ? "badge--qualified" : "badge--current"}">${pct}%</span>
+              </div>
+              <div class="progress"><i style="width:${pct}%"></i></div>
+              <div style="margin-top:12px">${rows}</div>
+            </div>`;
+          })
+          .join("");
+      }
+
+      // ---- Render: contatos ----
+      function renderContacts() {
+        const by = {};
+        for (const d of DOCS) {
+          (by[d.contact] ||= { services: new Set(), docs: 0, missing: 0 });
+          by[d.contact].services.add(d.service);
+          if (d.status === "mirrored") by[d.contact].docs++;
+        }
+        for (const [name, c] of Object.entries(by)) {
+          let missing = 0;
+          for (const svc of c.services) {
+            const expected = SERVICES[svc]?.docs || [];
+            const have = new Set(DOCS.filter((d) => d.contact === name && d.service === svc && d.status === "mirrored").map((d) => d.doc));
+            missing += expected.filter((e) => !have.has(e[0])).length;
+          }
+          c.missing = missing;
+        }
+        $("#contacts-body").innerHTML = Object.entries(by)
+          .map(([name, c]) => `
+            <tr>
+              <td><span class="ref-name">${name}</span></td>
+              <td>${[...c.services].map(svcName).join(", ")}</td>
+              <td>${c.docs}</td>
+              <td>${c.missing ? `<span class="badge badge--warn">${c.missing} ${t("missing")}</span>` : `<span class="badge badge--qualified">0</span>`}</td>
+            </tr>`)
+          .join("");
+      }
+
+      // ---- Toast (mesmo padrão do Hub) ----
+      function toast(kind, title, sub) {
+        const n = el("div", `toast toast--${kind}`);
+        n.innerHTML = `<div class="toast__icon">✓</div><div><div class="toast__title">${title}</div><div class="toast__sub">${sub}</div></div>`;
+        $("#toasts").appendChild(n);
+        setTimeout(() => { n.classList.add("is-out"); setTimeout(() => n.remove(), 260); }, 3200);
+      }
+
+      // ---- Tabs ----
+      $("#tabs").addEventListener("click", (e) => {
+        const tab = e.target.closest(".tab");
+        if (!tab) return;
+        $("#tabs").querySelectorAll(".tab").forEach((x) => x.classList.toggle("is-active", x === tab));
+        document.querySelectorAll(".panel").forEach((p) => (p.hidden = p.dataset.panel !== tab.dataset.tab));
+      });
+
+      // ---- Language ----
+      $("#lang").addEventListener("click", (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        lang = b.dataset.lang;
+        document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+        $("#lang").querySelectorAll("button").forEach((x) => x.classList.toggle("is-active", x === b));
+        applyI18n();
+        renderAll();
+      });
+
+      function applyI18n() {
+        document.querySelectorAll("[data-i18n]").forEach((n) => (n.textContent = t(n.dataset.i18n)));
+      }
+
+      function renderAll() { renderStats(); renderFilters(); renderDocs(); renderChecklist(); renderContacts(); }
+
+      // Deep-link por hash (#pendencias, #contatos) — abre a aba direto.
+      function openFromHash() {
+        const tab = (location.hash || "").replace("#", "");
+        const btn = tab && $(`#tabs .tab[data-tab="${tab}"]`);
+        if (btn) btn.click();
+      }
+      window.addEventListener("hashchange", openFromHash);
+
+      applyI18n();
+      renderAll();
+      openFromHash();
+    </script>
+  </body>
+</html>

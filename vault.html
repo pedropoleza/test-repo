@@ -46,49 +46,122 @@
         margin-top: 6px; font-size: var(--fs-2xl); font-weight: 800;
         letter-spacing: -0.02em; color: var(--gray-900); font-variant-numeric: tabular-nums;
       }
-      .stat__value small { font-size: var(--fs-sm); font-weight: 600; color: var(--gray-400); }
 
-      .doc-type { display: inline-flex; align-items: center; gap: 6px; }
-      .doc-type .svc { color: var(--gray-500); font-size: var(--fs-sm); }
-
-      .src {
-        display: inline-flex; align-items: center; gap: 6px;
-        font-size: var(--fs-sm); color: var(--gray-700); font-weight: 500;
+      /* ========== Pastas (folder tabs) ========== */
+      .folders {
+        display: flex; align-items: flex-end; gap: 4px; flex-wrap: wrap;
+        padding: 0 6px; position: relative; z-index: 2;
       }
+      .folder-tab {
+        display: inline-flex; align-items: center; gap: 9px;
+        padding: 11px 16px 13px;
+        background: var(--gray-100);
+        border: 1px solid var(--gray-200);
+        border-bottom: none;
+        border-radius: 12px 12px 0 0;
+        color: var(--gray-600); font-weight: 600; font-size: var(--fs-base);
+        transition: background var(--d-fast), color var(--d-fast), transform var(--d-fast);
+        position: relative; top: 1px; max-width: 260px;
+      }
+      .folder-tab:hover { background: var(--gray-50); color: var(--gray-900); }
+      .folder-tab .fico { width: 18px; height: 18px; flex-shrink: 0; color: var(--ghl-500); }
+      .folder-tab .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .folder-tab .fcount {
+        font-variant-numeric: tabular-nums; background: var(--gray-200); color: var(--gray-600);
+        padding: 1px 8px; border-radius: var(--r-pill); font-size: 11px; font-weight: 700;
+      }
+      .folder-tab .fdot {
+        width: 7px; height: 7px; border-radius: 50%; background: var(--warn);
+        box-shadow: 0 0 0 3px var(--warn-bg);
+      }
+      .folder-tab.is-active {
+        background: var(--white); color: var(--ghl-700);
+        box-shadow: 0 -6px 16px -10px rgba(15, 23, 42, 0.22);
+        z-index: 3;
+      }
+      .folder-tab.is-active .fico { color: var(--ghl-600); }
+      .folder-tab.is-active .fcount { background: var(--ghl-100); color: var(--ghl-700); }
+
+      /* Corpo da pasta aberta */
+      .folder-body {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 0 var(--r-lg) var(--r-lg) var(--r-lg);
+        box-shadow: var(--shadow-sm);
+        padding: 24px;
+        position: relative; z-index: 1;
+      }
+      .folder-head {
+        display: flex; align-items: center; gap: 16px;
+        padding-bottom: 18px; border-bottom: 1px solid var(--gray-150);
+      }
+      .avatar-lg {
+        width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
+        background: linear-gradient(135deg, var(--ghl-500), var(--ghl-700));
+        color: #fff; font-weight: 800; font-size: 17px;
+        display: inline-flex; align-items: center; justify-content: center;
+        box-shadow: var(--shadow-blue);
+      }
+      .folder-head__name { margin: 0; font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.02em; color: var(--gray-900); }
+      .info-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .info-chip {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 5px 11px; background: var(--gray-50); border: 1px solid var(--gray-200);
+        border-radius: var(--r-pill); font-size: var(--fs-sm); color: var(--gray-700);
+      }
+      .info-chip svg { width: 13px; height: 13px; color: var(--gray-400); }
+      .info-chip strong { color: var(--gray-900); font-weight: 600; }
+
+      /* Grupos de serviço dentro da pasta */
+      .svc-group { margin-top: 22px; }
+      .svc-group__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+      .svc-group__title { font-size: var(--fs-md); font-weight: 700; color: var(--gray-900); }
+      .svc-group__progress { display: inline-flex; align-items: center; gap: 10px; }
+      .progress { width: 120px; height: 6px; border-radius: 999px; background: var(--gray-150); overflow: hidden; }
+      .progress > i { display: block; height: 100%; background: linear-gradient(90deg, var(--ghl-600), #6366f1); }
+
+      .doc-item {
+        display: grid; grid-template-columns: 24px 1fr auto auto auto; align-items: center; gap: 14px;
+        padding: 12px 0; border-bottom: 1px solid var(--gray-150);
+      }
+      .doc-item:last-child { border-bottom: none; }
+      .doc-item__ico {
+        width: 24px; height: 24px; border-radius: 7px; display: inline-flex;
+        align-items: center; justify-content: center; font-size: 12px; font-weight: 800;
+      }
+      .doc-item[data-have="true"]  .doc-item__ico { background: var(--ghl-50);   color: var(--ghl-600); }
+      .doc-item[data-have="false"] .doc-item__ico { background: var(--gray-100);  color: var(--gray-400); }
+      .doc-item__name { font-weight: 600; color: var(--gray-900); }
+      .doc-item[data-have="false"] .doc-item__name { color: var(--gray-400); font-weight: 500; }
+      .doc-item__meta { font-size: var(--fs-sm); color: var(--gray-500); }
+
+      .src { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--gray-700); font-weight: 500; }
       .src .dot { width: 8px; height: 8px; border-radius: 50%; }
       .src[data-source="media"]        .dot { background: var(--ghl-500); }
       .src[data-source="conversation"] .dot { background: var(--success); }
       .src[data-source="form"]         .dot { background: var(--warn); }
 
       .btn-ghost {
-        height: 32px; padding: 0 14px; border-radius: var(--r-md);
+        height: 30px; padding: 0 13px; border-radius: var(--r-md);
         border: 1px solid var(--gray-200); background: var(--white);
         color: var(--ghl-700); font-weight: 600; font-size: var(--fs-sm);
         transition: all var(--d-fast);
       }
       .btn-ghost:hover { border-color: var(--ghl-300); box-shadow: var(--shadow-blue-soft); }
+      .btn-ghost:disabled { color: var(--gray-300); cursor: not-allowed; border-color: var(--gray-150); }
 
+      /* Pendências (visão cruzada) */
       .checklist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; }
-      .check-row {
-        display: flex; align-items: center; justify-content: space-between; gap: 12px;
-        padding: 10px 0; border-bottom: 1px solid var(--gray-150);
-      }
+      .check-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gray-150); }
       .check-row:last-child { border-bottom: 0; }
       .check-row__name { display: inline-flex; align-items: center; gap: 10px; color: var(--gray-800); }
-      .check-row__ico {
-        width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
-        display: inline-flex; align-items: center; justify-content: center;
-        font-size: 12px; font-weight: 800;
-      }
+      .check-row__ico { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
       .check-row[data-have="true"]  .check-row__ico { background: var(--success-bg); color: var(--success); }
       .check-row[data-have="false"] .check-row__ico { background: var(--gray-100); color: var(--gray-400); }
       .check-row[data-have="false"] .check-row__name { color: var(--gray-400); }
-      .progress { height: 6px; border-radius: 999px; background: var(--gray-150); overflow: hidden; margin-top: 4px; }
-      .progress > i { display: block; height: 100%; background: linear-gradient(90deg, var(--ghl-600), #6366f1); }
     </style>
   </head>
   <body>
-    <!-- Fundo ambiente (mesmos orbs do Hub) -->
     <div class="ambient" aria-hidden="true">
       <span class="orb orb--a"></span>
       <span class="orb orb--b"></span>
@@ -104,7 +177,6 @@
       <nav class="tabs" id="tabs">
         <button class="tab is-active" data-tab="cofre" data-i18n="tab_cofre">Cofre</button>
         <button class="tab" data-tab="pendencias" data-i18n="tab_pendencias">Pendências</button>
-        <button class="tab" data-tab="contatos" data-i18n="tab_contatos">Contatos</button>
       </nav>
 
       <div class="appbar__right">
@@ -126,35 +198,20 @@
     <div class="toasts" id="toasts" aria-live="polite"></div>
 
     <main class="page">
-      <!-- ===================== COFRE ===================== -->
+      <!-- ===================== COFRE (pastas) ===================== -->
       <section class="panel" data-panel="cofre">
         <div class="page-head">
           <h1 data-i18n="cofre_title">Cofre de Documentos</h1>
           <p data-i18n="cofre_sub">
-            Todo documento salvo na nuvem do contato no GHL, espelhado e organizado
-            por contato, serviço e tipo.
+            Uma pasta por contato. Clique para abrir e ver os dados básicos e os documentos dentro.
           </p>
         </div>
 
         <div class="stat-strip" id="stats"></div>
 
-        <div class="card card--padless">
-          <div class="filters" id="filters"></div>
-          <div class="tbl-wrap">
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th data-i18n="col_contato">Contato</th>
-                  <th data-i18n="col_tipo">Tipo</th>
-                  <th data-i18n="col_fonte">Fonte</th>
-                  <th data-i18n="col_status">Status</th>
-                  <th data-i18n="col_recebido">Recebido</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="docs-body"></tbody>
-            </table>
-          </div>
+        <div>
+          <div class="folders" id="folders"></div>
+          <div class="folder-body" id="folder-body"></div>
         </div>
       </section>
 
@@ -168,232 +225,234 @@
         </div>
         <div class="checklist-grid" id="checklist"></div>
       </section>
-
-      <!-- ===================== CONTATOS ===================== -->
-      <section class="panel" data-panel="contatos" hidden>
-        <div class="page-head">
-          <h1 data-i18n="cont_title">Contatos</h1>
-          <p data-i18n="cont_sub">Visão por contato — documentos capturados e pendências abertas.</p>
-        </div>
-        <div class="card card--padless">
-          <div class="tbl-wrap">
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th data-i18n="col_contato">Contato</th>
-                  <th data-i18n="col_servicos">Serviços</th>
-                  <th data-i18n="col_docs">Documentos</th>
-                  <th data-i18n="col_pendencias">Pendências</th>
-                </tr>
-              </thead>
-              <tbody id="contacts-body"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
     </main>
 
     <script>
       /* =========================================================
        * Cofre de Documentos — shell de demo (frontend only).
+       * Metáfora de PASTAS: cada contato é uma pasta clicável; ao abrir,
+       * mostra dados básicos + documentos (presentes e o que falta).
        * Dados reais virão de /api/vault/* (ver docs/document-vault.md).
-       * Use ?demo=1 (default aqui) para o dataset estático abaixo.
        * ========================================================= */
 
       // ---- i18n (base do portal bilíngue) ----
       const I18N = {
         pt: {
           brand: "Spark · Cofre",
-          tab_cofre: "Cofre", tab_pendencias: "Pendências", tab_contatos: "Contatos",
+          tab_cofre: "Cofre", tab_pendencias: "Pendências",
           cofre_title: "Cofre de Documentos",
-          cofre_sub: "Todo documento salvo na nuvem do contato no GHL, espelhado e organizado por contato, serviço e tipo.",
+          cofre_sub: "Uma pasta por contato. Clique para abrir e ver os dados básicos e os documentos dentro.",
           pend_title: "Pendências",
           pend_sub: "O que falta por contato e serviço, comparado com o checklist esperado da taxonomia.",
-          cont_title: "Contatos",
-          cont_sub: "Visão por contato — documentos capturados e pendências abertas.",
-          col_contato: "Contato", col_tipo: "Tipo", col_fonte: "Fonte", col_status: "Status",
-          col_recebido: "Recebido", col_servicos: "Serviços", col_docs: "Documentos", col_pendencias: "Pendências",
-          st_total: "Documentos", st_mirrored: "Espelhados", st_pending: "Pendentes", st_contacts: "Contatos",
-          all: "Todos", download: "Baixar", missing: "falta", of: "de",
+          st_folders: "Pastas", st_docs: "Documentos", st_mirrored: "Espelhados", st_missing: "Faltando",
+          f_phone: "Telefone", f_email: "Email", f_lang: "Idioma", f_status: "Status",
+          status_active: "Ativo",
           src_media: "Nuvem", src_conversation: "WhatsApp", src_form: "Formulário",
           status_mirrored: "Espelhado", status_pending: "Pendente", status_failed: "Falha",
+          download: "Baixar", missing: "falta", of: "de", complete: "Completo",
           toast_dl_title: "Link seguro gerado",
           toast_dl_sub: "URL assinada de curta duração · acesso registrado no audit log",
-          empty: "Nenhum documento ainda",
         },
         en: {
           brand: "Spark · Vault",
-          tab_cofre: "Vault", tab_pendencias: "Missing", tab_contatos: "Contacts",
+          tab_cofre: "Vault", tab_pendencias: "Missing",
           cofre_title: "Document Vault",
-          cofre_sub: "Every document saved to the contact's GHL cloud, mirrored and organized by contact, service and type.",
+          cofre_sub: "One folder per contact. Click to open and see the basic info and documents inside.",
           pend_title: "Missing documents",
           pend_sub: "What's missing per contact and service, against the taxonomy's expected checklist.",
-          cont_title: "Contacts",
-          cont_sub: "Per-contact view — captured documents and open gaps.",
-          col_contato: "Contact", col_tipo: "Type", col_fonte: "Source", col_status: "Status",
-          col_recebido: "Received", col_servicos: "Services", col_docs: "Documents", col_pendencias: "Missing",
-          st_total: "Documents", st_mirrored: "Mirrored", st_pending: "Pending", st_contacts: "Contacts",
-          all: "All", download: "Download", missing: "missing", of: "of",
+          st_folders: "Folders", st_docs: "Documents", st_mirrored: "Mirrored", st_missing: "Missing",
+          f_phone: "Phone", f_email: "Email", f_lang: "Language", f_status: "Status",
+          status_active: "Active",
           src_media: "Cloud", src_conversation: "WhatsApp", src_form: "Form",
           status_mirrored: "Mirrored", status_pending: "Pending", status_failed: "Failed",
+          download: "Download", missing: "missing", of: "of", complete: "Complete",
           toast_dl_title: "Secure link generated",
           toast_dl_sub: "Short-lived signed URL · access recorded in audit log",
-          empty: "No documents yet",
         },
       };
 
       // ---- Taxonomia (espelha o seed do 0002_document_vault.sql) ----
       const SERVICES = {
-        passaporte:   { pt: "Passaporte", en: "Passport",  docs: [["passaporte_antigo","Passaporte antigo","Old passport"],["foto","Foto","Photo"],["comprovante","Comprovante","Proof of payment"],["protocolo","Protocolo","Protocol"]] },
-        empresa:      { pt: "Empresa", en: "Company",       docs: [["id","ID","ID"],["comprovante_end","Comprovante de endereço","Proof of address"],["reg_nj","Registro NJ","NJ registration"],["reg_irs","Registro IRS","IRS registration"],["reg_taxation","Registro Taxation","Taxation registration"],["reg_corecore","Registro Corecore","Corecore registration"]] },
-        seguro_vida:  { pt: "Seguro de Vida", en: "Life Insurance", docs: [["id","ID","ID"],["aplicacao","Aplicação","Application"],["ilustracao","Ilustração","Illustration"],["beneficiarios","Beneficiários","Beneficiaries"]] },
-        traducao:     { pt: "Tradução", en: "Translation",  docs: [["doc_origem","Documento de origem","Source document"],["doc_traduzido","Documento traduzido","Translated document"]] },
+        passaporte:  { pt: "Passaporte", en: "Passport", docs: [["passaporte_antigo","Passaporte antigo","Old passport"],["foto","Foto","Photo"],["comprovante","Comprovante","Proof of payment"],["protocolo","Protocolo","Protocol"]] },
+        empresa:     { pt: "Empresa", en: "Company", docs: [["id","ID","ID"],["comprovante_end","Comprovante de endereço","Proof of address"],["reg_nj","Registro NJ","NJ registration"],["reg_irs","Registro IRS","IRS registration"],["reg_taxation","Registro Taxation","Taxation registration"],["reg_corecore","Registro Corecore","Corecore registration"]] },
+        seguro_vida: { pt: "Seguro de Vida", en: "Life Insurance", docs: [["id","ID","ID"],["aplicacao","Aplicação","Application"],["ilustracao","Ilustração","Illustration"],["beneficiarios","Beneficiários","Beneficiaries"]] },
+        traducao:    { pt: "Tradução", en: "Translation", docs: [["doc_origem","Documento de origem","Source document"],["doc_traduzido","Documento traduzido","Translated document"]] },
       };
 
-      // ---- Dataset de demo ----
+      // ---- Contatos (pastas) + dados básicos ----
+      const CONTACTS = [
+        { id: "josiane", name: "Josiane Ramos", phone: "+1 (973) 555-0142", email: "josiane.ramos@email.com", lang: "PT", status: "active", services: ["passaporte"] },
+        { id: "ana",     name: "Ana Beatriz",   phone: "+1 (862) 555-0199", email: "ana.beatriz@email.com",   lang: "PT", status: "active", services: ["empresa"] },
+        { id: "carlos",  name: "Carlos Nunes",  phone: "+1 (201) 555-0177", email: "carlos.nunes@email.com",  lang: "EN", status: "active", services: ["seguro_vida"] },
+        { id: "marina",  name: "Marina Alves",  phone: "+1 (973) 555-0163", email: "marina.alves@email.com",  lang: "PT", status: "active", services: ["traducao"] },
+      ];
+
+      // ---- Documentos (por contato) ----
       const DOCS = [
-        { contact: "Josiane Ramos", service: "passaporte", doc: "passaporte_antigo", source: "media",        status: "mirrored", at: "2026-08-20" },
-        { contact: "Josiane Ramos", service: "passaporte", doc: "foto",              source: "form",         status: "mirrored", at: "2026-08-20" },
-        { contact: "Josiane Ramos", service: "passaporte", doc: "comprovante",       source: "conversation", status: "mirrored", at: "2026-08-19" },
-        { contact: "Ana Beatriz",   service: "empresa",    doc: "id",                source: "conversation", status: "mirrored", at: "2026-08-18" },
-        { contact: "Ana Beatriz",   service: "empresa",    doc: "comprovante_end",   source: "media",        status: "mirrored", at: "2026-08-18" },
-        { contact: "Ana Beatriz",   service: "empresa",    doc: "reg_nj",            source: "media",        status: "pending",  at: "2026-08-21" },
-        { contact: "Carlos Nunes",  service: "seguro_vida",doc: "aplicacao",         source: "form",         status: "mirrored", at: "2026-08-17" },
-        { contact: "Carlos Nunes",  service: "seguro_vida",doc: "ilustracao",        source: "media",        status: "failed",   at: "2026-08-21" },
-        { contact: "Marina Alves",  service: "traducao",   doc: "doc_origem",        source: "conversation", status: "mirrored", at: "2026-08-16" },
+        { contact: "josiane", service: "passaporte", doc: "passaporte_antigo", source: "media",        status: "mirrored", at: "2026-08-20" },
+        { contact: "josiane", service: "passaporte", doc: "foto",              source: "form",         status: "mirrored", at: "2026-08-20" },
+        { contact: "josiane", service: "passaporte", doc: "comprovante",       source: "conversation", status: "mirrored", at: "2026-08-19" },
+        { contact: "ana",     service: "empresa",    doc: "id",                source: "conversation", status: "mirrored", at: "2026-08-18" },
+        { contact: "ana",     service: "empresa",    doc: "comprovante_end",   source: "media",        status: "mirrored", at: "2026-08-18" },
+        { contact: "ana",     service: "empresa",    doc: "reg_nj",            source: "media",        status: "pending",  at: "2026-08-21" },
+        { contact: "carlos",  service: "seguro_vida",doc: "aplicacao",         source: "form",         status: "mirrored", at: "2026-08-17" },
+        { contact: "carlos",  service: "seguro_vida",doc: "ilustracao",        source: "media",        status: "failed",   at: "2026-08-21" },
+        { contact: "marina",  service: "traducao",   doc: "doc_origem",        source: "conversation", status: "mirrored", at: "2026-08-16" },
       ];
 
       // ---- Estado ----
       let lang = "pt";
-      let filterService = "all";
+      let activeContact = CONTACTS[0].id;
       const t = (k) => I18N[lang][k] || k;
       const svcName = (key) => (SERVICES[key] ? SERVICES[key][lang] : key);
-      const docLabel = (key, docKey) => {
-        const d = SERVICES[key]?.docs.find((x) => x[0] === docKey);
-        return d ? d[lang === "pt" ? 1 : 2] : docKey;
-      };
+      const docLabel = (key, docKey) => { const d = SERVICES[key]?.docs.find((x) => x[0] === docKey); return d ? d[lang === "pt" ? 1 : 2] : docKey; };
       const $ = (s, r = document) => r.querySelector(s);
       const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
+      const initials = (name) => name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+
+      // Documentos de um contato, indexados por (service|doc).
+      function docsOf(contactId) {
+        const map = {};
+        for (const d of DOCS) if (d.contact === contactId) map[d.service + "|" + d.doc] = d;
+        return map;
+      }
+      // Conta esperado/presente/falta para um contato.
+      function tally(contactId) {
+        const c = CONTACTS.find((x) => x.id === contactId);
+        const have = docsOf(contactId);
+        let expected = 0, mirrored = 0;
+        for (const svc of c.services) {
+          const list = SERVICES[svc]?.docs || [];
+          expected += list.length;
+          for (const e of list) if (have[svc + "|" + e[0]]?.status === "mirrored") mirrored++;
+        }
+        return { expected, mirrored, missing: expected - mirrored };
+      }
+
+      const ICONS = {
+        folder: '<svg class="fico" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-8l-2-2z"/></svg>',
+        phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg>',
+        mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 6L2 7"/></svg>',
+        globe: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20"/></svg>',
+        dot: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/></svg>',
+      };
 
       // ---- Render: stats ----
       function renderStats() {
-        const total = DOCS.length;
+        const docs = DOCS.length;
         const mirrored = DOCS.filter((d) => d.status === "mirrored").length;
-        const pending = DOCS.filter((d) => d.status !== "mirrored").length;
-        const contacts = new Set(DOCS.map((d) => d.contact)).size;
+        let missing = 0; for (const c of CONTACTS) missing += tally(c.id).missing;
         const cards = [
-          [t("st_total"), total], [t("st_mirrored"), mirrored],
-          [t("st_pending"), pending], [t("st_contacts"), contacts],
+          [t("st_folders"), CONTACTS.length], [t("st_docs"), docs],
+          [t("st_mirrored"), mirrored], [t("st_missing"), missing],
         ];
-        $("#stats").innerHTML = cards
-          .map(([l, v]) => `<div class="stat"><div class="stat__label">${l}</div><div class="stat__value">${v}</div></div>`)
-          .join("");
+        $("#stats").innerHTML = cards.map(([l, v]) => `<div class="stat"><div class="stat__label">${l}</div><div class="stat__value">${v}</div></div>`).join("");
       }
 
-      // ---- Render: filtros por serviço ----
-      function renderFilters() {
-        const services = ["all", ...Object.keys(SERVICES).filter((k) => DOCS.some((d) => d.service === k))];
-        $("#filters").innerHTML = services
-          .map((k) => {
-            const count = k === "all" ? DOCS.length : DOCS.filter((d) => d.service === k).length;
-            const label = k === "all" ? t("all") : svcName(k);
-            return `<button class="filter-chip ${k === filterService ? "is-active" : ""}" data-svc="${k}">${label}<span class="count">${count}</span></button>`;
-          })
-          .join("");
-        $("#filters").querySelectorAll(".filter-chip").forEach((c) =>
-          c.addEventListener("click", () => { filterService = c.dataset.svc; renderFilters(); renderDocs(); })
+      // ---- Render: abas de pasta ----
+      function renderFolders() {
+        $("#folders").innerHTML = CONTACTS.map((c) => {
+          const tl = tally(c.id);
+          const active = c.id === activeContact;
+          return `<button class="folder-tab ${active ? "is-active" : ""}" data-folder="${c.id}">
+            ${ICONS.folder}
+            <span class="fname">${c.name}</span>
+            <span class="fcount">${tl.mirrored}/${tl.expected}</span>
+            ${tl.missing ? '<span class="fdot" title="pendências"></span>' : ""}
+          </button>`;
+        }).join("");
+        $("#folders").querySelectorAll(".folder-tab").forEach((b) =>
+          b.addEventListener("click", () => { activeContact = b.dataset.folder; renderFolders(); renderFolderBody(); })
         );
       }
 
-      // ---- Render: tabela de documentos ----
-      const STATUS_BADGE = { mirrored: "badge--qualified", pending: "badge--warn", failed: "badge--danger" };
-      function renderDocs() {
-        const rows = DOCS.filter((d) => filterService === "all" || d.service === filterService);
-        const body = $("#docs-body");
-        if (!rows.length) {
-          body.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state__title">${t("empty")}</div></div></td></tr>`;
-          return;
-        }
-        body.innerHTML = rows
-          .map((d) => `
-            <tr data-status="${d.status}">
-              <td><span class="ref-name">${d.contact}</span></td>
-              <td><span class="doc-type">${docLabel(d.service, d.doc)}<span class="svc">· ${svcName(d.service)}</span></span></td>
-              <td><span class="src" data-source="${d.source}"><span class="dot"></span>${t("src_" + d.source)}</span></td>
-              <td><span class="badge ${STATUS_BADGE[d.status]}">${t("status_" + d.status)}</span></td>
-              <td>${d.at}</td>
-              <td style="text-align:right"><button class="btn-ghost" data-dl>${t("download")}</button></td>
-            </tr>`)
-          .join("");
-        body.querySelectorAll("[data-dl]").forEach((b) =>
+      // ---- Render: corpo da pasta aberta ----
+      function renderFolderBody() {
+        const c = CONTACTS.find((x) => x.id === activeContact);
+        const have = docsOf(c.id);
+        const langLabel = c.lang === "PT" ? "Português" : "English";
+
+        const head = `<div class="folder-head">
+          <span class="avatar-lg">${initials(c.name)}</span>
+          <div>
+            <h2 class="folder-head__name">${c.name}</h2>
+            <div class="info-chips">
+              <span class="info-chip">${ICONS.phone}<span>${t("f_phone")}:</span> <strong>${c.phone}</strong></span>
+              <span class="info-chip">${ICONS.mail}<span>${t("f_email")}:</span> <strong>${c.email}</strong></span>
+              <span class="info-chip">${ICONS.globe}<span>${t("f_lang")}:</span> <strong>${langLabel}</strong></span>
+              <span class="info-chip"><span class="badge badge--qualified" style="padding:2px 8px">${t("status_active")}</span></span>
+            </div>
+          </div>
+        </div>`;
+
+        const STATUS_BADGE = { mirrored: "badge--qualified", pending: "badge--warn", failed: "badge--danger" };
+        const groups = c.services.map((svc) => {
+          const list = SERVICES[svc]?.docs || [];
+          const mirrored = list.filter((e) => have[svc + "|" + e[0]]?.status === "mirrored").length;
+          const pct = list.length ? Math.round((mirrored / list.length) * 100) : 0;
+          const rows = list.map((e) => {
+            const d = have[svc + "|" + e[0]];
+            const has = !!d;
+            const isMirrored = d?.status === "mirrored";
+            const right = has
+              ? `<span class="src" data-source="${d.source}"><span class="dot"></span>${t("src_" + d.source)}</span>
+                 <span class="badge ${STATUS_BADGE[d.status]}">${t("status_" + d.status)}</span>
+                 <button class="btn-ghost" data-dl ${isMirrored ? "" : "disabled"}>${t("download")}</button>`
+              : `<span class="doc-item__meta">—</span>
+                 <span class="badge badge--warn">${t("missing")}</span>
+                 <button class="btn-ghost" disabled>${t("download")}</button>`;
+            return `<div class="doc-item" data-have="${has && isMirrored}">
+              <span class="doc-item__ico">${has && isMirrored ? "✓" : "•"}</span>
+              <span class="doc-item__name">${e[lang === "pt" ? 1 : 2]}</span>
+              ${right}
+            </div>`;
+          }).join("");
+          return `<div class="svc-group">
+            <div class="svc-group__head">
+              <span class="svc-group__title">${svcName(svc)}</span>
+              <span class="svc-group__progress">
+                <span class="progress"><i style="width:${pct}%"></i></span>
+                <span class="badge ${pct === 100 ? "badge--qualified" : "badge--current"}">${mirrored} ${t("of")} ${list.length}</span>
+              </span>
+            </div>
+            ${rows}
+          </div>`;
+        }).join("");
+
+        $("#folder-body").innerHTML = head + groups;
+        $("#folder-body").querySelectorAll("[data-dl]:not([disabled])").forEach((b) =>
           b.addEventListener("click", () => toast("success", t("toast_dl_title"), t("toast_dl_sub")))
         );
       }
 
-      // ---- Render: checklist de pendências ----
+      // ---- Render: pendências (visão cruzada) ----
       function renderChecklist() {
-        // Agrupa (contato, serviço) e compara com a taxonomia.
-        const groups = {};
-        for (const d of DOCS) {
-          const key = d.contact + "|" + d.service;
-          (groups[key] ||= { contact: d.contact, service: d.service, have: new Set() });
-          if (d.status === "mirrored") groups[key].have.add(d.doc);
-        }
-        $("#checklist").innerHTML = Object.values(groups)
-          .map((g) => {
-            const expected = SERVICES[g.service]?.docs || [];
-            const haveN = expected.filter((e) => g.have.has(e[0])).length;
-            const pct = expected.length ? Math.round((haveN / expected.length) * 100) : 0;
-            const rows = expected
-              .map((e) => {
-                const have = g.have.has(e[0]);
-                return `<div class="check-row" data-have="${have}">
-                  <span class="check-row__name"><span class="check-row__ico">${have ? "✓" : "•"}</span>${e[lang === "pt" ? 1 : 2]}</span>
-                  ${have ? '' : `<span class="badge badge--warn">${t("missing")}</span>`}
-                </div>`;
-              })
-              .join("");
-            return `<div class="card">
-              <div class="card__head">
-                <div>
-                  <h3 class="card__title">${g.contact}</h3>
-                  <p class="card__sub">${svcName(g.service)} · ${haveN} ${t("of")} ${expected.length}</p>
-                </div>
-                <span class="badge ${haveN === expected.length ? "badge--qualified" : "badge--current"}">${pct}%</span>
-              </div>
-              <div class="progress"><i style="width:${pct}%"></i></div>
-              <div style="margin-top:12px">${rows}</div>
-            </div>`;
-          })
-          .join("");
-      }
-
-      // ---- Render: contatos ----
-      function renderContacts() {
-        const by = {};
-        for (const d of DOCS) {
-          (by[d.contact] ||= { services: new Set(), docs: 0, missing: 0 });
-          by[d.contact].services.add(d.service);
-          if (d.status === "mirrored") by[d.contact].docs++;
-        }
-        for (const [name, c] of Object.entries(by)) {
-          let missing = 0;
+        const cards = [];
+        for (const c of CONTACTS) {
+          const have = docsOf(c.id);
           for (const svc of c.services) {
-            const expected = SERVICES[svc]?.docs || [];
-            const have = new Set(DOCS.filter((d) => d.contact === name && d.service === svc && d.status === "mirrored").map((d) => d.doc));
-            missing += expected.filter((e) => !have.has(e[0])).length;
+            const list = SERVICES[svc]?.docs || [];
+            const mirrored = list.filter((e) => have[svc + "|" + e[0]]?.status === "mirrored").length;
+            if (mirrored === list.length) continue; // completos não aparecem em pendências
+            const pct = list.length ? Math.round((mirrored / list.length) * 100) : 0;
+            const rows = list.map((e) => {
+              const has = have[svc + "|" + e[0]]?.status === "mirrored";
+              return `<div class="check-row" data-have="${has}">
+                <span class="check-row__name"><span class="check-row__ico">${has ? "✓" : "•"}</span>${e[lang === "pt" ? 1 : 2]}</span>
+                ${has ? "" : `<span class="badge badge--warn">${t("missing")}</span>`}
+              </div>`;
+            }).join("");
+            cards.push(`<div class="card">
+              <div class="card__head">
+                <div><h3 class="card__title">${c.name}</h3><p class="card__sub">${svcName(svc)} · ${mirrored} ${t("of")} ${list.length}</p></div>
+                <span class="badge badge--current">${pct}%</span>
+              </div>
+              <div class="progress" style="width:100%"><i style="width:${pct}%"></i></div>
+              <div style="margin-top:12px">${rows}</div>
+            </div>`);
           }
-          c.missing = missing;
         }
-        $("#contacts-body").innerHTML = Object.entries(by)
-          .map(([name, c]) => `
-            <tr>
-              <td><span class="ref-name">${name}</span></td>
-              <td>${[...c.services].map(svcName).join(", ")}</td>
-              <td>${c.docs}</td>
-              <td>${c.missing ? `<span class="badge badge--warn">${c.missing} ${t("missing")}</span>` : `<span class="badge badge--qualified">0</span>`}</td>
-            </tr>`)
-          .join("");
+        $("#checklist").innerHTML = cards.join("") || `<div class="empty-state"><div class="empty-state__title">${t("complete")} ✓</div></div>`;
       }
 
       // ---- Toast (mesmo padrão do Hub) ----
@@ -404,7 +463,7 @@
         setTimeout(() => { n.classList.add("is-out"); setTimeout(() => n.remove(), 260); }, 3200);
       }
 
-      // ---- Tabs ----
+      // ---- Tabs de navegação ----
       $("#tabs").addEventListener("click", (e) => {
         const tab = e.target.closest(".tab");
         if (!tab) return;
@@ -412,7 +471,7 @@
         document.querySelectorAll(".panel").forEach((p) => (p.hidden = p.dataset.panel !== tab.dataset.tab));
       });
 
-      // ---- Language ----
+      // ---- Idioma ----
       $("#lang").addEventListener("click", (e) => {
         const b = e.target.closest("button");
         if (!b) return;
@@ -423,13 +482,10 @@
         renderAll();
       });
 
-      function applyI18n() {
-        document.querySelectorAll("[data-i18n]").forEach((n) => (n.textContent = t(n.dataset.i18n)));
-      }
+      function applyI18n() { document.querySelectorAll("[data-i18n]").forEach((n) => (n.textContent = t(n.dataset.i18n))); }
+      function renderAll() { renderStats(); renderFolders(); renderFolderBody(); renderChecklist(); }
 
-      function renderAll() { renderStats(); renderFilters(); renderDocs(); renderChecklist(); renderContacts(); }
-
-      // Deep-link por hash (#pendencias, #contatos) — abre a aba direto.
+      // Deep-link por hash (#pendencias) — abre a aba direto.
       function openFromHash() {
         const tab = (location.hash || "").replace("#", "");
         const btn = tab && $(`#tabs .tab[data-tab="${tab}"]`);

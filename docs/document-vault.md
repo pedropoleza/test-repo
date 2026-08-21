@@ -100,6 +100,36 @@ Não é opcional: passaportes, SSN/ITIN, IDs, docs federais.
 | `/api/webhooks/ghl-media` | POST | (se existir) sobe o poll para instantâneo |
 | `/api/vault/upload` | POST | Portal: cliente envia documento (V2) |
 
+## App GHL — configuração (Marketplace)
+
+O Cofre é um **app GHL separado** do Referral Hub (Client ID próprio), com
+endpoints e tabela de tokens (`vault_installations`) isolados.
+
+**URLs pra colar no app** (domínio de produção `test-repo-ebon-nine.vercel.app`):
+
+| Campo no app | Valor |
+|--------------|-------|
+| Redirect URL (OAuth) | `https://test-repo-ebon-nine.vercel.app/api/oauth/vault/callback` |
+| Webhook URL | `https://test-repo-ebon-nine.vercel.app/api/webhooks/ghl-vault` |
+
+**Scopes mínimos** (leitura): `medias.readonly`, `conversations.readonly`,
+`conversations/message.readonly`, `contacts.readonly`, `locations.readonly`.
+
+**Env vars na Vercel** (segredos NUNCA vão pro repo):
+
+| Env var | O que é |
+|---------|---------|
+| `VAULT_GHL_CLIENT_ID` | Client ID do app do Cofre |
+| `VAULT_GHL_CLIENT_SECRET` | Client Secret do app do Cofre |
+| `VAULT_GHL_SHARED_SECRET` | Shared Secret Key (descriptografa o contexto SSO do iframe) |
+| `VAULT_GHL_WEBHOOK_PUBLIC_KEY` | (opcional) PEM público do GHL p/ validar assinatura do webhook |
+| `PUBLIC_BASE_URL` | `https://test-repo-ebon-nine.vercel.app` (já existe) |
+| `TOKEN_ENCRYPTION_KEY` | chave AES-256 (já existe no Hub) |
+| `JWT_SIGNING_KEY` | chave do JWT de sessão (já existe no Hub) |
+
+O Client Secret e a Shared Key foram expostos em chat durante o setup — **rotacionar
+no Marketplace** após configurar.
+
 ## Fases de build
 
 - **PoC (só API):** poll da media de 1 conta → espelha num bucket → mostra os

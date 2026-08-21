@@ -5,14 +5,55 @@
 -- para storage próprio da Spark, organizado por contato + serviço + tipo, com
 -- checklist de pendências ("o que falta").
 --
--- Reaproveita do 0001:
---   installations  → tokens GHL por location (harvester usa getLocationAccessToken)
---   audit_log      → auditoria de acesso/download (audit() com resource_type='vault_document')
---   set_updated_at → trigger de updated_at
+-- App GHL próprio: tokens em vault_installations (não reusa `installations` do
+-- Referral Hub). Reaproveita do 0001: audit_log (auditoria de acesso/download,
+-- audit() com resource_type='vault_document') e set_updated_at (trigger).
 --
 -- Pré-requisitos: pgcrypto (gen_random_uuid) — já habilitado no 0001.
 
 create extension if not exists pgcrypto;
+
+-- =========================================================================
+-- vault_installations
+-- Tokens OAuth do app do Cofre, POR LOCATION. Tabela própria (não reusa
+-- `installations` do Referral Hub) porque é um app GHL distinto — uma mesma
+-- location pode ter os dois apps instalados, com tokens independentes.
+-- Tokens criptografados em repouso (AES-256-GCM com TOKEN_ENCRYPTION_KEY).
+-- =========================================================================
+create table if not exists vault_installations (
+  location_id    text primary key,
+  location_name  text,
+  company_id     text,
+  access_token   text not null,   -- AES-256-GCM (base64)
+  refresh_token  text not null,   -- AES-256-GCM (base64)
+  expires_at     timestamptz not null,
+  scope          text,
+  status         text not null default 'active'
+                   check (status in ('active', 'suspended', 'uninstalled')),
+  installed_at   timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+create index if not exists idx_vault_installations_status
+  on vault_installations(status);
+
+-- =========================================================================
+-- vault_webhook_events
+-- Idempotência + auditoria dos webhooks do app do Cofre (INSTALL/UNINSTALL e,
+-- se disponível, evento de mídia que sobe o poll para instantâneo).
+-- =========================================================================
+create table if not exists vault_webhook_events (
+  event_id        text not null,
+  event_type      text,
+  payload         jsonb not null,
+  headers         jsonb,
+  signature_valid boolean,
+  processed       boolean not null default false,
+  processed_at    timestamptz,
+  received_at     timestamptz not null default now(),
+  primary key (event_id)
+);
+create index if not exists idx_vault_webhook_events_pending
+  on vault_webhook_events(received_at) where processed = false;
 
 -- =========================================================================
 -- vault_services
@@ -22,7 +63,7 @@ create extension if not exists pgcrypto;
 -- =========================================================================
 create table if not exists vault_services (
   id            uuid primary key default gen_random_uuid(),
-  location_id   text references installations(location_id) on delete cascade,  -- NULL = seed global
+  location_id   text references vault_installations(location_id) on delete cascade,  -- NULL = seed global
   service_key   text not null,   -- passaporte | empresa | registration | seguro_vida | traducao | juridico
   name_pt       text not null,
   name_en       text not null,
@@ -60,7 +101,7 @@ create table if not exists vault_doc_types (
 -- =========================================================================
 create table if not exists vault_documents (
   id                 uuid primary key default gen_random_uuid(),
-  location_id        text not null references installations(location_id) on delete cascade,
+  location_id        text not null references vault_installations(location_id) on delete cascade,
   contact_id         text,                 -- GHL contactId (NULL enquanto não resolvido)
   contact_name       text,
   service_key        text,                 -- inferido/atribuído (aponta vault_services.service_key)
@@ -106,7 +147,7 @@ create index if not exists idx_vault_documents_checksum
 -- last_cursor, busca só o que veio depois, e avança.
 -- =========================================================================
 create table if not exists vault_sync_state (
-  location_id   text not null references installations(location_id) on delete cascade,
+  location_id   text not null references vault_installations(location_id) on delete cascade,
   source        text not null
                   check (source in ('media', 'conversation', 'form')),
   last_cursor   text,                 -- ISO createdAt ou offset, conforme a fonte
@@ -123,7 +164,7 @@ create table if not exists vault_sync_state (
 -- =========================================================================
 create table if not exists vault_access_grants (
   id            uuid primary key default gen_random_uuid(),
-  location_id   text not null references installations(location_id) on delete cascade,
+  location_id   text not null references vault_installations(location_id) on delete cascade,
   ghl_user_id   text,                 -- usuário do GHL
   department    text,                 -- departamento (espelha permissão GHL)
   scope         text not null default 'department'
@@ -142,6 +183,10 @@ create unique index if not exists uq_vault_access_grants
 -- =========================================================================
 -- updated_at triggers (reusa set_updated_at() do 0001)
 -- =========================================================================
+drop trigger if exists trg_vault_installations_updated on vault_installations;
+create trigger trg_vault_installations_updated before update on vault_installations
+  for each row execute function set_updated_at();
+
 drop trigger if exists trg_vault_services_updated on vault_services;
 create trigger trg_vault_services_updated before update on vault_services
   for each row execute function set_updated_at();
@@ -157,6 +202,8 @@ create trigger trg_vault_sync_state_updated before update on vault_sync_state
 -- =========================================================================
 -- RLS — tudo bloqueado por padrão. Acesso só via API routes (service_role).
 -- =========================================================================
+alter table vault_installations enable row level security;
+alter table vault_webhook_events enable row level security;
 alter table vault_services      enable row level security;
 alter table vault_doc_types     enable row level security;
 alter table vault_documents     enable row level security;

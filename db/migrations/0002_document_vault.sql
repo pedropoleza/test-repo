@@ -5,22 +5,38 @@
 -- para storage próprio da Spark, organizado por contato + serviço + tipo, com
 -- checklist de pendências ("o que falta").
 --
--- App GHL próprio: tokens em vault_installations (não reusa `installations` do
--- Referral Hub). Reaproveita do 0001: audit_log (auditoria de acesso/download,
--- audit() com resource_type='vault_document') e set_updated_at (trigger).
+-- SEPARAÇÃO: mora num SCHEMA dedicado `document_vault`, isolado do Referral Hub
+-- e dos demais apps. Self-contained — não depende de objetos de outras migrations
+-- (traz a própria função set_updated_at e o próprio audit_log). O nome `vault`
+-- é reservado pela extensão Supabase Vault, por isso `document_vault`.
 --
--- Pré-requisitos: pgcrypto (gen_random_uuid) — já habilitado no 0001.
+-- Aplicado no projeto Supabase: Sparkleads OS (nsqwgjbgcdqyzozyaltz).
 
 create extension if not exists pgcrypto;
+create schema if not exists document_vault;
 
 -- =========================================================================
--- vault_installations
--- Tokens OAuth do app do Cofre, POR LOCATION. Tabela própria (não reusa
--- `installations` do Referral Hub) porque é um app GHL distinto — uma mesma
--- location pode ter os dois apps instalados, com tokens independentes.
--- Tokens criptografados em repouso (AES-256-GCM com TOKEN_ENCRYPTION_KEY).
+-- Função de updated_at (própria do schema — não reusa a do Referral)
 -- =========================================================================
-create table if not exists vault_installations (
+create or replace function document_vault.set_updated_at()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+-- =========================================================================
+-- installations
+-- Tokens OAuth do app do Cofre, POR LOCATION. App GHL distinto — não reusa
+-- `installations` do Referral. Tokens criptografados em repouso
+-- (AES-256-GCM com a chave do Cofre).
+-- =========================================================================
+create table if not exists document_vault.installations (
   location_id    text primary key,
   location_name  text,
   company_id     text,
@@ -33,38 +49,33 @@ create table if not exists vault_installations (
   installed_at   timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
-create index if not exists idx_vault_installations_status
-  on vault_installations(status);
+create index if not exists idx_dv_installations_status
+  on document_vault.installations(status);
 
 -- =========================================================================
--- vault_webhook_events
--- Idempotência + auditoria dos webhooks do app do Cofre (INSTALL/UNINSTALL e,
--- se disponível, evento de mídia que sobe o poll para instantâneo).
+-- webhook_events — idempotência + auditoria dos webhooks do app do Cofre
 -- =========================================================================
-create table if not exists vault_webhook_events (
-  event_id        text not null,
+create table if not exists document_vault.webhook_events (
+  event_id        text primary key,
   event_type      text,
   payload         jsonb not null,
   headers         jsonb,
   signature_valid boolean,
   processed       boolean not null default false,
   processed_at    timestamptz,
-  received_at     timestamptz not null default now(),
-  primary key (event_id)
+  received_at     timestamptz not null default now()
 );
-create index if not exists idx_vault_webhook_events_pending
-  on vault_webhook_events(received_at) where processed = false;
+create index if not exists idx_dv_webhook_events_pending
+  on document_vault.webhook_events(received_at) where processed = false;
 
 -- =========================================================================
--- vault_services
--- Catálogo de serviços da Spark. Seed global mora com location_id NULL;
--- uma location pode sobrescrever/estender criando linhas próprias.
--- É a raiz da taxonomia ("por serviço, o que se espera").
+-- services — catálogo de serviços (seed global com location_id NULL; uma
+-- location pode sobrescrever/estender). Raiz da taxonomia.
 -- =========================================================================
-create table if not exists vault_services (
+create table if not exists document_vault.services (
   id            uuid primary key default gen_random_uuid(),
-  location_id   text references vault_installations(location_id) on delete cascade,  -- NULL = seed global
-  service_key   text not null,   -- passaporte | empresa | registration | seguro_vida | traducao | juridico
+  location_id   text references document_vault.installations(location_id) on delete cascade,
+  service_key   text not null,
   name_pt       text not null,
   name_en       text not null,
   sort          int  not null default 0,
@@ -72,18 +83,15 @@ create table if not exists vault_services (
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
--- Unicidade tratando NULL como '*' (seed global x override por location).
-create unique index if not exists uq_vault_services_key
-  on vault_services (coalesce(location_id, '*'), service_key);
+create unique index if not exists uq_dv_services_key
+  on document_vault.services (coalesce(location_id, '*'), service_key);
 
 -- =========================================================================
--- vault_doc_types  (o "doc_checklist_template")
--- Para cada serviço, os tipos de documento esperados. É isto que dispara
--- o motor de "o que falta".
+-- doc_types — o "doc_checklist_template": tipos esperados por serviço.
 -- =========================================================================
-create table if not exists vault_doc_types (
+create table if not exists document_vault.doc_types (
   id            uuid primary key default gen_random_uuid(),
-  service_id    uuid not null references vault_services(id) on delete cascade,
+  service_id    uuid not null references document_vault.services(id) on delete cascade,
   doc_key       text not null,
   label_pt      text not null,
   label_en      text not null,
@@ -94,18 +102,16 @@ create table if not exists vault_doc_types (
 );
 
 -- =========================================================================
--- vault_documents
--- Um registro por documento espelhado. contact_id pode nascer NULL quando a
--- fonte é a media library e o dono ainda não foi resolvido (ver D1 / fallback
--- por conversa). NUNCA guardar a URL do GHL em claro — ghl_url_enc é AES-256-GCM.
+-- documents — um registro por documento espelhado. contact_id pode nascer
+-- NULL (media sem dono resolvido). NUNCA guardar a URL do GHL em claro.
 -- =========================================================================
-create table if not exists vault_documents (
+create table if not exists document_vault.documents (
   id                 uuid primary key default gen_random_uuid(),
-  location_id        text not null references vault_installations(location_id) on delete cascade,
-  contact_id         text,                 -- GHL contactId (NULL enquanto não resolvido)
+  location_id        text not null references document_vault.installations(location_id) on delete cascade,
+  contact_id         text,
   contact_name       text,
-  service_key        text,                 -- inferido/atribuído (aponta vault_services.service_key)
-  doc_key            text,                 -- tipo inferido/atribuído (aponta vault_doc_types.doc_key)
+  service_key        text,
+  doc_key            text,
   source             text not null
                        check (source in ('media', 'conversation', 'form')),
   source_ref         text not null,        -- mediaId | messageId | customFieldId → idempotência
@@ -119,143 +125,148 @@ create table if not exists vault_documents (
   filename           text,
   mime               text,
   size_bytes         bigint,
-  checksum           text,                 -- sha256 do conteúdo (dedup entre fontes)
+  checksum           text,                 -- sha256 do conteúdo (dedup)
   status             text not null default 'pending'
                        check (status in ('pending', 'mirrored', 'failed', 'quarantined')),
   captured_at        timestamptz not null default now(),
-  created_at_ghl     timestamptz,          -- createdAt reportado pela fonte (base do poll incremental)
+  created_at_ghl     timestamptz,
   mirrored_at        timestamptz,
   error              text,
   created_at         timestamptz not null default now(),
   updated_at         timestamptz not null default now(),
   unique (location_id, source, source_ref)
 );
-create index if not exists idx_vault_documents_contact
-  on vault_documents(location_id, contact_id);
-create index if not exists idx_vault_documents_service
-  on vault_documents(location_id, service_key);
-create index if not exists idx_vault_documents_pending
-  on vault_documents(captured_at)
+create index if not exists idx_dv_documents_contact
+  on document_vault.documents(location_id, contact_id);
+create index if not exists idx_dv_documents_service
+  on document_vault.documents(location_id, service_key);
+create index if not exists idx_dv_documents_pending
+  on document_vault.documents(captured_at)
   where status in ('pending', 'failed');
-create index if not exists idx_vault_documents_checksum
-  on vault_documents(location_id, checksum)
+create index if not exists idx_dv_documents_checksum
+  on document_vault.documents(location_id, checksum)
   where checksum is not null;
 
 -- =========================================================================
--- vault_sync_state
--- Cursor do poll incremental, por location e por fonte. O harvester lê o
--- last_cursor, busca só o que veio depois, e avança.
+-- sync_state — cursor do poll incremental, por location + fonte.
 -- =========================================================================
-create table if not exists vault_sync_state (
-  location_id   text not null references vault_installations(location_id) on delete cascade,
+create table if not exists document_vault.sync_state (
+  location_id   text not null references document_vault.installations(location_id) on delete cascade,
   source        text not null
                   check (source in ('media', 'conversation', 'form')),
-  last_cursor   text,                 -- ISO createdAt ou offset, conforme a fonte
+  last_cursor   text,
   last_run_at   timestamptz,
   updated_at    timestamptz not null default now(),
   primary key (location_id, source)
 );
 
 -- =========================================================================
--- vault_access_grants
--- Controle de acesso por departamento, espelhando as permissões do GHL
--- (a Nicole não vê doc de empresa da Ana). Fonte da verdade das permissões
--- ainda é decisão pendente (ver docs/document-vault.md → D4).
+-- access_grants — acesso por departamento, espelhando permissões do GHL.
+-- Fonte da verdade das permissões: decisão pendente (docs → D4).
 -- =========================================================================
-create table if not exists vault_access_grants (
+create table if not exists document_vault.access_grants (
   id            uuid primary key default gen_random_uuid(),
-  location_id   text not null references vault_installations(location_id) on delete cascade,
-  ghl_user_id   text,                 -- usuário do GHL
-  department    text,                 -- departamento (espelha permissão GHL)
+  location_id   text not null references document_vault.installations(location_id) on delete cascade,
+  ghl_user_id   text,
+  department    text,
   scope         text not null default 'department'
                   check (scope in ('all', 'department', 'contact')),
-  contact_id    text,                 -- usado quando scope='contact'
+  contact_id    text,
   created_at    timestamptz not null default now()
 );
-create unique index if not exists uq_vault_access_grants
-  on vault_access_grants (
-    location_id,
-    coalesce(ghl_user_id, ''),
-    coalesce(department, ''),
-    coalesce(contact_id, '')
+create unique index if not exists uq_dv_access_grants
+  on document_vault.access_grants (
+    location_id, coalesce(ghl_user_id, ''), coalesce(department, ''), coalesce(contact_id, '')
   );
 
 -- =========================================================================
--- updated_at triggers (reusa set_updated_at() do 0001)
+-- audit_log — auditoria de TODO acesso/download (dado sensível de imigrante).
+-- Próprio do Cofre (não reusa o audit_log de outro app).
 -- =========================================================================
-drop trigger if exists trg_vault_installations_updated on vault_installations;
-create trigger trg_vault_installations_updated before update on vault_installations
-  for each row execute function set_updated_at();
+create table if not exists document_vault.audit_log (
+  id            uuid primary key default gen_random_uuid(),
+  event_type    text not null,          -- vault.document.viewed | .downloaded | ...
+  actor         text not null default 'system',
+  location_id   text,
+  document_id   uuid,
+  summary       text,
+  data          jsonb,
+  created_at    timestamptz not null default now()
+);
+create index if not exists idx_dv_audit_document
+  on document_vault.audit_log(document_id);
+create index if not exists idx_dv_audit_created
+  on document_vault.audit_log(created_at);
 
-drop trigger if exists trg_vault_services_updated on vault_services;
-create trigger trg_vault_services_updated before update on vault_services
-  for each row execute function set_updated_at();
+-- =========================================================================
+-- updated_at triggers
+-- =========================================================================
+drop trigger if exists trg_dv_installations_updated on document_vault.installations;
+create trigger trg_dv_installations_updated before update on document_vault.installations
+  for each row execute function document_vault.set_updated_at();
 
-drop trigger if exists trg_vault_documents_updated on vault_documents;
-create trigger trg_vault_documents_updated before update on vault_documents
-  for each row execute function set_updated_at();
+drop trigger if exists trg_dv_services_updated on document_vault.services;
+create trigger trg_dv_services_updated before update on document_vault.services
+  for each row execute function document_vault.set_updated_at();
 
-drop trigger if exists trg_vault_sync_state_updated on vault_sync_state;
-create trigger trg_vault_sync_state_updated before update on vault_sync_state
-  for each row execute function set_updated_at();
+drop trigger if exists trg_dv_documents_updated on document_vault.documents;
+create trigger trg_dv_documents_updated before update on document_vault.documents
+  for each row execute function document_vault.set_updated_at();
+
+drop trigger if exists trg_dv_sync_state_updated on document_vault.sync_state;
+create trigger trg_dv_sync_state_updated before update on document_vault.sync_state
+  for each row execute function document_vault.set_updated_at();
 
 -- =========================================================================
 -- RLS — tudo bloqueado por padrão. Acesso só via API routes (service_role).
 -- =========================================================================
-alter table vault_installations enable row level security;
-alter table vault_webhook_events enable row level security;
-alter table vault_services      enable row level security;
-alter table vault_doc_types     enable row level security;
-alter table vault_documents     enable row level security;
-alter table vault_sync_state    enable row level security;
-alter table vault_access_grants enable row level security;
+alter table document_vault.installations  enable row level security;
+alter table document_vault.webhook_events  enable row level security;
+alter table document_vault.services        enable row level security;
+alter table document_vault.doc_types       enable row level security;
+alter table document_vault.documents       enable row level security;
+alter table document_vault.sync_state      enable row level security;
+alter table document_vault.access_grants   enable row level security;
+alter table document_vault.audit_log       enable row level security;
 
 -- =========================================================================
 -- Seed da taxonomia (global, location_id NULL) — spec seção 5.
--- Idempotente: on conflict não sobrescreve overrides por location.
 -- =========================================================================
-insert into vault_services (location_id, service_key, name_pt, name_en, sort) values
-  (null, 'passaporte',   'Passaporte',   'Passport',            10),
-  (null, 'empresa',      'Empresa',      'Company',             20),
-  (null, 'registration', 'Registration', 'Vehicle Registration',30),
-  (null, 'seguro_vida',  'Seguro de Vida','Life Insurance',     40),
-  (null, 'traducao',     'Tradução',     'Translation',         50),
-  (null, 'juridico',     'Jurídico',     'Legal',               60)
+insert into document_vault.services (location_id, service_key, name_pt, name_en, sort) values
+  (null, 'passaporte',   'Passaporte',    'Passport',             10),
+  (null, 'empresa',      'Empresa',       'Company',              20),
+  (null, 'registration', 'Registration',  'Vehicle Registration', 30),
+  (null, 'seguro_vida',  'Seguro de Vida','Life Insurance',       40),
+  (null, 'traducao',     'Tradução',      'Translation',          50),
+  (null, 'juridico',     'Jurídico',      'Legal',                60)
 on conflict (coalesce(location_id, '*'), service_key) do nothing;
 
--- doc_types por serviço (só para o seed global). doc_key em snake_case.
-insert into vault_doc_types (service_id, doc_key, label_pt, label_en, required, sort)
+insert into document_vault.doc_types (service_id, doc_key, label_pt, label_en, required, sort)
 select s.id, t.doc_key, t.label_pt, t.label_en, t.required, t.sort
-from vault_services s
+from document_vault.services s
 join (
   values
-    -- Passaporte
-    ('passaporte','passaporte_antigo','Passaporte antigo','Old passport',        true, 10),
-    ('passaporte','foto',             'Foto',              'Photo',               true, 20),
-    ('passaporte','comprovante',      'Comprovante',       'Proof of payment',    true, 30),
-    ('passaporte','protocolo',        'Protocolo',         'Protocol',            true, 40),
-    -- Empresa
-    ('empresa','id',               'ID',                       'ID',                     true, 10),
-    ('empresa','comprovante_end',  'Comprovante de endereço',  'Proof of address',       true, 20),
-    ('empresa','reg_nj',           'Registro NJ',              'NJ registration',        true, 30),
-    ('empresa','reg_irs',          'Registro IRS',             'IRS registration',       true, 40),
-    ('empresa','reg_taxation',     'Registro Taxation',        'Taxation registration',  true, 50),
-    ('empresa','reg_corecore',     'Registro Corecore',        'Corecore registration',  true, 60),
-    -- Registration
+    ('passaporte','passaporte_antigo','Passaporte antigo','Old passport',      true, 10),
+    ('passaporte','foto',             'Foto',              'Photo',             true, 20),
+    ('passaporte','comprovante',      'Comprovante',       'Proof of payment',  true, 30),
+    ('passaporte','protocolo',        'Protocolo',         'Protocol',          true, 40),
+    ('empresa','id',              'ID',                      'ID',                    true, 10),
+    ('empresa','comprovante_end', 'Comprovante de endereço', 'Proof of address',      true, 20),
+    ('empresa','reg_nj',          'Registro NJ',             'NJ registration',       true, 30),
+    ('empresa','reg_irs',         'Registro IRS',            'IRS registration',      true, 40),
+    ('empresa','reg_taxation',    'Registro Taxation',       'Taxation registration', true, 50),
+    ('empresa','reg_corecore',    'Registro Corecore',       'Corecore registration', true, 60),
     ('registration','titulo_veiculo','Título do veículo','Vehicle title', true, 10),
     ('registration','id',           'ID',               'ID',            true, 20),
     ('registration','seguro',       'Seguro',           'Insurance',     true, 30),
-    -- Seguro de vida
     ('seguro_vida','id',           'ID',           'ID',            true, 10),
-    ('seguro_vida','aplicacao',    'Aplicação',    'Application',    true, 20),
+    ('seguro_vida','aplicacao',    'Aplicação',    'Application',   true, 20),
     ('seguro_vida','ilustracao',   'Ilustração',   'Illustration',  true, 30),
     ('seguro_vida','beneficiarios','Beneficiários','Beneficiaries', true, 40),
-    -- Tradução
     ('traducao','doc_origem',    'Documento de origem',  'Source document',     true, 10),
     ('traducao','doc_traduzido', 'Documento traduzido',  'Translated document', true, 20),
-    -- Jurídico
-    ('juridico','boletim',   'Boletim/ocorrência',   'Police report',   true, 10),
-    ('juridico','docs_caso', 'Documentos do caso',   'Case documents',  true, 20)
+    ('juridico','boletim',   'Boletim/ocorrência', 'Police report',  true, 10),
+    ('juridico','docs_caso', 'Documentos do caso', 'Case documents', true, 20)
 ) as t(service_key, doc_key, label_pt, label_en, required, sort)
   on s.service_key = t.service_key and s.location_id is null
 on conflict (service_id, doc_key) do nothing;

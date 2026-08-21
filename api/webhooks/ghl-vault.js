@@ -10,12 +10,12 @@
  * configurada, verifica RSA-SHA256 sobre o body cru (header x-wh-signature).
  * Sem a chave, grava signature_valid=null e não age em nada sensível.
  *
- * Idempotência: PK event_id em vault_webhook_events.
+ * Idempotência: PK event_id em document_vault.webhook_events.
  *
  * GET retorna saúde do endpoint.
  */
 import { createVerify, createHash } from "node:crypto";
-import { db } from "../../lib/server/db.js";
+import { vaultDb } from "../../lib/server/vault/db.js";
 import { readRawBody } from "../../lib/server/raw-body.js";
 
 export const config = { api: { bodyParser: false } };
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
 
   // Persiste o evento (idempotente por event_id)
   try {
-    const { error } = await db().from("vault_webhook_events").insert({
+    const { error } = await vaultDb().from("webhook_events").insert({
       event_id: eventId,
       event_type: eventType,
       payload,
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
   const trusted = signatureValid !== false;
   try {
     if (trusted && locationId && /uninstall/i.test(eventType)) {
-      await db().from("vault_installations")
+      await vaultDb().from("installations")
         .update({ status: "uninstalled" }).eq("location_id", locationId);
       await markProcessed(eventId);
     } else if (trusted && /install/i.test(eventType)) {
@@ -108,7 +108,7 @@ function verifySignature(raw, sig) {
 }
 
 async function markProcessed(eventId) {
-  await db().from("vault_webhook_events")
+  await vaultDb().from("webhook_events")
     .update({ processed: true, processed_at: new Date().toISOString() })
     .eq("event_id", eventId);
 }

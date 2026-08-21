@@ -80,14 +80,18 @@ Não é opcional: passaportes, SSN/ITIN, IDs, docs federais.
 
 ## Modelo de dados
 
-`db/migrations/0002_document_vault.sql`:
+**Separação real:** schema dedicado `document_vault` no projeto Supabase
+**Sparkleads OS** (`nsqwgjbgcdqyzozyaltz`), isolado do Referral e dos demais apps.
+Migration `db/migrations/0002_document_vault.sql` (self-contained) — já aplicada.
 
-- `vault_services` — catálogo de serviços (seed global + override por location)
-- `vault_doc_types` — tipos esperados por serviço (o checklist template)
-- `vault_documents` — um registro por documento espelhado (idempotente)
-- `vault_sync_state` — cursor do poll incremental por location + fonte
-- `vault_access_grants` — acesso por departamento (espelha GHL)
-- auditoria de acesso: reusa `audit_log` (`resource_type = 'vault_document'`)
+- `document_vault.installations` — tokens OAuth do app do Cofre (próprios)
+- `document_vault.services` — catálogo de serviços (seed global + override por location)
+- `document_vault.doc_types` — tipos esperados por serviço (o checklist template)
+- `document_vault.documents` — um registro por documento espelhado (idempotente)
+- `document_vault.sync_state` — cursor do poll incremental por location + fonte
+- `document_vault.access_grants` — acesso por departamento (espelha GHL)
+- `document_vault.webhook_events` — idempotência dos webhooks do app
+- `document_vault.audit_log` — auditoria própria de acesso/download
 
 ## Mapa de endpoints (a construir)
 
@@ -103,7 +107,7 @@ Não é opcional: passaportes, SSN/ITIN, IDs, docs federais.
 ## App GHL — configuração (Marketplace)
 
 O Cofre é um **app GHL separado** do Referral Hub (Client ID próprio), com
-endpoints e tabela de tokens (`vault_installations`) isolados.
+endpoints, banco (schema `document_vault`) e chave de cripto próprios.
 
 **URLs pra colar no app** (domínio de produção `test-repo-ebon-nine.vercel.app`):
 
@@ -112,8 +116,15 @@ endpoints e tabela de tokens (`vault_installations`) isolados.
 | Redirect URL (OAuth) | `https://test-repo-ebon-nine.vercel.app/api/oauth/vault/callback` |
 | Webhook URL | `https://test-repo-ebon-nine.vercel.app/api/webhooks/ghl-vault` |
 
-**Scopes mínimos** (leitura): `medias.readonly`, `conversations.readonly`,
-`conversations/message.readonly`, `contacts.readonly`, `locations.readonly`.
+**Scopes mínimos** (leitura):
+
+| Scope | Fonte / uso |
+|-------|-------------|
+| `files.readonly` | Media Library — o "Add to documents" (gatilho principal) |
+| `conversations.readonly` | Achar a conversa do contato (fallback de dono) |
+| `conversations/message.readonly` | Anexos de WhatsApp |
+| `contacts.readonly` | Resolver contato + campo `FILE_UPLOAD` do formulário |
+| `locations.readonly` | Nome/dados da location na instalação |
 
 **Env vars na Vercel** (segredos NUNCA vão pro repo):
 
@@ -123,9 +134,17 @@ endpoints e tabela de tokens (`vault_installations`) isolados.
 | `VAULT_GHL_CLIENT_SECRET` | Client Secret do app do Cofre |
 | `VAULT_GHL_SHARED_SECRET` | Shared Secret Key (descriptografa o contexto SSO do iframe) |
 | `VAULT_GHL_WEBHOOK_PUBLIC_KEY` | (opcional) PEM público do GHL p/ validar assinatura do webhook |
+| `VAULT_SUPABASE_URL` | `https://nsqwgjbgcdqyzozyaltz.supabase.co` (Sparkleads OS) |
+| `VAULT_SUPABASE_SERVICE_ROLE_KEY` | service role key do Sparkleads OS (copiar do dashboard) |
+| `VAULT_TOKEN_ENCRYPTION_KEY` | chave AES-256 PRÓPRIA do Cofre (base64 de 32 bytes) |
 | `PUBLIC_BASE_URL` | `https://test-repo-ebon-nine.vercel.app` (já existe) |
-| `TOKEN_ENCRYPTION_KEY` | chave AES-256 (já existe no Hub) |
 | `JWT_SIGNING_KEY` | chave do JWT de sessão (já existe no Hub) |
+
+Gerar a chave própria:
+`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
+
+**Passo no Supabase:** expor o schema em Sparkleads OS → Settings → API →
+**Exposed schemas** → adicionar `document_vault` (senão o PostgREST recusa as queries).
 
 O Client Secret e a Shared Key foram expostos em chat durante o setup — **rotacionar
 no Marketplace** após configurar.

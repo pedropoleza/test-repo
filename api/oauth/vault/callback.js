@@ -1,23 +1,24 @@
 /**
  * OAuth callback do app Cofre de Documentos (GHL) — handler real.
  *
- * App GHL distinto do Referral Hub: usa credenciais próprias
- * (VAULT_GHL_CLIENT_ID / VAULT_GHL_CLIENT_SECRET) e persiste em
- * `vault_installations` (não em `installations`).
+ * App GHL distinto do Referral Hub: credenciais, banco e chave de cripto
+ * próprios. Persiste em document_vault.installations (Sparkleads OS), não
+ * no banco/tabela do Referral.
  *
  * Fluxo:
  *   1. Recebe `code` (OAuth code grant, user_type=Location)
  *   2. Troca por access/refresh tokens via /oauth/token
- *   3. Encripta os tokens (AES-256-GCM, TOKEN_ENCRYPTION_KEY) e faz upsert
+ *   3. Encripta os tokens (AES-256-GCM, VAULT_TOKEN_ENCRYPTION_KEY) e faz upsert
  *   4. Assina JWT curto e redireciona pro Cofre (/vault.html)
  *
  * Env vars necessárias na Vercel:
  *   VAULT_GHL_CLIENT_ID, VAULT_GHL_CLIENT_SECRET, PUBLIC_BASE_URL,
- *   TOKEN_ENCRYPTION_KEY, JWT_SIGNING_KEY (as duas últimas já existem no Hub).
+ *   VAULT_TOKEN_ENCRYPTION_KEY, VAULT_SUPABASE_URL,
+ *   VAULT_SUPABASE_SERVICE_ROLE_KEY, JWT_SIGNING_KEY.
  */
-import { encrypt } from "../../../lib/server/crypto.js";
+import { encrypt } from "../../../lib/server/vault/crypto.js";
 import { sign as jwtSign } from "../../../lib/server/jwt.js";
-import { db } from "../../../lib/server/db.js";
+import { vaultDb } from "../../../lib/server/vault/db.js";
 
 const GHL_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token";
 
@@ -82,8 +83,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { error } = await db()
-      .from("vault_installations")
+    const { error } = await vaultDb()
+      .from("installations")
       .upsert(
         {
           location_id: locationId,

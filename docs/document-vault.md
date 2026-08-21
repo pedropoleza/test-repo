@@ -95,14 +95,19 @@ Migration `db/migrations/0002_document_vault.sql` (self-contained) — já aplic
 
 ## Mapa de endpoints (a construir)
 
-| Endpoint | Método | Função |
+| Endpoint | Método | Estado |
 |----------|--------|--------|
-| `/api/cron/vault-harvest` | GET | Poll incremental das 3 fontes → espelha |
-| `/api/vault/documents` | GET | Lista por contato / serviço / tipo (filtros da UI) |
-| `/api/vault/documents/[id]/link` | POST | Gera URL assinada curta + grava audit |
-| `/api/vault/checklist` | GET | "O que falta" por contato/serviço |
-| `/api/webhooks/ghl-media` | POST | (se existir) sobe o poll para instantâneo |
-| `/api/vault/upload` | POST | Portal: cliente envia documento (V2) |
+| `/api/oauth/vault/callback` | GET | ✅ OAuth do app do Cofre |
+| `/api/webhooks/ghl-vault` | POST | ✅ Webhook (INSTALL/UNINSTALL/mídia) |
+| `/api/cron/vault-harvest` | GET | 🚧 esqueleto: poll incremental da media; download/storage = D2 |
+| `/api/vault/documents` | GET | ⬜ Lista por contato / serviço / tipo (filtros da UI) |
+| `/api/vault/documents/[id]/link` | POST | ⬜ Gera URL assinada curta + grava audit |
+| `/api/vault/checklist` | GET | ⬜ "O que falta" por contato/serviço |
+| `/api/vault/upload` | POST | ⬜ Portal: cliente envia documento (V2) |
+
+O harvester roda a cada 5 min (`vercel.json`) — intervalo é o **D3**. Enquanto
+não há env vars/installation, ele responde `{configured:false}` / `locations:0`
+sem erro.
 
 ## App GHL — configuração (Marketplace)
 

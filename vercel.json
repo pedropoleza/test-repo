@@ -8,14 +8,9 @@
     {
       "path": "/api/cron/sync-locations",
       "schedule": "30 4 * * *"
-    },
-    {
-      "path": "/api/cron/vault-harvest",
-      "schedule": "*/5 * * * *"
     }
   ],
   "functions": {
-    "api/cron/vault-harvest.js": { "maxDuration": 60 },
     "api/cron/sync-locations.js": { "maxDuration": 60 },
     "api/admin/resync-locations.js": { "maxDuration": 60 },
     "api/admin/recompute-tier.js": { "maxDuration": 60 },

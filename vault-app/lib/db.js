@@ -6,7 +6,7 @@
  * service_role key (que veria o projeto inteiro) nem o PostgREST.
  *
  * Env var (Vercel):
- *   VAULT_DATABASE_URL — string de conexão do pooler (Supavisor, transaction
+ *   DATABASE_URL — string de conexão do pooler (Supavisor, transaction
  *   mode, porta 6543) com o usuário dv_app. Ex.:
  *   postgresql://dv_app.<ref>:<senha>@aws-0-us-east-1.pooler.supabase.com:6543/postgres
  *
@@ -19,8 +19,8 @@ let _sql = null;
 
 export function sql() {
   if (_sql) return _sql;
-  const url = process.env.VAULT_DATABASE_URL;
-  if (!url) throw new Error("VAULT_DATABASE_URL not set");
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL not set");
   _sql = postgres(url, {
     ssl: "require",
     prepare: false,
@@ -33,5 +33,5 @@ export function sql() {
 
 /** true se as env vars mínimas do Cofre estão presentes. */
 export function vaultConfigured() {
-  return !!process.env.VAULT_DATABASE_URL;
+  return !!process.env.DATABASE_URL;
 }

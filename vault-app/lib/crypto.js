@@ -1,7 +1,7 @@
 /**
  * Criptografia em repouso DEDICADA do Cofre (AES-256-GCM).
  *
- * Separação real: usa uma chave PRÓPRIA (VAULT_TOKEN_ENCRYPTION_KEY), distinta
+ * Separação real: usa uma chave PRÓPRIA (TOKEN_ENCRYPTION_KEY), distinta
  * da chave do Referral Hub — o deploy do Referral não decripta os tokens/URLs
  * do Cofre e vice-versa. Documentos de imigrante exigem esse isolamento.
  *
@@ -12,7 +12,7 @@
  */
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
-const KEY_ENV = "VAULT_TOKEN_ENCRYPTION_KEY";
+const KEY_ENV = "TOKEN_ENCRYPTION_KEY";
 
 function getKey() {
   const k = process.env[KEY_ENV];

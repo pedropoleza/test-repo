@@ -1,0 +1,12 @@
+{
+  "cleanUrls": true,
+  "crons": [
+    {
+      "path": "/api/cron/harvest",
+      "schedule": "*/5 * * * *"
+    }
+  ],
+  "functions": {
+    "api/cron/harvest.js": { "maxDuration": 60 }
+  }
+}

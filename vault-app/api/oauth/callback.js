@@ -8,16 +8,16 @@
  * Fluxo:
  *   1. Recebe `code` (OAuth code grant, user_type=Location)
  *   2. Troca por access/refresh tokens via /oauth/token
- *   3. Encripta os tokens (AES-256-GCM, VAULT_TOKEN_ENCRYPTION_KEY) e faz upsert
- *   4. Assina JWT curto e redireciona pro Cofre (/vault.html)
+ *   3. Encripta os tokens (AES-256-GCM, TOKEN_ENCRYPTION_KEY) e faz upsert
+ *   4. Assina JWT curto e redireciona pro Cofre (/)
  *
  * Env vars necessárias na Vercel:
- *   VAULT_GHL_CLIENT_ID, VAULT_GHL_CLIENT_SECRET, PUBLIC_BASE_URL,
- *   VAULT_TOKEN_ENCRYPTION_KEY, VAULT_DATABASE_URL, JWT_SIGNING_KEY.
+ *   GHL_CLIENT_ID, GHL_CLIENT_SECRET, PUBLIC_BASE_URL,
+ *   TOKEN_ENCRYPTION_KEY, DATABASE_URL, JWT_SIGNING_KEY.
  */
-import { encrypt } from "../../../lib/server/vault/crypto.js";
-import { sign as jwtSign } from "../../../lib/server/jwt.js";
-import { sql } from "../../../lib/server/vault/db.js";
+import { encrypt } from "../../lib/crypto.js";
+import { sign as jwtSign } from "../../lib/jwt.js";
+import { sql } from "../../lib/db.js";
 
 const GHL_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token";
 
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
   const base = process.env.PUBLIC_BASE_URL || `https://${req.headers.host}`;
   res.setHeader(
     "Location",
-    `${base}/vault.html?session=${encodeURIComponent(session)}&locationId=${encodeURIComponent(locationId)}`,
+    `${base}/?session=${encodeURIComponent(session)}&locationId=${encodeURIComponent(locationId)}`,
   );
   return res.status(302).end();
 }
@@ -122,8 +122,8 @@ export default async function handler(req, res) {
 async function exchangeCode(code, req) {
   const base = process.env.PUBLIC_BASE_URL || `https://${req.headers.host}`;
   const body = new URLSearchParams({
-    client_id: process.env.VAULT_GHL_CLIENT_ID || "",
-    client_secret: process.env.VAULT_GHL_CLIENT_SECRET || "",
+    client_id: process.env.GHL_CLIENT_ID || "",
+    client_secret: process.env.GHL_CLIENT_SECRET || "",
     grant_type: "authorization_code",
     code,
     redirect_uri: `${base}/api/oauth/vault/callback`,

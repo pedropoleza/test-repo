@@ -6,7 +6,7 @@
  * pra (a) marcar INSTALL/UNINSTALL e (b), quando o GHL emitir, subir a captura
  * de mídia para "instantâneo". Nunca é tratado como confiável sem assinatura.
  *
- * Assinatura: se VAULT_GHL_WEBHOOK_PUBLIC_KEY (PEM público do GHL) estiver
+ * Assinatura: se GHL_WEBHOOK_PUBLIC_KEY (PEM público do GHL) estiver
  * configurada, verifica RSA-SHA256 sobre o body cru (header x-wh-signature).
  * Sem a chave, grava signature_valid=null e não age em nada sensível.
  *
@@ -15,8 +15,8 @@
  * GET retorna saúde do endpoint.
  */
 import { createVerify, createHash } from "node:crypto";
-import { sql } from "../../lib/server/vault/db.js";
-import { readRawBody } from "../../lib/server/raw-body.js";
+import { sql } from "../../lib/db.js";
+import { readRawBody } from "../../lib/raw-body.js";
 
 export const config = { api: { bodyParser: false } };
 
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       service: "vault-ghl-webhook",
-      ready_for_signature_validation: !!process.env.VAULT_GHL_WEBHOOK_PUBLIC_KEY,
+      ready_for_signature_validation: !!process.env.GHL_WEBHOOK_PUBLIC_KEY,
     });
   }
   if (req.method !== "POST") {
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
 }
 
 function verifySignature(raw, sig) {
-  const pubKey = process.env.VAULT_GHL_WEBHOOK_PUBLIC_KEY;
+  const pubKey = process.env.GHL_WEBHOOK_PUBLIC_KEY;
   if (!pubKey || !sig) return null; // ainda não exigido
   try {
     const ok = createVerify("RSA-SHA256").update(raw).verify(pubKey, String(sig), "base64");

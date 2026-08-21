@@ -3,7 +3,7 @@
  *
  * Lê de document_vault.installations (não da tabela do Referral), decripta com
  * a chave própria do Cofre e, se vencido, faz refresh via /oauth/token usando
- * as credenciais do app do Cofre (VAULT_GHL_CLIENT_ID / VAULT_GHL_CLIENT_SECRET).
+ * as credenciais do app do Cofre (GHL_CLIENT_ID / GHL_CLIENT_SECRET).
  */
 import { sql } from "./db.js";
 import { encrypt, decrypt } from "./crypto.js";
@@ -50,8 +50,8 @@ export async function getVaultLocationToken(locationId) {
 
 async function refreshOauthToken(refreshToken) {
   const body = new URLSearchParams({
-    client_id: process.env.VAULT_GHL_CLIENT_ID || "",
-    client_secret: process.env.VAULT_GHL_CLIENT_SECRET || "",
+    client_id: process.env.GHL_CLIENT_ID || "",
+    client_secret: process.env.GHL_CLIENT_SECRET || "",
     grant_type: "refresh_token",
     refresh_token: refreshToken,
     user_type: "Location",

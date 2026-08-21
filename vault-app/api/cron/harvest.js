@@ -16,10 +16,10 @@
  * {configured:false} em vez de estourar (evita ruído de cron vermelho).
  */
 import { timingSafeEqual } from "node:crypto";
-import { sql, vaultConfigured } from "../../lib/server/vault/db.js";
-import { getVaultLocationToken } from "../../lib/server/vault/ghl-token.js";
-import { encrypt } from "../../lib/server/vault/crypto.js";
-import { listMediaFiles, normalizeMediaFile } from "../../lib/server/vault/ghl.js";
+import { sql, vaultConfigured } from "../../lib/db.js";
+import { getVaultLocationToken } from "../../lib/ghl-token.js";
+import { encrypt } from "../../lib/crypto.js";
+import { listMediaFiles, normalizeMediaFile } from "../../lib/ghl.js";
 
 export const config = { maxDuration: 60 };
 

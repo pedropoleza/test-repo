@@ -11,25 +11,42 @@
     <link rel="stylesheet" href="./styles/tokens.css" />
     <link rel="stylesheet" href="./styles/components.css" />
     <style>
-      .badge--warn { background: var(--warn-bg); color: var(--warn); }
-      .topbar { position:sticky; top:0; z-index:30; height:56px; display:flex; align-items:center; gap:16px; padding:0 var(--content-pad); background:var(--white); border-bottom:1px solid var(--gray-200); }
-      .loc { display:inline-flex; align-items:center; gap:9px; font-weight:700; color:var(--gray-900); }
+      .topbar { position:sticky; top:0; z-index:30; height:60px; display:flex; align-items:center; gap:16px; padding:0 var(--content-pad); background:var(--white); border-bottom:1px solid var(--gray-200); }
+      .loc { display:inline-flex; align-items:center; gap:9px; font-weight:700; color:var(--gray-900); white-space:nowrap; }
       .loc svg { width:18px; height:18px; color:var(--ghl-600); }
+      .search { flex:1; max-width:520px; margin-left:auto; position:relative; }
+      .search svg { position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--gray-400); }
+      .search input { width:100%; height:40px; padding:0 12px 0 36px; border:1px solid var(--gray-200); border-radius:var(--r-pill); background:var(--gray-50); font:inherit; color:var(--gray-900); }
+      .search input:focus { outline:none; border-color:var(--ghl-400); background:var(--white); box-shadow:var(--shadow-blue-soft); }
       .wrap { padding:var(--content-pad); position:relative; z-index:1; }
 
-      .folders { display:flex; align-items:flex-end; gap:4px; flex-wrap:wrap; padding:0 6px; position:relative; z-index:2; }
-      .folder-tab { display:inline-flex; align-items:center; gap:9px; padding:11px 16px 13px; background:var(--gray-100); border:1px solid var(--gray-200); border-bottom:none; border-radius:12px 12px 0 0; color:var(--gray-600); font-weight:600; font-size:var(--fs-base); transition:background var(--d-fast),color var(--d-fast); position:relative; top:1px; max-width:260px; }
-      .folder-tab:hover { background:var(--gray-50); color:var(--gray-900); }
-      .folder-tab .fico { width:18px; height:18px; flex-shrink:0; color:var(--ghl-500); }
-      .folder-tab .fname { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-      .folder-tab .fcount { font-variant-numeric:tabular-nums; background:var(--gray-200); color:var(--gray-600); padding:1px 8px; border-radius:var(--r-pill); font-size:11px; font-weight:700; }
-      .folder-tab.is-active { background:var(--white); color:var(--ghl-700); box-shadow:0 -6px 16px -10px rgba(15,23,42,.22); z-index:3; }
-      .folder-tab.is-active .fico { color:var(--ghl-600); }
-      .folder-tab.is-active .fcount { background:var(--ghl-100); color:var(--ghl-700); }
-      .folder-tab--new { background:transparent; border-style:dashed; color:var(--ghl-600); }
-      .folder-tab--new:hover { background:var(--ghl-50); }
+      .pipes { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+      .pipes__label { font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.06em; color:var(--gray-400); font-weight:700; margin-right:2px; }
+      .pipe { display:inline-flex; align-items:center; gap:7px; padding:6px 13px; border-radius:var(--r-pill); background:var(--white); border:1px solid var(--gray-200); color:var(--gray-700); font-size:var(--fs-sm); font-weight:600; cursor:pointer; transition:all var(--d-fast); }
+      .pipe:hover { border-color:var(--ghl-300); color:var(--ghl-700); }
+      .pipe.is-active { background:var(--ghl-50); border-color:var(--ghl-300); color:var(--ghl-700); box-shadow:var(--shadow-blue-soft); }
+      .pipe .count { font-variant-numeric:tabular-nums; background:var(--gray-100); color:var(--gray-600); padding:0 7px; border-radius:var(--r-pill); font-size:11px; }
+      .pipe.is-active .count { background:var(--ghl-100); color:var(--ghl-700); }
 
-      .folder-body { background:var(--white); border:1px solid var(--gray-200); border-radius:0 var(--r-lg) var(--r-lg) var(--r-lg); box-shadow:var(--shadow-sm); padding:24px; position:relative; z-index:1; min-height:220px; }
+      /* Grid de pastas */
+      .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:16px; }
+      .fcard { text-align:left; background:var(--white); border:1px solid var(--gray-200); border-radius:var(--r-lg); padding:18px; cursor:pointer; transition:all var(--d) var(--bezier-out); display:flex; flex-direction:column; gap:12px; }
+      .fcard:hover { border-color:var(--ghl-200); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+      .fcard__top { display:flex; align-items:center; justify-content:space-between; }
+      .fcard__ico { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#eef4ff,#dbe7ff); color:var(--ghl-600); display:inline-flex; align-items:center; justify-content:center; }
+      .fcard__ico svg { width:24px; height:24px; }
+      .fcard__count { font-size:var(--fs-xs); color:var(--gray-500); font-weight:600; background:var(--gray-100); padding:3px 9px; border-radius:var(--r-pill); }
+      .fcard__name { font-weight:700; color:var(--gray-900); font-size:var(--fs-md); letter-spacing:-.01em; }
+      .fcard__meta { font-size:var(--fs-xs); color:var(--gray-500); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .fcard__pipe { display:inline-flex; align-items:center; gap:6px; align-self:flex-start; padding:3px 9px; border-radius:var(--r-pill); background:var(--ghl-50); color:var(--ghl-700); border:1px solid var(--ghl-100); font-size:11px; font-weight:600; }
+      .fcard--new { border-style:dashed; align-items:center; justify-content:center; color:var(--ghl-600); font-weight:700; min-height:120px; }
+      .fcard--new:hover { background:var(--ghl-50); }
+      .grid-empty { grid-column:1/-1; text-align:center; padding:50px 20px; color:var(--gray-400); }
+
+      /* Detalhe da pasta */
+      .back { display:inline-flex; align-items:center; gap:8px; border:0; background:transparent; color:var(--ghl-700); font-weight:700; font-size:var(--fs-sm); cursor:pointer; padding:6px 2px; margin-bottom:14px; }
+      .back:hover { color:var(--ghl-800); }
+      .folder-body { background:var(--white); border:1px solid var(--gray-200); border-radius:var(--r-lg); box-shadow:var(--shadow-sm); padding:24px; }
       .folder-head { display:flex; align-items:center; gap:16px; padding-bottom:18px; border-bottom:1px solid var(--gray-150); }
       .avatar-lg { width:52px; height:52px; border-radius:14px; flex-shrink:0; background:linear-gradient(135deg,var(--ghl-500),var(--ghl-700)); color:#fff; font-weight:800; font-size:17px; display:inline-flex; align-items:center; justify-content:center; box-shadow:var(--shadow-blue); }
       .folder-head__name { margin:0; font-size:var(--fs-xl); font-weight:800; letter-spacing:-.02em; color:var(--gray-900); }
@@ -38,16 +55,20 @@
       .info-chip { display:inline-flex; align-items:center; gap:7px; padding:5px 11px; background:var(--gray-50); border:1px solid var(--gray-200); border-radius:var(--r-pill); font-size:var(--fs-sm); color:var(--gray-700); }
       .info-chip svg { width:13px; height:13px; color:var(--gray-400); }
       .info-chip strong { color:var(--gray-900); font-weight:600; }
+      .pipe-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:var(--r-pill); background:var(--ghl-50); color:var(--ghl-700); border:1px solid var(--ghl-100); font-size:var(--fs-sm); font-weight:600; }
+      .pipe-badge .stage { color:var(--gray-500); font-weight:500; }
 
-      .uploader { margin-top:18px; border:1.5px dashed var(--gray-300); border-radius:var(--r-lg); padding:18px; display:flex; align-items:center; gap:14px; background:var(--gray-50); transition:all var(--d-fast); }
-      .uploader.is-drag { border-color:var(--ghl-400); background:var(--ghl-50); box-shadow:var(--shadow-blue-soft); }
-      .uploader__txt { color:var(--gray-500); font-size:var(--fs-sm); }
-      .btn-primary { height:36px; padding:0 16px; border-radius:var(--r-md); border:0; background:var(--ghl-600); color:#fff; font-weight:700; font-size:var(--fs-sm); box-shadow:var(--shadow-blue); transition:all var(--d-fast); }
-      .btn-primary:hover { background:var(--ghl-700); }
-      .btn-primary:disabled { background:var(--gray-300); box-shadow:none; cursor:not-allowed; }
+      /* Dropzone grande (novo documento) */
+      .dropzone { margin-top:18px; border:2px dashed var(--gray-300); border-radius:var(--r-lg); padding:34px 20px; text-align:center; background:var(--gray-50); transition:all var(--d-fast); cursor:pointer; }
+      .dropzone:hover { border-color:var(--ghl-300); background:var(--ghl-50); }
+      .dropzone.is-drag { border-color:var(--ghl-500); background:var(--ghl-50); box-shadow:var(--shadow-blue-soft); transform:scale(1.005); }
+      .dropzone__ico { width:48px; height:48px; margin:0 auto 10px; border-radius:14px; background:var(--white); border:1px solid var(--ghl-100); color:var(--ghl-600); display:flex; align-items:center; justify-content:center; }
+      .dropzone__ico svg { width:24px; height:24px; }
+      .dropzone__title { font-weight:700; color:var(--gray-800); }
+      .dropzone__hint { font-size:var(--fs-sm); color:var(--gray-500); margin-top:3px; }
 
       .files { margin-top:18px; display:flex; flex-direction:column; }
-      .file { display:grid; grid-template-columns:40px 1fr auto auto auto; align-items:center; gap:14px; padding:12px 6px; border-bottom:1px solid var(--gray-150); }
+      .file { display:grid; grid-template-columns:40px 1fr auto auto; align-items:center; gap:14px; padding:12px 6px; border-bottom:1px solid var(--gray-150); }
       .file:last-child { border-bottom:none; }
       .file__ico { width:40px; height:40px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; }
       .file__ico svg { width:20px; height:20px; }
@@ -56,55 +77,10 @@
       .file__ico[data-kind="doc"]   { background:var(--gray-100); color:var(--gray-600); }
       .file__name { font-weight:600; color:var(--gray-900); word-break:break-word; }
       .file__meta { font-size:var(--fs-xs); color:var(--gray-500); margin-top:2px; }
-      .src { display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-sm); color:var(--gray-700); font-weight:500; }
-      .src .dot { width:8px; height:8px; border-radius:50%; }
-      .src[data-source="media"] .dot { background:var(--ghl-500); }
-      .src[data-source="conversation"] .dot { background:var(--success); }
-      .src[data-source="form"] .dot { background:var(--warn); }
-      .src[data-source="upload"] .dot { background:#6366f1; }
       .btn-ghost { height:32px; padding:0 14px; border-radius:var(--r-md); border:1px solid var(--gray-200); background:var(--white); color:var(--ghl-700); font-weight:600; font-size:var(--fs-sm); transition:all var(--d-fast); text-decoration:none; display:inline-flex; align-items:center; }
       .btn-ghost:hover { border-color:var(--ghl-300); box-shadow:var(--shadow-blue-soft); }
       .btn-ghost.is-disabled { color:var(--gray-300); border-color:var(--gray-150); pointer-events:none; }
-      .empty-files { padding:34px 0; text-align:center; color:var(--gray-400); }
-      .empty-state-lg { padding:60px 20px; text-align:center; }
-      .empty-state-lg h3 { margin:0 0 6px; color:var(--gray-800); font-size:var(--fs-lg); }
-      .empty-state-lg p { margin:0 0 18px; color:var(--gray-500); }
-
-      /* Filtro de setores (pipelines) */
-      .pipes { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
-      .pipes__label { font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.06em; color:var(--gray-400); font-weight:700; margin-right:2px; }
-      .pipe { display:inline-flex; align-items:center; gap:7px; padding:6px 13px; border-radius:var(--r-pill); background:var(--white); border:1px solid var(--gray-200); color:var(--gray-700); font-size:var(--fs-sm); font-weight:600; cursor:pointer; transition:all var(--d-fast); }
-      .pipe:hover { border-color:var(--ghl-300); color:var(--ghl-700); }
-      .pipe.is-active { background:var(--ghl-50); border-color:var(--ghl-300); color:var(--ghl-700); box-shadow:var(--shadow-blue-soft); }
-      .pipe .count { font-variant-numeric:tabular-nums; background:var(--gray-100); color:var(--gray-600); padding:0 7px; border-radius:var(--r-pill); font-size:11px; }
-      .pipe.is-active .count { background:var(--ghl-100); color:var(--ghl-700); }
-      .pipe-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:var(--r-pill); background:var(--ghl-50); color:var(--ghl-700); border:1px solid var(--ghl-100); font-size:var(--fs-sm); font-weight:600; }
-      .pipe-badge .stage { color:var(--gray-500); font-weight:500; }
-
-      /* Modal */
-      .modal-back { position:fixed; inset:0; background:rgba(15,23,42,.42); backdrop-filter:blur(2px); z-index:100; display:flex; align-items:flex-start; justify-content:center; padding:60px 16px; }
-      .modal-card { width:100%; max-width:520px; background:var(--white); border-radius:var(--r-xl); box-shadow:var(--shadow-lg); overflow:hidden; }
-      .modal-h { padding:20px 22px; border-bottom:1px solid var(--gray-150); display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-      .modal-h h3 { margin:0; font-size:var(--fs-lg); font-weight:800; color:var(--gray-900); }
-      .modal-h p { margin:3px 0 0; color:var(--gray-500); font-size:var(--fs-sm); }
-      .modal-x { border:0; background:var(--gray-100); width:32px; height:32px; border-radius:8px; color:var(--gray-600); font-size:16px; cursor:pointer; }
-      .modal-b { padding:20px 22px; }
-      .modal-f { padding:16px 22px; border-top:1px solid var(--gray-150); display:flex; justify-content:flex-end; gap:10px; }
-      .input { width:100%; height:40px; padding:0 12px; border:1px solid var(--gray-200); border-radius:var(--r-md); background:var(--white); font:inherit; color:var(--gray-900); }
-      .input:focus { outline:none; border-color:var(--ghl-400); box-shadow:var(--shadow-blue-soft); }
-      .results { margin-top:10px; max-height:230px; overflow-y:auto; border:1px solid var(--gray-150); border-radius:var(--r-md); }
-      .result { display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--gray-100); }
-      .result:last-child { border-bottom:none; }
-      .result:hover { background:var(--gray-50); }
-      .result.is-sel { background:var(--ghl-50); }
-      .result__av { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,var(--ghl-500),var(--ghl-700)); color:#fff; font-weight:700; font-size:12px; display:inline-flex; align-items:center; justify-content:center; }
-      .result__name { font-weight:600; color:var(--gray-900); }
-      .result__meta { font-size:var(--fs-xs); color:var(--gray-500); }
-      .staged { margin-top:14px; display:flex; flex-direction:column; gap:6px; }
-      .staged__item { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 10px; background:var(--gray-50); border:1px solid var(--gray-150); border-radius:var(--r-md); font-size:var(--fs-sm); }
-      .staged__item button { border:0; background:transparent; color:var(--danger); cursor:pointer; font-weight:700; }
-      .btn-line { height:36px; padding:0 14px; border-radius:var(--r-md); border:1px solid var(--gray-200); background:var(--white); color:var(--gray-700); font-weight:600; font-size:var(--fs-sm); cursor:pointer; }
-      .muted { color:var(--gray-500); font-size:var(--fs-sm); }
+      .empty-files { padding:24px 0; text-align:center; color:var(--gray-400); }
     </style>
   </head>
   <body>
@@ -115,113 +91,147 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.686-7-11a7 7 0 0114 0c0 5.314-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
         <span id="loc-name">Cofre de Documentos</span>
       </span>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="search" type="search" placeholder="Pesquisar contato…" autocomplete="off" />
+      </div>
     </header>
 
     <div class="toasts" id="toasts" aria-live="polite"></div>
 
     <main class="wrap">
-      <div class="pipes" id="pipes" hidden></div>
-      <div class="folders" id="folders"></div>
-      <div class="folder-body" id="folder-body"></div>
+      <section id="grid-view">
+        <div class="pipes" id="pipes" hidden></div>
+        <div class="grid" id="grid"></div>
+      </section>
+      <section id="folder-view" hidden>
+        <button class="back" id="back">← Pastas</button>
+        <div class="folder-body" id="folder-body"></div>
+      </section>
     </main>
 
-    <input type="file" id="file-input" multiple hidden accept="image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx" />
-    <div id="modal-root"></div>
+    <input type="file" id="file-input" multiple hidden accept="image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx" />
 
     <script>
       const $ = (s, r = document) => r.querySelector(s);
-      const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
-      const initials = (name) => (name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+      const el = (t, c, h) => { const n = document.createElement(t); if (c) n.className = c; if (h != null) n.innerHTML = h; return n; };
+      const initials = (n) => (n || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
       const humanSize = (b) => (b==null) ? "" : b < 1024 ? b+" B" : b < 1048576 ? (b/1024).toFixed(0)+" KB" : (b/1048576).toFixed(1)+" MB";
       const SRC = { media:"Nuvem", conversation:"WhatsApp", form:"Formulário", upload:"Enviado" };
-
       const ICONS = {
-        folder: '<svg class="fico" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-8l-2-2z"/></svg>',
+        folder: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-8l-2-2z"/></svg>',
+        up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M6 10l6-6 6 6"/><path d="M4 20h16"/></svg>',
         phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg>',
         mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 6L2 7"/></svg>',
         image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
         pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>',
         doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M13 2v7h7"/></svg>',
       };
-      const kindOf = (mime, name) => { const m=(mime||"").toLowerCase(), n=(name||"").toLowerCase();
+      const kindOf = (m, n) => { m=(m||"").toLowerCase(); n=(n||"").toLowerCase();
         if (m.startsWith("image/")||/\.(png|jpe?g|gif|webp|heic|bmp)$/.test(n)) return "image";
         if (m==="application/pdf"||n.endsWith(".pdf")) return "pdf"; return "doc"; };
 
-      let MODE="demo", SESSION=null, LOCATION=null;
-      let FOLDERS=[], FILES=[], active=null;
+      let MODE="demo", SESSION=null;
+      let DOCS_FOLDERS=[], FILES=[], INFO={};
       let PIPELINES=[], CPMAP={}, activePipe="all";
-      const filesOf = (cid) => FILES.filter((f) => f.contact === cid);
-      const inPipe = (c) => activePipe==="all" || (CPMAP[c.id]?.pipelineId === activePipe);
+      let view="grid", currentId=null, searchQ="", searchResults=[], searchTimer=null;
 
+      const filesOf = (cid) => FILES.filter((f) => f.contact === cid);
+      const inPipe = (id) => activePipe==="all" || (CPMAP[id]?.pipelineId === activePipe);
+
+      // ---------- GRID ----------
       function renderPipes() {
         const box = $("#pipes");
         if (!PIPELINES.length) { box.hidden = true; return; }
         box.hidden = false;
-        const countIn = (pid) => FOLDERS.filter((c) => CPMAP[c.id]?.pipelineId === pid).length;
+        const countIn = (pid) => DOCS_FOLDERS.filter((c) => CPMAP[c.id]?.pipelineId === pid).length;
         const chips = [`<span class="pipes__label">Setor</span>`,
-          `<button class="pipe ${activePipe==="all"?"is-active":""}" data-pipe="all">Todos <span class="count">${FOLDERS.length}</span></button>`]
+          `<button class="pipe ${activePipe==="all"?"is-active":""}" data-pipe="all">Todos <span class="count">${DOCS_FOLDERS.length}</span></button>`]
           .concat(PIPELINES.map((p) => `<button class="pipe ${activePipe===p.id?"is-active":""}" data-pipe="${p.id}">${p.name} <span class="count">${countIn(p.id)}</span></button>`));
         box.innerHTML = chips.join("");
-        box.querySelectorAll(".pipe").forEach((b) => b.addEventListener("click", () => { activePipe = b.dataset.pipe; const vis = FOLDERS.filter(inPipe); if (!vis.find((c)=>c.id===active)) active = vis[0]?.id || null; renderPipes(); renderFolders(); renderBody(); }));
+        box.querySelectorAll(".pipe").forEach((b) => b.addEventListener("click", () => { activePipe=b.dataset.pipe; renderGrid(); }));
       }
 
-      function renderFolders() {
-        renderPipes();
-        const visible = FOLDERS.filter(inPipe);
-        const html = visible.map((c) => `<button class="folder-tab ${c.id===active?"is-active":""}" data-folder="${c.id}">${ICONS.folder}<span class="fname">${c.name}</span><span class="fcount">${filesOf(c.id).length}</span></button>`).join("");
-        $("#folders").innerHTML = html + `<button class="folder-tab folder-tab--new" id="new-folder">+ Nova pasta de contato</button>`;
-        $("#folders").querySelectorAll(".folder-tab[data-folder]").forEach((b) => b.addEventListener("click", () => { active=b.dataset.folder; renderFolders(); renderBody(); }));
-        $("#new-folder").addEventListener("click", openModal);
-      }
-
-      function renderBody() {
-        const c = FOLDERS.find((x) => x.id === active);
-        if (!c) {
-          $("#folder-body").innerHTML = `<div class="empty-state-lg"><h3>Nenhuma pasta ainda</h3><p>Crie uma pasta de contato para começar a guardar documentos.</p><button class="btn-primary" id="empty-new">+ Nova pasta de contato</button></div>`;
-          $("#empty-new")?.addEventListener("click", openModal); return;
+      function cardsToShow() {
+        if (searchQ) {
+          const src = MODE==="live" ? searchResults : DEMO_CONTACTS.filter((c)=>c.name.toLowerCase().includes(searchQ.toLowerCase()));
+          return src;
         }
+        return DOCS_FOLDERS.filter((c) => inPipe(c.id));
+      }
+
+      function renderGrid() {
+        renderPipes();
+        const cards = cardsToShow();
+        const grid = $("#grid");
+        const items = cards.map((c) => {
+          const n = filesOf(c.id).length;
+          const pinfo = CPMAP[c.id];
+          const pbadge = pinfo?.pipelineName ? `<span class="fcard__pipe">${pinfo.pipelineName}</span>` : "";
+          const meta = [c.email, c.phone].filter(Boolean).join(" · ") || "—";
+          return `<button class="fcard" data-id="${c.id}">
+            <div class="fcard__top"><span class="fcard__ico">${ICONS.folder}</span><span class="fcard__count">${n} arq.</span></div>
+            <div><div class="fcard__name">${c.name}</div><div class="fcard__meta">${meta}</div></div>
+            ${pbadge}
+          </button>`;
+        }).join("");
+        const empty = !cards.length ? `<div class="grid-empty">${searchQ ? "Nenhum contato encontrado." : "Nenhuma pasta ainda. Pesquise um contato acima para começar."}</div>` : "";
+        grid.innerHTML = items + empty;
+        grid.querySelectorAll(".fcard[data-id]").forEach((b) => b.addEventListener("click", () => openFolder(b.dataset.id)));
+      }
+
+      // ---------- DETALHE ----------
+      function contactInfo(id) {
+        return INFO[id] || DOCS_FOLDERS.find((c)=>c.id===id) || searchResults.find((c)=>c.id===id) || { id, name: id };
+      }
+      function openFolder(id) { currentId = id; view = "folder"; renderView(); }
+      function backToGrid() { view = "grid"; currentId = null; renderView(); }
+
+      function renderFolderBody() {
+        const c = contactInfo(currentId);
+        const pinfo = CPMAP[c.id];
         const chips = [];
+        if (pinfo?.pipelineName) chips.push(`<span class="pipe-badge">${pinfo.pipelineName}${pinfo.stageName?` <span class="stage">· ${pinfo.stageName}</span>`:""}</span>`);
         if (c.phone) chips.push(`<span class="info-chip">${ICONS.phone}<span>Telefone:</span> <strong>${c.phone}</strong></span>`);
         if (c.email) chips.push(`<span class="info-chip">${ICONS.mail}<span>Email:</span> <strong>${c.email}</strong></span>`);
         const list = filesOf(c.id);
-        const pinfo = CPMAP[c.id];
-        const pbadge = pinfo ? `<span class="pipe-badge">${pinfo.pipelineName||"Funil"}${pinfo.stageName?` <span class="stage">· ${pinfo.stageName}</span>`:""}</span>` : "";
-        const allChips = (pbadge?[pbadge]:[]).concat(chips);
-        const head = `<div class="folder-head"><span class="avatar-lg">${initials(c.name)}</span><div><h2 class="folder-head__name">${c.name}</h2><p class="folder-head__sub">${list.length} arquivo${list.length===1?"":"s"}</p>${allChips.length?`<div class="info-chips">${allChips.join("")}</div>`:""}</div></div>`;
-        const uploader = `<div class="uploader" id="uploader"><button class="btn-primary" id="add-files">+ Adicionar arquivos</button><span class="uploader__txt">ou arraste os arquivos aqui (até 4MB)</span></div>`;
-        const files = list.length ? `<div class="files">${list.map(fileRow).join("")}</div>` : `<div class="empty-files">Nenhum arquivo nesta pasta ainda</div>`;
-        $("#folder-body").innerHTML = head + uploader + files;
-        wireUploader(c);
+        const head = `<div class="folder-head"><span class="avatar-lg">${initials(c.name)}</span><div><h2 class="folder-head__name">${c.name}</h2><p class="folder-head__sub">${list.length} documento${list.length===1?"":"s"}</p>${chips.length?`<div class="info-chips">${chips.join("")}</div>`:""}</div></div>`;
+        const dz = `<div class="dropzone" id="dropzone"><div class="dropzone__ico">${ICONS.up}</div><div class="dropzone__title">Arraste documentos aqui</div><div class="dropzone__hint">ou clique para escolher · imagens, PDF, DOC, XLS (até 4MB)</div></div>`;
+        const files = list.length ? `<div class="files">${list.map(fileRow).join("")}</div>` : `<div class="empty-files">Nenhum documento nesta pasta ainda</div>`;
+        $("#folder-body").innerHTML = head + dz + files;
+        wireDropzone(c);
       }
-
       function fileRow(f) {
         const kind = kindOf(f.mime, f.name);
-        const meta = [humanSize(f.size), (f.at||"").slice(0,10)].filter(Boolean).join(" · ");
+        const meta = [SRC[f.source]||f.source, humanSize(f.size), (f.at||"").slice(0,10)].filter(Boolean).join(" · ");
         let action;
         if (f.blobUrl) action = `<a class="btn-ghost" href="${f.blobUrl}" target="_blank" rel="noopener">Abrir</a>`;
         else if (f.has_content && MODE==="live") action = `<a class="btn-ghost" href="/api/file?id=${encodeURIComponent(f.id)}&session=${encodeURIComponent(SESSION)}" target="_blank" rel="noopener">Abrir</a>`;
         else action = `<span class="btn-ghost is-disabled">Processando</span>`;
-        return `<div class="file"><div><span class="file__ico" data-kind="${kind}">${ICONS[kind]}</span></div><div><div class="file__name">${f.name||"—"}</div><div class="file__meta">${meta}</div></div><span class="src" data-source="${f.source}"><span class="dot"></span>${SRC[f.source]||f.source}</span><span></span>${action}</div>`;
+        return `<div class="file"><div><span class="file__ico" data-kind="${kind}">${ICONS[kind]}</span></div><div><div class="file__name">${f.name||"—"}</div><div class="file__meta">${meta}</div></div><span></span>${action}</div>`;
       }
 
-      // ---- Upload (na pasta aberta) ----
-      function wireUploader(c) {
-        const z = $("#uploader"); if (!z) return;
-        $("#add-files").addEventListener("click", () => { pendingContact=c; $("#file-input").click(); });
-        ["dragover","dragenter"].forEach(ev => z.addEventListener(ev,(e)=>{e.preventDefault();z.classList.add("is-drag");}));
-        ["dragleave","drop"].forEach(ev => z.addEventListener(ev,(e)=>{e.preventDefault();z.classList.remove("is-drag");}));
-        z.addEventListener("drop",(e)=>{ pendingContact=c; handleFiles(e.dataTransfer.files); });
+      function renderView() {
+        $("#grid-view").hidden = view!=="grid";
+        $("#folder-view").hidden = view!=="folder";
+        if (view==="grid") renderGrid(); else renderFolderBody();
       }
+
+      // ---------- UPLOAD (drag-drop) ----------
       let pendingContact=null;
-      $("#file-input").addEventListener("change",(e)=>{ handleFiles(e.target.files); e.target.value=""; });
-
-      async function handleFiles(fileList) {
-        const c = pendingContact; if (!c) return;
-        for (const file of fileList) await uploadOne(c, file);
+      function wireDropzone(c) {
+        const z = $("#dropzone"); if (!z) return;
+        z.addEventListener("click", () => { pendingContact=c; $("#file-input").click(); });
+        ["dragover","dragenter"].forEach(ev => z.addEventListener(ev,(e)=>{e.preventDefault();z.classList.add("is-drag");}));
+        ["dragleave","dragend"].forEach(ev => z.addEventListener(ev,(e)=>{e.preventDefault();z.classList.remove("is-drag");}));
+        z.addEventListener("drop",(e)=>{ e.preventDefault(); z.classList.remove("is-drag"); pendingContact=c; handleFiles(e.dataTransfer.files); });
       }
+      $("#file-input").addEventListener("change",(e)=>{ handleFiles(e.target.files); e.target.value=""; });
+      async function handleFiles(fileList) { const c=pendingContact; if(!c) return; for (const f of fileList) await uploadOne(c, f); }
       async function uploadOne(c, file) {
-        if (file.size > 4*1024*1024) { toast("warn","Arquivo acima de 4MB",file.name); return false; }
-        if (MODE==="demo") { const blobUrl=URL.createObjectURL(file); FILES.unshift({id:"demo-"+Math.random().toString(36).slice(2),contact:c.id,name:file.name,mime:file.type,size:file.size,source:"upload",at:new Date().toISOString(),blobUrl}); toast("success","Arquivo adicionado",file.name); renderFolders(); renderBody(); return true; }
+        if (file.size > 4*1024*1024) { toast("warn","Arquivo acima de 4MB",file.name); return; }
+        ensureFolder(c);
+        if (MODE==="demo") { const blobUrl=URL.createObjectURL(file); FILES.unshift({id:"demo-"+Math.random().toString(36).slice(2),contact:c.id,name:file.name,mime:file.type,size:file.size,source:"upload",at:new Date().toISOString(),blobUrl}); toast("success","Documento adicionado",file.name); renderFolderBody(); return; }
         try {
           toast("info","Enviando…",file.name);
           const dataBase64 = await fileToBase64(file);
@@ -229,82 +239,33 @@
           if (!r.ok) throw new Error("http_"+r.status);
           const j = await r.json();
           FILES.unshift({id:j.document.id,contact:c.id,name:file.name,mime:file.type,size:file.size,source:"upload",at:new Date().toISOString(),has_content:true});
-          toast("success","Arquivo adicionado",file.name); renderFolders(); renderBody(); return true;
-        } catch (err) { toast("warn","Falha ao enviar",file.name+" · "+err.message); return false; }
+          toast("success","Documento adicionado",file.name); renderFolderBody();
+        } catch (err) { toast("warn","Falha ao enviar",file.name+" · "+err.message); }
       }
+      function ensureFolder(c) { if (!DOCS_FOLDERS.find((x)=>x.id===c.id)) { DOCS_FOLDERS.push({id:c.id,name:c.name,email:c.email,phone:c.phone}); INFO[c.id]={id:c.id,name:c.name,email:c.email,phone:c.phone}; } }
       const fileToBase64 = (file) => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(",")[1]); r.onerror=rej; r.readAsDataURL(file); });
 
-      // ---- Modal "Nova pasta de contato" ----
-      let mSelected=null, mStaged=[], mTimer=null;
-      function openModal() {
-        mSelected=null; mStaged=[];
-        $("#modal-root").innerHTML = `
-          <div class="modal-back" id="mback">
-            <div class="modal-card">
-              <div class="modal-h"><div><h3>Nova pasta de contato</h3><p>Selecione o contato e anexe os arquivos.</p></div><button class="modal-x" id="mx">✕</button></div>
-              <div class="modal-b">
-                <input class="input" id="msearch" placeholder="${MODE==="live"?"Buscar contato pelo nome, email ou telefone…":"Buscar contato (demo)…"}" autocomplete="off" />
-                <div class="results" id="mresults"></div>
-                <div id="mfiles"></div>
-              </div>
-              <div class="modal-f"><button class="btn-line" id="mcancel">Cancelar</button><button class="btn-primary" id="mcreate" disabled>Criar pasta</button></div>
-            </div>
-          </div>`;
-        $("#mx").onclick = $("#mcancel").onclick = closeModal;
-        $("#mback").addEventListener("click",(e)=>{ if(e.target.id==="mback") closeModal(); });
-        $("#msearch").addEventListener("input",(e)=>{ clearTimeout(mTimer); const q=e.target.value; mTimer=setTimeout(()=>searchContacts(q),250); });
-        $("#mcreate").addEventListener("click", confirmModal);
-        searchContacts("");
-        setTimeout(()=>$("#msearch")?.focus(),40);
-      }
-      function closeModal(){ $("#modal-root").innerHTML=""; }
-      async function searchContacts(q) {
-        const box=$("#mresults"); if(!box) return;
-        let list=[];
-        if (MODE==="live") {
-          try { const r=await fetch("/api/contacts?q="+encodeURIComponent(q),{headers:{"x-vault-session":SESSION}}); if(r.ok) list=(await r.json()).contacts||[]; }
-          catch {}
-        } else {
-          list=DEMO_CONTACTS.filter(c=>!q||c.name.toLowerCase().includes(q.toLowerCase()));
-        }
-        box.innerHTML = list.length ? list.map(c=>`<div class="result ${mSelected&&mSelected.id===c.id?"is-sel":""}" data-id="${c.id}" data-name="${encodeURIComponent(c.name)}" data-email="${encodeURIComponent(c.email||"")}" data-phone="${encodeURIComponent(c.phone||"")}"><span class="result__av">${initials(c.name)}</span><div><div class="result__name">${c.name}</div><div class="result__meta">${[c.email,c.phone].filter(Boolean).join(" · ")||"—"}</div></div></div>`).join("") : `<div style="padding:14px" class="muted">Nenhum contato encontrado.</div>`;
-        box.querySelectorAll(".result").forEach(r=>r.addEventListener("click",()=>{
-          mSelected={ id:r.dataset.id, name:decodeURIComponent(r.dataset.name), email:decodeURIComponent(r.dataset.email)||null, phone:decodeURIComponent(r.dataset.phone)||null };
-          box.querySelectorAll(".result").forEach(x=>x.classList.toggle("is-sel",x===r));
-          $("#mcreate").disabled=false; renderStaged();
-        }));
-      }
-      function renderStaged() {
-        const box=$("#mfiles"); if(!box) return;
-        box.innerHTML = `<div class="uploader" id="muploader" style="margin-top:14px"><button class="btn-line" id="maddfiles" type="button">Anexar arquivos</button><span class="uploader__txt">opcional — você também pode adicionar depois</span></div>
-          <div class="staged">${mStaged.map((f,i)=>`<div class="staged__item"><span>${f.name} <span class="muted">· ${humanSize(f.size)}</span></span><button data-i="${i}">remover</button></div>`).join("")}</div>`;
-        $("#maddfiles").onclick=()=>{ modalPick(); };
-        box.querySelectorAll(".staged__item button").forEach(b=>b.addEventListener("click",()=>{ mStaged.splice(+b.dataset.i,1); renderStaged(); }));
-      }
-      function modalPick() {
-        const inp=el("input"); inp.type="file"; inp.multiple=true; inp.accept="image/*,application/pdf,.doc,.docx,.txt,.xls,.xlsx";
-        inp.onchange=()=>{ for(const f of inp.files){ if(f.size>4*1024*1024){toast("warn","Arquivo acima de 4MB",f.name);continue;} mStaged.push(f);} renderStaged(); };
-        inp.click();
-      }
-      async function confirmModal() {
-        if (!mSelected) return;
-        $("#mcreate").disabled=true; $("#mcreate").textContent="Criando…";
-        // cria/ativa a pasta do contato
-        if (!FOLDERS.find(f=>f.id===mSelected.id)) FOLDERS.push({ id:mSelected.id, name:mSelected.name, email:mSelected.email, phone:mSelected.phone });
-        active=mSelected.id;
-        // sobe os arquivos anexados
-        for (const f of mStaged) await uploadOne(mSelected, f);
-        closeModal(); renderFolders(); renderBody();
+      // ---------- SEARCH ----------
+      $("#search").addEventListener("input",(e)=>{ searchQ=e.target.value.trim(); clearTimeout(searchTimer);
+        if (MODE==="live" && searchQ) searchTimer=setTimeout(runSearch,250); else { searchResults=[]; if(view!=="grid"){view="grid";} renderView(); }
+      });
+      async function runSearch() {
+        try { const r=await fetch("/api/contacts?q="+encodeURIComponent(searchQ),{headers:{"x-vault-session":SESSION}});
+          if (r.ok) { searchResults=(await r.json()).contacts||[]; for(const c of searchResults) INFO[c.id]={id:c.id,name:c.name,email:c.email,phone:c.phone}; }
+        } catch {}
+        if (view!=="grid") view="grid";
+        renderGrid();
       }
 
       function toast(kind,title,sub){ const n=el("div",`toast toast--${kind==="warn"?"warn":kind==="info"?"info":"success"}`); n.innerHTML=`<div class="toast__icon">${kind==="warn"?"!":"✓"}</div><div><div class="toast__title">${title}</div><div class="toast__sub">${sub||""}</div></div>`; $("#toasts").appendChild(n); setTimeout(()=>{n.classList.add("is-out");setTimeout(()=>n.remove(),260);},3200); }
 
+      $("#back").addEventListener("click", backToGrid);
+
       function ingest(docs) {
         const byC={}, files=[];
         for (const d of docs) { const cid=d.contact_id||"__sem_contato__"; (byC[cid] ||= {id:cid, name:d.contact_name||d.contact_id||"Sem contato"}); files.push({id:d.id,contact:cid,name:d.filename||"(sem nome)",mime:d.mime,size:d.size_bytes,source:d.source,at:d.at,has_content:d.has_content}); }
-        FOLDERS=Object.values(byC); FILES=files; if(!active&&FOLDERS[0]) active=FOLDERS[0].id;
+        DOCS_FOLDERS=Object.values(byC); FILES=files; for(const c of DOCS_FOLDERS) INFO[c.id]=c;
       }
-
       function requestGhlContext() {
         return new Promise((resolve,reject)=>{ let done=false;
           const onMsg=(e)=>{ const d=e.data; if(d&&d.message==="REQUEST_USER_DATA_RESPONSE"){ done=true; window.removeEventListener("message",onMsg); resolve(d.payload); } };
@@ -319,44 +280,34 @@
             const encrypted = await requestGhlContext();
             const sres = await fetch("/api/session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({encrypted})});
             if (!sres.ok) throw new Error("session_"+sres.status);
-            const s = await sres.json(); SESSION=s.sessionToken; LOCATION=s.locationId; MODE="live";
+            const s = await sres.json(); SESSION=s.sessionToken; MODE="live";
             $("#loc-name").textContent = s.locationName || s.locationId;
             const dres = await fetch("/api/documents",{headers:{"x-vault-session":SESSION}});
             if (dres.ok) ingest((await dres.json()).documents||[]);
             try { const pr=await fetch("/api/pipelines",{headers:{"x-vault-session":SESSION}}); if(pr.ok){ const pj=await pr.json(); PIPELINES=pj.pipelines||[]; CPMAP=pj.contacts||{}; } } catch {}
-            renderFolders(); renderBody(); return;
+            renderView(); return;
           } catch (err) { console.warn("[vault] live falhou, demo:", err.message); }
         }
-        MODE="demo"; $("#loc-name").textContent="Samantha's Account (demo)"; loadDemo(); renderFolders(); renderBody();
+        MODE="demo"; $("#loc-name").textContent="Samantha's Account (demo)"; loadDemo(); renderView();
       }
 
       const DEMO_CONTACTS = [
         { id:"josiane", name:"Josiane Ramos", email:"josiane.ramos@email.com", phone:"+1 (973) 555-0142" },
         { id:"ana", name:"Ana Beatriz", email:"ana.beatriz@email.com", phone:"+1 (862) 555-0199" },
         { id:"carlos", name:"Carlos Nunes", email:"carlos.nunes@email.com", phone:"+1 (201) 555-0177" },
-        { id:"teste", name:"teste spark", email:null, phone:null },
+        { id:"marina", name:"Marina Alves", email:"marina.alves@email.com", phone:"+1 (973) 555-0163" },
+        { id:"teste", name:"Teste Spark", email:null, phone:null },
       ];
       function loadDemo() {
-        FOLDERS = [
-          { id:"josiane", name:"Josiane Ramos", email:"josiane.ramos@email.com", phone:"+1 (973) 555-0142" },
-          { id:"ana", name:"Ana Beatriz", email:"ana.beatriz@email.com", phone:"+1 (862) 555-0199" },
-          { id:"carlos", name:"Carlos Nunes", email:"carlos.nunes@email.com", phone:"+1 (201) 555-0177" },
-        ];
+        DOCS_FOLDERS = DEMO_CONTACTS.slice(0,3).map((c)=>({...c}));
+        for (const c of DOCS_FOLDERS) INFO[c.id]=c;
         FILES = [
-          { id:"1", contact:"josiane", name:"passaporte-antigo.pdf", mime:"application/pdf", size:842000, source:"media", at:"2026-08-20", has_content:false },
-          { id:"2", contact:"josiane", name:"foto-3x4.jpg", mime:"image/jpeg", size:210000, source:"form", at:"2026-08-20", has_content:false },
+          { id:"1", contact:"josiane", name:"passaporte-antigo.pdf", mime:"application/pdf", size:842000, source:"upload", at:"2026-08-20", has_content:false },
+          { id:"2", contact:"josiane", name:"foto-3x4.jpg", mime:"image/jpeg", size:210000, source:"upload", at:"2026-08-20", has_content:false },
           { id:"3", contact:"ana", name:"contrato-social.pdf", mime:"application/pdf", size:1500000, source:"upload", at:"2026-08-18", has_content:false },
         ];
-        PIPELINES = [
-          { id:"p1", name:"1 · Seguro de Vida" },
-          { id:"p3", name:"3 · Empresas e Fiscal" },
-        ];
-        CPMAP = {
-          josiane:{ pipelineId:"p1", pipelineName:"1 · Seguro de Vida", stageName:"Follow-up" },
-          carlos:{ pipelineId:"p1", pipelineName:"1 · Seguro de Vida", stageName:"Qualified" },
-          ana:{ pipelineId:"p3", pipelineName:"3 · Empresas e Fiscal", stageName:"In Process" },
-        };
-        active="josiane";
+        PIPELINES = [ { id:"p1", name:"1 · Seguro de Vida" }, { id:"p3", name:"3 · Empresas e Fiscal" } ];
+        CPMAP = { josiane:{pipelineId:"p1",pipelineName:"1 · Seguro de Vida",stageName:"Follow-up"}, carlos:{pipelineId:"p1",pipelineName:"1 · Seguro de Vida",stageName:"Qualified"}, ana:{pipelineId:"p3",pipelineName:"3 · Empresas e Fiscal",stageName:"In Process"} };
       }
       boot();
     </script>

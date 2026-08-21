@@ -70,6 +70,17 @@
       .empty-state-lg h3 { margin:0 0 6px; color:var(--gray-800); font-size:var(--fs-lg); }
       .empty-state-lg p { margin:0 0 18px; color:var(--gray-500); }
 
+      /* Filtro de setores (pipelines) */
+      .pipes { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+      .pipes__label { font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.06em; color:var(--gray-400); font-weight:700; margin-right:2px; }
+      .pipe { display:inline-flex; align-items:center; gap:7px; padding:6px 13px; border-radius:var(--r-pill); background:var(--white); border:1px solid var(--gray-200); color:var(--gray-700); font-size:var(--fs-sm); font-weight:600; cursor:pointer; transition:all var(--d-fast); }
+      .pipe:hover { border-color:var(--ghl-300); color:var(--ghl-700); }
+      .pipe.is-active { background:var(--ghl-50); border-color:var(--ghl-300); color:var(--ghl-700); box-shadow:var(--shadow-blue-soft); }
+      .pipe .count { font-variant-numeric:tabular-nums; background:var(--gray-100); color:var(--gray-600); padding:0 7px; border-radius:var(--r-pill); font-size:11px; }
+      .pipe.is-active .count { background:var(--ghl-100); color:var(--ghl-700); }
+      .pipe-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:var(--r-pill); background:var(--ghl-50); color:var(--ghl-700); border:1px solid var(--ghl-100); font-size:var(--fs-sm); font-weight:600; }
+      .pipe-badge .stage { color:var(--gray-500); font-weight:500; }
+
       /* Modal */
       .modal-back { position:fixed; inset:0; background:rgba(15,23,42,.42); backdrop-filter:blur(2px); z-index:100; display:flex; align-items:flex-start; justify-content:center; padding:60px 16px; }
       .modal-card { width:100%; max-width:520px; background:var(--white); border-radius:var(--r-xl); box-shadow:var(--shadow-lg); overflow:hidden; }
@@ -109,6 +120,7 @@
     <div class="toasts" id="toasts" aria-live="polite"></div>
 
     <main class="wrap">
+      <div class="pipes" id="pipes" hidden></div>
       <div class="folders" id="folders"></div>
       <div class="folder-body" id="folder-body"></div>
     </main>
@@ -137,10 +149,26 @@
 
       let MODE="demo", SESSION=null, LOCATION=null;
       let FOLDERS=[], FILES=[], active=null;
+      let PIPELINES=[], CPMAP={}, activePipe="all";
       const filesOf = (cid) => FILES.filter((f) => f.contact === cid);
+      const inPipe = (c) => activePipe==="all" || (CPMAP[c.id]?.pipelineId === activePipe);
+
+      function renderPipes() {
+        const box = $("#pipes");
+        if (!PIPELINES.length) { box.hidden = true; return; }
+        box.hidden = false;
+        const countIn = (pid) => FOLDERS.filter((c) => CPMAP[c.id]?.pipelineId === pid).length;
+        const chips = [`<span class="pipes__label">Setor</span>`,
+          `<button class="pipe ${activePipe==="all"?"is-active":""}" data-pipe="all">Todos <span class="count">${FOLDERS.length}</span></button>`]
+          .concat(PIPELINES.map((p) => `<button class="pipe ${activePipe===p.id?"is-active":""}" data-pipe="${p.id}">${p.name} <span class="count">${countIn(p.id)}</span></button>`));
+        box.innerHTML = chips.join("");
+        box.querySelectorAll(".pipe").forEach((b) => b.addEventListener("click", () => { activePipe = b.dataset.pipe; const vis = FOLDERS.filter(inPipe); if (!vis.find((c)=>c.id===active)) active = vis[0]?.id || null; renderPipes(); renderFolders(); renderBody(); }));
+      }
 
       function renderFolders() {
-        const html = FOLDERS.map((c) => `<button class="folder-tab ${c.id===active?"is-active":""}" data-folder="${c.id}">${ICONS.folder}<span class="fname">${c.name}</span><span class="fcount">${filesOf(c.id).length}</span></button>`).join("");
+        renderPipes();
+        const visible = FOLDERS.filter(inPipe);
+        const html = visible.map((c) => `<button class="folder-tab ${c.id===active?"is-active":""}" data-folder="${c.id}">${ICONS.folder}<span class="fname">${c.name}</span><span class="fcount">${filesOf(c.id).length}</span></button>`).join("");
         $("#folders").innerHTML = html + `<button class="folder-tab folder-tab--new" id="new-folder">+ Nova pasta de contato</button>`;
         $("#folders").querySelectorAll(".folder-tab[data-folder]").forEach((b) => b.addEventListener("click", () => { active=b.dataset.folder; renderFolders(); renderBody(); }));
         $("#new-folder").addEventListener("click", openModal);
@@ -156,7 +184,10 @@
         if (c.phone) chips.push(`<span class="info-chip">${ICONS.phone}<span>Telefone:</span> <strong>${c.phone}</strong></span>`);
         if (c.email) chips.push(`<span class="info-chip">${ICONS.mail}<span>Email:</span> <strong>${c.email}</strong></span>`);
         const list = filesOf(c.id);
-        const head = `<div class="folder-head"><span class="avatar-lg">${initials(c.name)}</span><div><h2 class="folder-head__name">${c.name}</h2><p class="folder-head__sub">${list.length} arquivo${list.length===1?"":"s"}</p>${chips.length?`<div class="info-chips">${chips.join("")}</div>`:""}</div></div>`;
+        const pinfo = CPMAP[c.id];
+        const pbadge = pinfo ? `<span class="pipe-badge">${pinfo.pipelineName||"Funil"}${pinfo.stageName?` <span class="stage">· ${pinfo.stageName}</span>`:""}</span>` : "";
+        const allChips = (pbadge?[pbadge]:[]).concat(chips);
+        const head = `<div class="folder-head"><span class="avatar-lg">${initials(c.name)}</span><div><h2 class="folder-head__name">${c.name}</h2><p class="folder-head__sub">${list.length} arquivo${list.length===1?"":"s"}</p>${allChips.length?`<div class="info-chips">${allChips.join("")}</div>`:""}</div></div>`;
         const uploader = `<div class="uploader" id="uploader"><button class="btn-primary" id="add-files">+ Adicionar arquivos</button><span class="uploader__txt">ou arraste os arquivos aqui (até 4MB)</span></div>`;
         const files = list.length ? `<div class="files">${list.map(fileRow).join("")}</div>` : `<div class="empty-files">Nenhum arquivo nesta pasta ainda</div>`;
         $("#folder-body").innerHTML = head + uploader + files;
@@ -292,6 +323,7 @@
             $("#loc-name").textContent = s.locationName || s.locationId;
             const dres = await fetch("/api/documents",{headers:{"x-vault-session":SESSION}});
             if (dres.ok) ingest((await dres.json()).documents||[]);
+            try { const pr=await fetch("/api/pipelines",{headers:{"x-vault-session":SESSION}}); if(pr.ok){ const pj=await pr.json(); PIPELINES=pj.pipelines||[]; CPMAP=pj.contacts||{}; } } catch {}
             renderFolders(); renderBody(); return;
           } catch (err) { console.warn("[vault] live falhou, demo:", err.message); }
         }
@@ -305,11 +337,25 @@
         { id:"teste", name:"teste spark", email:null, phone:null },
       ];
       function loadDemo() {
-        FOLDERS = [ { id:"josiane", name:"Josiane Ramos", email:"josiane.ramos@email.com", phone:"+1 (973) 555-0142" } ];
+        FOLDERS = [
+          { id:"josiane", name:"Josiane Ramos", email:"josiane.ramos@email.com", phone:"+1 (973) 555-0142" },
+          { id:"ana", name:"Ana Beatriz", email:"ana.beatriz@email.com", phone:"+1 (862) 555-0199" },
+          { id:"carlos", name:"Carlos Nunes", email:"carlos.nunes@email.com", phone:"+1 (201) 555-0177" },
+        ];
         FILES = [
           { id:"1", contact:"josiane", name:"passaporte-antigo.pdf", mime:"application/pdf", size:842000, source:"media", at:"2026-08-20", has_content:false },
           { id:"2", contact:"josiane", name:"foto-3x4.jpg", mime:"image/jpeg", size:210000, source:"form", at:"2026-08-20", has_content:false },
+          { id:"3", contact:"ana", name:"contrato-social.pdf", mime:"application/pdf", size:1500000, source:"upload", at:"2026-08-18", has_content:false },
         ];
+        PIPELINES = [
+          { id:"p1", name:"1 · Seguro de Vida" },
+          { id:"p3", name:"3 · Empresas e Fiscal" },
+        ];
+        CPMAP = {
+          josiane:{ pipelineId:"p1", pipelineName:"1 · Seguro de Vida", stageName:"Follow-up" },
+          carlos:{ pipelineId:"p1", pipelineName:"1 · Seguro de Vida", stageName:"Qualified" },
+          ana:{ pipelineId:"p3", pipelineName:"3 · Empresas e Fiscal", stageName:"In Process" },
+        };
         active="josiane";
       }
       boot();

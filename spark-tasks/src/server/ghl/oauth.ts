@@ -183,8 +183,13 @@ async function findLocationInstall(locationId: string): Promise<Install | null> 
   return row ?? null;
 }
 
-async function findCompanyInstall(): Promise<Install | null> {
-  const [row] = await db
+/**
+ * ALL agency (Company) installs. When multiple agencies have installed the app,
+ * a subaccount belongs to exactly one of them — so minting a location token must
+ * try each agency until one succeeds. Pinned to GHL_COMPANY_ID only if set.
+ */
+async function findCompanyInstalls(): Promise<Install[]> {
+  return db
     .select()
     .from(ghlInstallations)
     .where(
@@ -195,9 +200,7 @@ async function findCompanyInstall(): Promise<Install | null> {
           )
         : isNull(ghlInstallations.locationId),
     )
-    .orderBy(desc(ghlInstallations.updatedAt))
-    .limit(1);
-  return row ?? null;
+    .orderBy(desc(ghlInstallations.updatedAt));
 }
 
 // In-memory location-token cache (plan allows in-memory/DB). Serverless
@@ -229,19 +232,40 @@ export async function getLocationToken(locationId: string): Promise<string> {
     return token;
   }
 
-  // 2) Agency install → mint a per-location token.
-  const company = await findCompanyInstall();
-  if (!company) throw new Error("not_installed_for_location");
+  // 2) Agency install → mint a per-location token. With multiple agencies, try
+  //    each until one owns this subaccount (the others 4xx and we move on).
+  const companies = await findCompanyInstalls();
+  if (companies.length === 0) throw new Error("not_installed_for_location");
 
-  const companyToken = await validAccessToken(company);
-  const tok = await postForm(
-    LOCATION_TOKEN_URL,
-    { companyId: company.companyId, locationId },
-    companyToken,
+  let lastErr: unknown = null;
+  for (const company of companies) {
+    if (!company.companyId) continue;
+    try {
+      const companyToken = await validAccessToken(company);
+      const tok = await postForm(
+        LOCATION_TOKEN_URL,
+        { companyId: company.companyId, locationId },
+        companyToken,
+      );
+      locationTokenCache.set(locationId, {
+        token: tok.access_token,
+        expMs: expiryFrom(tok.expires_in).getTime(),
+      });
+      return tok.access_token;
+    } catch (err) {
+      // This agency doesn't own the location (or its token is dead) — try next.
+      lastErr = err;
+      console.warn(
+        `[oauth] mint failed for company ${company.companyId} / loc ${locationId}: ${
+          err instanceof Error ? err.message : "unknown"
+        }`,
+      );
+    }
+  }
+  console.error(
+    `[oauth] no agency could mint a token for ${locationId}: ${
+      lastErr instanceof Error ? lastErr.message : "unknown"
+    }`,
   );
-  locationTokenCache.set(locationId, {
-    token: tok.access_token,
-    expMs: expiryFrom(tok.expires_in).getTime(),
-  });
-  return tok.access_token;
+  throw new Error("not_installed_for_location");
 }

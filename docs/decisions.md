@@ -20,6 +20,7 @@ trabalho da Etapa correspondente começar. Revisar a cada 90 dias.
 | D4 | Re-tentativa de webhook: idempotência via PK (source,event_id) | ✅ implementado |
 | D6 | Detecção de fraude: manual em V1 | ✅ status='fraud' setado manualmente |
 | D9 | Notificações por email: backend é stub em V1 | ⏳ provider não configurado |
+| D10 | Workspace Engine acopla ao CRM por `tenant_id` sem FK | ✅ implementado |
 
 ---
 
@@ -189,6 +190,32 @@ script de backfill 1x.
 **Resposta.** _________________
 **Data.** _________________
 **Responsável.** _________________
+
+---
+
+## D10 — Como o Workspace Engine se acopla ao resto do produto?
+
+**Pergunta.** O novo módulo Workspace (páginas, blocos, databases) precisa
+saber a que sub-account pertence. Como amarrar isso ao modelo de tenant
+que já existe (`installations.location_id`)?
+
+**Opções.**
+- **(a)** `workspaces.tenant_id text` sem foreign key, guardando o `locationId`
+- **(b)** `workspaces.location_id` com FK para `installations(location_id)`
+- **(c)** schema Postgres separado por tenant
+
+**Recomendação.** **(a)**. O Workspace é hoje uma aba/URL separada, com
+banco e ciclo de vida próprios; a integração com o CRM é a Phase 4. Sem FK,
+o módulo pode ser migrado, testado e até extraído sem travar a tabela
+`installations`, e uma location ainda não instalada não impede a criação de
+workspace. O custo é não ter integridade referencial no banco — aceitável
+porque o `tenant_id` vem sempre do JWT do SSO, nunca de entrada do usuário.
+Quando a Phase 4 ligar páginas a contatos e oportunidades, as FKs entram
+nas tabelas de relação, que é onde elas de fato importam.
+
+**Resposta.** (a) — `tenant_id` sem FK.
+**Data.** 2026-08-31.
+**Responsável.** Implementado em `db/migrations/0002_workspace_engine.sql`.
 
 ---
 

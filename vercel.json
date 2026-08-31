@@ -11,9 +11,23 @@
     }
   ],
   "functions": {
-    "api/cron/sync-locations.js": { "maxDuration": 60 },
-    "api/admin/resync-locations.js": { "maxDuration": 60 },
-    "api/admin/recompute-tier.js": { "maxDuration": 60 },
-    "api/checkout/intent.js": { "maxDuration": 30 }
+    "api/cron/sync-locations.js": {
+      "maxDuration": 60
+    },
+    "api/admin/resync-locations.js": {
+      "maxDuration": 60
+    },
+    "api/admin/recompute-tier.js": {
+      "maxDuration": 60
+    },
+    "api/checkout/intent.js": {
+      "maxDuration": 30
+    },
+    "api/workspace/files.js": {
+      "maxDuration": 30
+    },
+    "api/workspace/pages.js": {
+      "maxDuration": 30
+    }
   }
 }

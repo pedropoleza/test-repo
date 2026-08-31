@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#155EEF" />
+    <meta name="color-scheme" content="light" />
+    <title>Workspace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    />
+    <!-- Mesmos tokens do Hub: o Workspace precisa parecer parte do produto (§69). -->
+    <link rel="stylesheet" href="./src/styles/tokens.css" />
+    <link rel="stylesheet" href="./src/styles/workspace.css" />
+  </head>
+  <body class="ws-body">
+    <a class="ws-skip-link" href="#ws-main">Ir para o conteúdo</a>
+
+    <div class="ws-shell" id="ws-shell">
+      <div class="ws-sidebar-backdrop" id="ws-sidebar-backdrop" hidden></div>
+
+      <aside class="ws-sidebar" id="ws-sidebar" aria-label="Navegação do workspace">
+        <div class="ws-sidebar__head">
+          <span class="ws-sidebar__mark">W</span>
+          <span class="ws-sidebar__name" id="ws-workspace-name">Workspace</span>
+        </div>
+
+        <button type="button" class="ws-sidebar__new" id="ws-new-page">
+          <span aria-hidden="true">+</span> Nova página
+        </button>
+
+        <nav class="ws-tree" id="ws-sidebar-tree" role="tree" aria-label="Páginas"></nav>
+      </aside>
+
+      <div class="ws-content">
+        <header class="ws-topbar">
+          <button
+            type="button"
+            class="ws-icon-btn ws-topbar__toggle"
+            id="ws-sidebar-toggle"
+            aria-label="Abrir ou fechar a navegação"
+          >
+            ☰
+          </button>
+
+          <span class="ws-save" id="ws-save-state" data-state="saved" role="status" aria-live="polite"></span>
+
+          <div class="ws-topbar__right">
+            <button type="button" class="ws-icon-btn" id="ws-favorite" hidden aria-pressed="false">☆</button>
+            <button type="button" class="ws-icon-btn" id="ws-page-menu" hidden aria-label="Ações da página">⋯</button>
+          </div>
+        </header>
+
+        <main class="ws-main" id="ws-main" tabindex="-1">
+          <div class="ws-page">
+            <div id="ws-page-header"></div>
+            <div class="ws-editor" id="ws-editor"></div>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <script type="module" src="./src/workspace/app.js"></script>
+  </body>
+</html>

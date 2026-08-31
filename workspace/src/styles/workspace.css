@@ -104,20 +104,55 @@
   box-shadow: var(--shadow-xs);
 }
 
-.ws-tree { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
-.ws-tree__section { display: flex; flex-direction: column; gap: 1px; }
+.ws-tree { display: flex; flex-direction: column; margin-top: 6px; }
+
+/* Cada seção é um bloco visualmente fechado: filete acima, respiro maior
+   e rótulo com mais peso. Antes tudo tinha o mesmo cinza fraco e as
+   seções se confundiam com as páginas. */
+.ws-tree__section {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-top: 14px;
+  margin-top: 12px;
+  border-top: 1px solid var(--gray-200);
+}
+.ws-tree__section:first-child { border-top: 0; margin-top: 0; padding-top: 4px; }
+
 .ws-tree__section-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 2px 8px 4px;
+  gap: 2px;
+  padding: 0 6px 6px;
   font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--gray-500);
+  color: var(--gray-600);
+}
+.ws-tree__section-head > span:first-child { padding-left: 4px; }
+
+.ws-tree__section-caret {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--gray-400);
+  font-size: 9px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.ws-tree__section-caret:hover { background: var(--gray-200); color: var(--gray-700); }
+
+.ws-tree__collapsed-count {
+  padding: 2px 8px 0 26px;
+  font-size: var(--fs-xs);
+  color: var(--gray-400);
 }
 .ws-tree__section-add {
+  margin-left: auto;
   border: 0;
   background: none;
   color: var(--gray-500);
@@ -1246,6 +1281,21 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 }
 .ws-db__td:hover .ws-db__open { opacity: 1; }
 .ws-db__open:hover { border-color: var(--ghl-400); color: var(--ghl-700); }
+.ws-db__open.is-primary {
+  opacity: 1;
+  border-color: var(--ghl-200);
+  color: var(--ghl-700);
+  background: var(--ghl-50);
+}
+.ws-db__badge {
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ghl-700);
+  background: var(--ghl-50);
+  border-radius: var(--r-pill);
+  padding: 1px 7px;
+}
 
 .ws-db__row-menu {
   border: 0;
@@ -1354,8 +1404,8 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   background: none;
   font: inherit;
   font-size: var(--fs-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--gray-500);
   padding: 2px 4px;
@@ -1363,7 +1413,7 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   cursor: pointer;
   text-align: left;
 }
-.ws-tree__section-name:hover { background: var(--gray-200); color: var(--gray-800); }
+.ws-tree__section-name:hover { background: var(--gray-200); color: var(--gray-900); }
 
 .ws-tree__new-section {
   border: 0;
@@ -1406,7 +1456,9 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 
 /* ================= CRM (dados ao vivo do GHL) ================= */
 
-.ws-crm__head { padding: 14px max(24px, calc((100% - 780px) / 2)) 4px; }
+/* CRM ocupa a largura toda: são tabelas, não texto corrido. */
+.ws-editor.is-wide { padding-left: 28px; padding-right: 28px; }
+.ws-crm__head { padding: 16px 28px 4px; }
 .ws-crm__title { margin: 0 0 2px; font-size: var(--fs-2xl); }
 .ws-crm { margin-top: 8px; }
 .ws-crm__search { max-width: 260px; }

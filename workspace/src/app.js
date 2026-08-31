@@ -150,6 +150,8 @@ async function openPage(pageId, { push = true } = {}) {
   editor?.flush();
 
   setState({ currentPageId: pageId, crmView: null }, "page-loading");
+  els.editor.classList.remove("is-wide");
+  els.main.classList.remove("is-wide");
   renderSkeleton();
 
   try {
@@ -343,6 +345,10 @@ function openCrm(kind) {
   setState({ currentPageId: null, page: null, blocks: [], crmView: kind }, "page");
   els.header.replaceChildren();
   els.editor.replaceChildren();
+  // Tabela de dados pede largura: a coluna de 780px do editor é para
+  // leitura de texto, não para 8 colunas de CRM.
+  els.editor.classList.add("is-wide");
+  els.main.classList.add("is-wide");
   updatePageChrome();
   sidebar.render();
 
@@ -359,7 +365,18 @@ function openCrm(kind) {
 
   const mount = document.createElement("div");
   els.editor.appendChild(mount);
-  createCrmView(mount, { kind });
+  createCrmView(mount, {
+    kind,
+    onOpenPage: async (pageId) => {
+      // A ficha pode ter criado a seção "Contatos": recarrega a árvore
+      // para ela aparecer na navegação já na primeira vez.
+      try {
+        const data = await api.bootstrap();
+        setState({ pages: data.pages, sections: data.sections || [] }, "tree");
+      } catch { /* a navegação atualiza no próximo carregamento */ }
+      await openPage(pageId);
+    },
+  });
 
   const url = new URL(window.location.href);
   url.searchParams.delete("p");

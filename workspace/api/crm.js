@@ -10,8 +10,9 @@
  * conflito, e isso é assunto de outra etapa.
  */
 import {
-  resolveContext, sendError, WorkspaceError,
+  resolveContext, requireRole, sendError, WorkspaceError,
 } from "../lib/server/context.js";
+import { openContactDossier, listDossiers } from "../lib/server/dossier.js";
 import {
   isConfigured, ghlLocationId, checkScopes, getLocation,
   listContacts, listCustomFields, listTags, listOpportunities, listPipelines,
@@ -24,26 +25,40 @@ import {
 import { log } from "../lib/server/log.js";
 
 export default async function handler(req, res) {
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
     return res.status(405).json({ error: "method_not_allowed" });
   }
 
+  let ctx;
   try {
-    await resolveContext(req);
+    ctx = await resolveContext(req);
   } catch (err) {
     return sendError(res, err);
   }
 
-  const action = req.query?.action || "status";
+  const body = parseBody(req);
+  const action = req.query?.action || body.action || "status";
 
   try {
     if (action === "status") return res.status(200).json(await status());
+    if (action === "dossiers") return res.status(200).json({ dossiers: await listDossiers(ctx) });
+
     if (!isConfigured()) throw new WorkspaceError(503, "ghl_not_configured");
 
     if (action === "contacts")      return res.status(200).json(await contacts(req));
     if (action === "opportunities") return res.status(200).json(await opportunities(req));
     if (action === "contact")       return res.status(200).json(await contactDetail(req));
+
+    if (action === "dossier") {
+      requireRole(ctx, "editor");
+      const contactId = req.query?.contactId || body.contactId;
+      const result = await openContactDossier(ctx, contactId);
+      log.info("crm.dossier.opened", {
+        workspaceId: ctx.workspaceId, pageId: result.page.id, created: result.created,
+      });
+      return res.status(result.created ? 201 : 200).json(result);
+    }
 
     throw new WorkspaceError(400, "unknown_action", { action });
   } catch (err) {
@@ -149,6 +164,14 @@ async function opportunities(req) {
     total: rows.length,
     truncated: rows.length >= limit,
   };
+}
+
+function parseBody(req) {
+  if (!req.body) return {};
+  if (typeof req.body === "string") {
+    try { return JSON.parse(req.body); } catch { return {}; }
+  }
+  return req.body;
 }
 
 async function contactDetail(req) {

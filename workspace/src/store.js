@@ -27,6 +27,14 @@ const state = {
 
 const listeners = new Set();
 const EXPANDED_KEY = "workspace:expanded";
+const COLLAPSED_SECTIONS_KEY = "workspace:collapsedSections";
+
+/** Seções recolhidas. Preferência de quem olha, então vive no browser. */
+const collapsedSections = new Set();
+try {
+  const raw = localStorage.getItem(COLLAPSED_SECTIONS_KEY);
+  if (raw) JSON.parse(raw).forEach((id) => collapsedSections.add(id));
+} catch { /* noop */ }
 
 try {
   const raw = localStorage.getItem(EXPANDED_KEY);
@@ -45,6 +53,20 @@ function persistExpanded() {
 
 export function getState() {
   return state;
+}
+
+export function isSectionCollapsed(sectionId) {
+  return collapsedSections.has(sectionId);
+}
+
+export function toggleSectionCollapsed(sectionId, force) {
+  const next = force === undefined ? !collapsedSections.has(sectionId) : force;
+  if (next) collapsedSections.add(sectionId);
+  else collapsedSections.delete(sectionId);
+  try {
+    localStorage.setItem(COLLAPSED_SECTIONS_KEY, JSON.stringify([...collapsedSections]));
+  } catch { /* noop */ }
+  emit("tree");
 }
 
 export function subscribe(fn) {

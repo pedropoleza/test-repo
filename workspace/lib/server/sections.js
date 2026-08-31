@@ -55,6 +55,14 @@ export async function getDefaultSection(ctx) {
   return sections.find((s) => s.is_default) || sections[0] || null;
 }
 
+/** Acha a seção pelo nome ou cria. Usado pela seção automática de fichas. */
+export async function ensureSectionByName(ctx, name) {
+  const sections = await listSections(ctx);
+  const found = sections.find((s) => s.name.toLowerCase() === String(name).toLowerCase());
+  if (found) return found;
+  return createSection(ctx, { name });
+}
+
 export async function createSection(ctx, input = {}) {
   const sections = await listSections(ctx);
   const last = sections[sections.length - 1];

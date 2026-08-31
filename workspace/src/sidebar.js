@@ -7,6 +7,7 @@
  */
 import {
   getState, childrenOf, pagesInSection, pageById, isFavorite, isExpanded, toggleExpanded,
+  isSectionCollapsed, toggleSectionCollapsed,
 } from "./store.js";
 import { renderIcon } from "./icon-picker.js";
 import { openMenu } from "./ui/menu.js";
@@ -129,10 +130,24 @@ export function createSidebar(root, handlers) {
     wrap.className = "ws-tree__section";
 
     if (options.sectionId) wrap.dataset.sectionId = options.sectionId;
+    const collapsed = options.sectionId ? isSectionCollapsed(options.sectionId) : false;
 
     if (title) {
       const head = document.createElement("div");
       head.className = "ws-tree__section-head";
+
+      if (options.sectionId) {
+        // Minimizar a seção: com muitas fichas de contato a navegação
+        // vira uma lista sem fim se tudo ficar sempre aberto.
+        const caret = document.createElement("button");
+        caret.type = "button";
+        caret.className = "ws-tree__section-caret";
+        caret.textContent = collapsed ? "▸" : "▾";
+        caret.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        caret.setAttribute("aria-label", collapsed ? `Expandir ${title}` : `Recolher ${title}`);
+        caret.addEventListener("click", () => toggleSectionCollapsed(options.sectionId));
+        head.appendChild(caret);
+      }
 
       if (options.sectionId) {
         const label = document.createElement("button");
@@ -185,6 +200,16 @@ export function createSidebar(root, handlers) {
         head.appendChild(add);
       }
       wrap.appendChild(head);
+    }
+
+    if (collapsed) {
+      if (children.length) {
+        const count = document.createElement("span");
+        count.className = "ws-tree__collapsed-count";
+        count.textContent = `${children.length} ${children.length === 1 ? "página" : "páginas"}`;
+        wrap.appendChild(count);
+      }
+      return wrap;
     }
 
     if (!children.length && options.empty) {

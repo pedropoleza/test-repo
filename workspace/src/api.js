@@ -117,6 +117,9 @@ export const api = {
     opportunities: (limit) =>
       request("GET", "/api/crm", { query: { action: "opportunities", limit } }),
     contact: (id) => request("GET", "/api/crm", { query: { action: "contact", id } }),
+    dossiers: () => request("GET", "/api/crm", { query: { action: "dossiers" } }),
+    openDossier: (contactId) =>
+      request("POST", "/api/crm", { query: { action: "dossier" }, body: { contactId } }),
   },
 
   databases: {

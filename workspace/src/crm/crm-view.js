@@ -44,10 +44,11 @@ function toField(col) {
   };
 }
 
-export function createCrmView(host, { kind = "contacts" } = {}) {
+export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
   let columns = [];
   let records = [];
   let meta = {};
+  let dossiers = new Map();   // contactId → pageId
   let prefs = {
     visible: null,        // null = só os padrão
     sorts: [],
@@ -63,12 +64,14 @@ export function createCrmView(host, { kind = "contacts" } = {}) {
   async function load() {
     host.replaceChildren(skeleton());
     try {
-      const data = kind === "contacts"
-        ? await api.crm.contacts(300)
-        : await api.crm.opportunities(300);
+      const [data, fichas] = await Promise.all([
+        kind === "contacts" ? api.crm.contacts(300) : api.crm.opportunities(300),
+        kind === "contacts" ? api.crm.dossiers().catch(() => ({ dossiers: [] })) : null,
+      ]);
       columns = (data.columns || []).map(toField);
       records = data.records || [];
       meta = { total: data.total, truncated: data.truncated };
+      dossiers = new Map((fichas?.dossiers || []).map((d) => [d.contactId, d.pageId]));
       render();
     } catch (err) {
       host.replaceChildren(errorState(err));
@@ -399,12 +402,32 @@ export function createCrmView(host, { kind = "contacts" } = {}) {
           : record;
         td.appendChild(renderCellValue(col, value));
         if (index === 0 && kind === "contacts") {
-          const open = document.createElement("button");
-          open.type = "button";
-          open.className = "ws-db__open";
-          open.textContent = "Detalhes";
-          open.addEventListener("click", () => openContact(record));
-          td.appendChild(open);
+          const temFicha = dossiers.has(record.externalId);
+          if (temFicha) {
+            // Marcador permanente: dá para ver de relance quem já tem ficha.
+            const mark = document.createElement("span");
+            mark.className = "ws-db__badge";
+            mark.textContent = "ficha";
+            mark.title = "Este contato já tem ficha";
+            td.appendChild(mark);
+          }
+          const ficha = document.createElement("button");
+          ficha.type = "button";
+          ficha.className = `ws-db__open${temFicha ? " is-primary" : ""}`;
+          ficha.textContent = temFicha ? "Abrir ficha" : "Criar ficha";
+          ficha.addEventListener("click", (event) => {
+            event.stopPropagation();
+            abrirFicha(record, ficha);
+          });
+          const det = document.createElement("button");
+          det.type = "button";
+          det.className = "ws-db__open";
+          det.textContent = "Detalhes";
+          det.addEventListener("click", (event) => {
+            event.stopPropagation();
+            openContact(record);
+          });
+          td.append(ficha, det);
         }
         row.appendChild(td);
       });
@@ -420,6 +443,28 @@ export function createCrmView(host, { kind = "contacts" } = {}) {
       grid.appendChild(empty);
     }
     return grid;
+  }
+
+  /**
+   * Abre a ficha do contato. O servidor é idempotente: se já existe,
+   * devolve a mesma página em vez de criar uma segunda.
+   */
+  async function abrirFicha(record, button) {
+    const rotuloAnterior = button.textContent;
+    button.disabled = true;
+    button.textContent = "Abrindo…";
+    try {
+      const { page, created } = await api.crm.openDossier(record.externalId);
+      dossiers.set(record.externalId, page.id);
+      toast(created ? "Ficha criada." : "Abrindo a ficha existente.", { tone: "success" });
+      onOpenPage?.(page.id);
+    } catch (err) {
+      toast(err.code === "contact_not_found"
+        ? "Este contato não existe mais no CRM."
+        : "Não foi possível abrir a ficha.", { tone: "danger" });
+      button.disabled = false;
+      button.textContent = rotuloAnterior;
+    }
   }
 
   /** Painel do lead: notas e tarefas, buscadas sob demanda. */

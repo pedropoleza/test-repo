@@ -7,7 +7,7 @@
  */
 import {
   getState, childrenOf, pagesInSection, pageById, isFavorite, isExpanded, toggleExpanded,
-  isSectionCollapsed, toggleSectionCollapsed,
+  isSectionCollapsed, toggleSectionCollapsed, setAllSectionsCollapsed,
 } from "./store.js";
 import { renderIcon } from "./icon-picker.js";
 import { openMenu } from "./ui/menu.js";
@@ -168,6 +168,9 @@ export function createSidebar(root, handlers) {
               { id: "new-page", label: "Nova página aqui", icon: "+" },
               { id: "rename", label: "Renomear e trocar ícone", icon: "✎" },
               { separator: true },
+              { id: "collapse-all", label: "Recolher todas as seções", icon: "⌃" },
+              { id: "expand-all", label: "Expandir todas as seções", icon: "⌄" },
+              { separator: true },
               { id: "move-up", label: "Mover para cima", icon: "↑", disabled: options.isFirst },
               { id: "move-down", label: "Mover para baixo", icon: "↓", disabled: options.isLast },
               { separator: true },
@@ -179,7 +182,11 @@ export function createSidebar(root, handlers) {
                 disabled: options.isDefault,
               },
             ],
-            onSelect: (id) => handlers.onSectionAction(id, options.sectionId, title),
+            onSelect: (id) => {
+              if (id === "collapse-all") return setAllSectionsCollapsed(true);
+              if (id === "expand-all") return setAllSectionsCollapsed(false);
+              return handlers.onSectionAction(id, options.sectionId, title);
+            },
           });
         });
         head.appendChild(label);

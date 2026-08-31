@@ -30,6 +30,7 @@ const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 /** Aplica o visual da capa a um elemento. */
 export function paintCover(el, page) {
+  el.dataset.coverType = page.cover_type || "";
   el.style.backgroundImage = "";
   el.style.backgroundColor = "";
   el.style.backgroundPosition = `center ${page.cover_position_y ?? 50}%`;

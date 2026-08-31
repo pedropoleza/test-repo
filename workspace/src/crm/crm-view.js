@@ -407,14 +407,17 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
             // Marcador permanente: dá para ver de relance quem já tem ficha.
             const mark = document.createElement("span");
             mark.className = "ws-db__badge";
-            mark.textContent = "ficha";
-            mark.title = "Este contato já tem ficha";
+            mark.textContent = "pasta";
+            mark.title = "Já existe pasta para este contato";
             td.appendChild(mark);
           }
           const ficha = document.createElement("button");
           ficha.type = "button";
           ficha.className = `ws-db__open${temFicha ? " is-primary" : ""}`;
-          ficha.textContent = temFicha ? "Abrir ficha" : "Criar ficha";
+          ficha.textContent = "Abrir pasta";
+          ficha.title = temFicha
+            ? "Abrir a pasta deste contato"
+            : "Abrir a pasta deste contato (criada na primeira vez)";
           ficha.addEventListener("click", (event) => {
             event.stopPropagation();
             abrirFicha(record, ficha);
@@ -456,12 +459,12 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
     try {
       const { page, created } = await api.crm.openDossier(record.externalId);
       dossiers.set(record.externalId, page.id);
-      toast(created ? "Ficha criada." : "Abrindo a ficha existente.", { tone: "success" });
+      toast(created ? "Pasta do contato criada." : "Abrindo a pasta.", { tone: "success" });
       onOpenPage?.(page.id);
     } catch (err) {
       toast(err.code === "contact_not_found"
         ? "Este contato não existe mais no CRM."
-        : "Não foi possível abrir a ficha.", { tone: "danger" });
+        : "Não foi possível abrir a pasta.", { tone: "danger" });
       button.disabled = false;
       button.textContent = rotuloAnterior;
     }

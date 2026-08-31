@@ -74,6 +74,14 @@ export function createPageHeader(root, handlers) {
     wrap.style.height = `${page.cover_height || 220}px`;
     paintCover(wrap, page);
 
+    // Marca d'água: a logo sangra pela direita, grande e apagada. Não é
+    // um selo no canto — é conceito da capa. Fica atrás de tudo e não
+    // recebe clique, para não competir com os controles.
+    const mark = document.createElement("div");
+    mark.className = "ws-cover__mark";
+    mark.setAttribute("aria-hidden", "true");
+    wrap.appendChild(mark);
+
     const actions = document.createElement("div");
     actions.className = "ws-cover__actions";
 

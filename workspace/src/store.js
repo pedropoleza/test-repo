@@ -59,6 +59,16 @@ export function isSectionCollapsed(sectionId) {
   return collapsedSections.has(sectionId);
 }
 
+/** Recolhe ou expande todas as seções de uma vez. */
+export function setAllSectionsCollapsed(collapsed) {
+  collapsedSections.clear();
+  if (collapsed) for (const s of state.sections) collapsedSections.add(s.id);
+  try {
+    localStorage.setItem(COLLAPSED_SECTIONS_KEY, JSON.stringify([...collapsedSections]));
+  } catch { /* noop */ }
+  emit("tree");
+}
+
 export function toggleSectionCollapsed(sectionId, force) {
   const next = force === undefined ? !collapsedSections.has(sectionId) : force;
   if (next) collapsedSections.add(sectionId);

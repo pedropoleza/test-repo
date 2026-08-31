@@ -315,7 +315,47 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   position: relative;
   margin-top: 10px;
   background-repeat: no-repeat;
+  overflow: hidden;
   /* altura vem inline do JS: reservada antes de a imagem carregar */
+}
+
+/*
+ * Marca d'água da capa.
+ *
+ * A logo entra como MÁSCARA, não como <img>: assim ela vira uma silhueta
+ * que herda a cor do fundo, e o mesmo tratamento funciona sobre gradiente,
+ * cor sólida ou foto — sem virar um adesivo ciano fora de lugar.
+ *
+ * Sangra pela direita e passa da altura da capa de propósito: o corte é o
+ * que dá a leitura moderna, em vez de um selo centrado no canto.
+ */
+.ws-cover__mark {
+  position: absolute;
+  top: 50%;
+  right: -3%;
+  /* Cresce com a altura da capa, não com a largura: numa capa baixa a
+     marca precisa encolher junto, senão vira uma mancha atravessada. */
+  height: 155%;
+  aspect-ratio: 1;
+  transform: translateY(-50%);
+  pointer-events: none;
+  background-color: #fff;
+  opacity: 0.16;
+  -webkit-mask-image: url("../../assets/logo-mark.png");
+  mask-image: url("../../assets/logo-mark.png");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+/* Sobre imagem a silhueta branca some no claro: escurece um pouco. */
+.ws-cover[data-cover-type="image"] .ws-cover__mark {
+  background-color: #0f172a;
+  opacity: 0.14;
+  mix-blend-mode: soft-light;
 }
 .ws-cover.is-repositioning { cursor: grabbing; }
 

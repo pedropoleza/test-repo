@@ -70,6 +70,10 @@
   flex: none;
   object-fit: contain;
   border-radius: var(--r-sm);
+  /* Se a imagem falhar, o texto alternativo não pode estourar o box e
+     empurrar a marca — o alt segue na árvore de acessibilidade. */
+  overflow: hidden;
+  font-size: 0;
 }
 .ws-sidebar__name {
   font-weight: 700;

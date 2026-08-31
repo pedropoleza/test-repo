@@ -1,16 +1,18 @@
--- 0002_workspace_engine.sql
+-- 0001_workspace_engine.sql
 -- Workspace Engine — Phase 0 (foundation) + Phase 1 (page engine).
 --
--- Domínio NOVO e independente. Convive com installations/referrals sem
--- tocá-las. O acoplamento com o CRM (locations, contatos, oportunidades)
--- é feito por `tenant_id` (= GHL locationId) SEM foreign key, para que o
--- módulo possa ser desenvolvido, migrado e testado isoladamente nesta
--- primeira fase (ver D10 em docs/decisions.md).
+-- Primeira migration do projeto Spark Workspace. Todas as tabelas usam
+-- prefixo `workspace_`, então o schema convive sem colisão com o do Hub
+-- de Indicações caso os dois apontem para o mesmo projeto Supabase.
+--
+-- O acoplamento com o CRM (locations, contatos, oportunidades) é feito
+-- por `tenant_id` (= GHL locationId) SEM foreign key, para o módulo poder
+-- ser desenvolvido, migrado e até extraído isoladamente (decisão D10).
 --
 -- Fases posteriores adicionam migrations próprias:
---   0003 → database engine (databases/fields/records/views)
---   0004 → CRM relations
---   0005 → external integrations + notion mappings
+--   0002 → database engine (databases/fields/records/views)
+--   0003 → CRM relations
+--   0004 → external integrations + notion mappings
 --
 -- Ordenação de irmãos usa FRACTIONAL INDEXING (string base62). Nunca
 -- usar índice absoluto: reordenar um item não pode reescrever a lista.
@@ -221,8 +223,24 @@ create index if not exists idx_workspace_files_workspace
   on workspace_files(workspace_id, created_at desc);
 
 -- =========================================================================
--- updated_at triggers (reusa public.set_updated_at de 0001)
+-- updated_at triggers
+--
+-- A função é criada aqui, e não assumida como existente: este projeto pode
+-- apontar para um Supabase dedicado, onde nada do Hub foi aplicado.
+-- `create or replace` é inofensivo se ela já existir — o corpo é o mesmo.
 -- =========================================================================
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 drop trigger if exists trg_workspaces_updated on workspaces;
 create trigger trg_workspaces_updated before update on workspaces
   for each row execute function set_updated_at();

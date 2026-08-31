@@ -111,6 +111,14 @@ export const api = {
     upload: (file) => request("POST", "/api/files", { body: file }),
   },
 
+  crm: {
+    status: () => request("GET", "/api/crm", { query: { action: "status" } }),
+    contacts: (limit) => request("GET", "/api/crm", { query: { action: "contacts", limit } }),
+    opportunities: (limit) =>
+      request("GET", "/api/crm", { query: { action: "opportunities", limit } }),
+    contact: (id) => request("GET", "/api/crm", { query: { action: "contact", id } }),
+  },
+
   databases: {
     get: (id, viewId) => request("GET", "/api/databases", { query: { id, viewId } }),
     create: (input) => request("POST", "/api/databases", { body: input }),

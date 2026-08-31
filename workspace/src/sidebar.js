@@ -55,12 +55,15 @@ export function createSidebar(root, handlers) {
     }
 
     // Seções vêm do banco: o usuário cria, renomeia e reordena as suas.
-    for (const sec of state.sections) {
+    state.sections.forEach((sec, index) => {
       const pages = pagesInSection(sec.id);
       root.appendChild(
         section(sec.name, pages.map((p) => item(p, 0)), {
           sectionId: sec.id,
           isDefault: sec.is_default,
+          isFirst: index === 0,
+          isLast: index === state.sections.length - 1,
+          icon: sec.icon_type ? { type: sec.icon_type, value: sec.icon_value } : null,
           action: {
             label: `Nova página em ${sec.name}`,
             onClick: () => handlers.onCreate(null, { sectionId: sec.id }),
@@ -68,7 +71,37 @@ export function createSidebar(root, handlers) {
           empty: "Nenhuma página aqui.",
         }),
       );
+    });
+
+    // CRM: dados que vivem no GHL, não no workspace. Fica numa seção
+    // própria, sem menu de página, porque não é conteúdo editável aqui.
+    const crm = document.createElement("div");
+    crm.className = "ws-tree__section";
+    for (const [id, label, icon] of [
+      ["contacts", "Leads", "👥"],
+      ["opportunities", "Oportunidades", "💰"],
+    ]) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `ws-tree__row ws-tree__row--static${
+        getState().crmView === id ? " is-current" : ""}`;
+      const ic = document.createElement("span");
+      ic.className = "ws-tree__icon";
+      ic.textContent = icon;
+      const lb = document.createElement("span");
+      lb.className = "ws-tree__label";
+      lb.textContent = label;
+      btn.append(ic, lb);
+      btn.addEventListener("click", () => handlers.onOpenCrm(id));
+      crm.appendChild(btn);
     }
+    const crmHead = document.createElement("div");
+    crmHead.className = "ws-tree__section-head";
+    const crmLabel = document.createElement("span");
+    crmLabel.textContent = "CRM";
+    crmHead.appendChild(crmLabel);
+    crm.insertBefore(crmHead, crm.firstChild);
+    root.appendChild(crm);
 
     const newSection = document.createElement("button");
     newSection.type = "button";
@@ -105,15 +138,23 @@ export function createSidebar(root, handlers) {
         const label = document.createElement("button");
         label.type = "button";
         label.className = "ws-tree__section-name";
-        label.textContent = title;
+        if (options.icon) {
+          label.appendChild(renderIcon(options.icon.type, options.icon.value, { size: 13 }));
+        }
+        const labelText = document.createElement("span");
+        labelText.textContent = title;
+        label.appendChild(labelText);
         label.setAttribute("aria-label", `Ações da seção ${title}`);
         label.addEventListener("click", () => {
           openMenu({
             anchor: label,
             width: 220,
             items: [
-              { id: "rename", label: "Renomear seção", icon: "✎" },
               { id: "new-page", label: "Nova página aqui", icon: "+" },
+              { id: "rename", label: "Renomear e trocar ícone", icon: "✎" },
+              { separator: true },
+              { id: "move-up", label: "Mover para cima", icon: "↑", disabled: options.isFirst },
+              { id: "move-down", label: "Mover para baixo", icon: "↓", disabled: options.isLast },
               { separator: true },
               {
                 id: "delete",

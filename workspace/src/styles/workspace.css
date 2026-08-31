@@ -700,9 +700,13 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   pointer-events: none;
 }
 
+/* Camadas: modal 70 < menu 90 < barra de formatação 92 < toasts 100.
+   O menu PRECISA ficar acima do modal — o seletor de ícone da seção e o
+   de cor das opções abrem de dentro de um diálogo, e com z-index menor
+   eles renderizavam atrás dele, invisíveis e sem clique. */
 .ws-menu {
   position: fixed;
-  z-index: 60;
+  z-index: 90;
   padding: 5px;
   background: var(--white);
   border: 1px solid var(--gray-200);
@@ -744,7 +748,7 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 
 .ws-slash {
   position: fixed;
-  z-index: 60;
+  z-index: 90;
   width: 268px;
   max-height: 320px;
   overflow-y: auto;
@@ -792,7 +796,7 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 
 .ws-format {
   position: fixed;
-  z-index: 62;
+  z-index: 92;
   display: flex;
   gap: 1px;
   padding: 4px;
@@ -963,7 +967,7 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: 80;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1154,10 +1158,13 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 /* A tabela rola dentro dela mesma; a página nunca rola de lado (§74). */
 .ws-db__scroll { overflow-x: auto; }
 
-.ws-db__grid { min-width: max-content; }
+/* Sem `min-width: max-content`: com esse valor as colunas cresciam até o
+   maior conteúdo e uma tabela de 8 colunas mostrava só duas na tela. Com
+   minmax(150px, 1fr) elas dividem o espaço disponível, truncam o texto e
+   só rolam na horizontal quando não cabem mesmo. */
 .ws-db__row {
   display: grid;
-  grid-template-columns: repeat(var(--ws-db-cols), minmax(170px, 1fr)) 44px;
+  grid-template-columns: repeat(var(--ws-db-cols), minmax(150px, 1fr)) 44px;
   border-bottom: 1px solid var(--gray-150);
 }
 .ws-db__row:last-child { border-bottom: 0; }
@@ -1371,3 +1378,112 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   width: 100%;
 }
 .ws-tree__new-section:hover { background: var(--gray-150); color: var(--gray-700); }
+
+/* ---- diálogo de seção ---- */
+.ws-section-dialog__row { display: flex; align-items: center; gap: 10px; }
+.ws-section-dialog__row .ws-input { flex: 1; }
+.ws-section-dialog__icon {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-md);
+  background: var(--white);
+  font-size: var(--fs-lg);
+  cursor: pointer;
+}
+.ws-section-dialog__icon:hover { border-color: var(--ghl-300); }
+.ws-section-dialog__icon.is-empty { color: var(--gray-400); }
+
+.ws-input.is-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.ws-tree__section-name { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ================= CRM (dados ao vivo do GHL) ================= */
+
+.ws-crm__head { padding: 14px max(24px, calc((100% - 780px) / 2)) 4px; }
+.ws-crm__title { margin: 0 0 2px; font-size: var(--fs-2xl); }
+.ws-crm { margin-top: 8px; }
+.ws-crm__search { max-width: 260px; }
+
+/* Leitura apenas: a célula não deve sugerir edição. */
+.ws-crm .ws-db__row { grid-template-columns: repeat(var(--ws-db-cols), minmax(150px, 1fr)); }
+.ws-db__td--readonly { cursor: default; }
+.ws-db__td--readonly:hover { background: var(--gray-50); }
+
+.ws-columns-list {
+  margin-top: 12px;
+  max-height: 46vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.ws-columns-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.ws-columns-row:hover { background: var(--gray-100); }
+.ws-columns-row span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-columns-row__tag {
+  font-size: var(--fs-xs);
+  color: var(--gray-400);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-pill);
+  padding: 1px 7px;
+  flex: none;
+}
+
+.ws-crm__props {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr;
+  gap: 6px 14px;
+  margin-bottom: 18px;
+  max-height: 34vh;
+  overflow-y: auto;
+}
+.ws-crm__prop { display: contents; }
+.ws-crm__prop-key { color: var(--gray-500); font-size: var(--fs-sm); }
+.ws-crm__prop-value { min-width: 0; }
+
+.ws-crm__list { margin-top: 14px; }
+.ws-crm__list-title {
+  margin: 0 0 6px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gray-500);
+}
+.ws-crm__list-item {
+  display: flex;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--gray-150);
+  font-size: var(--fs-base);
+}
+.ws-crm__list-item:last-child { border-bottom: 0; }
+.ws-crm__list-item span:first-child { flex: 1; min-width: 0; }
+.ws-crm__list-item.is-done span:first-child { color: var(--gray-400); text-decoration: line-through; }
+.ws-crm__list-meta { color: var(--gray-400); font-size: var(--fs-sm); flex: none; }
+
+@media (max-width: 900px) {
+  .ws-crm__head { padding-left: 16px; padding-right: 16px; }
+  .ws-crm__props { grid-template-columns: 1fr; gap: 2px; }
+  .ws-crm__prop-key { margin-top: 8px; }
+}

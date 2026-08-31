@@ -1,7 +1,17 @@
 {
   "cleanUrls": true,
   "functions": {
-    "api/files.js": { "maxDuration": 30 },
-    "api/pages.js": { "maxDuration": 30 }
+    "api/files.js": {
+      "maxDuration": 30
+    },
+    "api/pages.js": {
+      "maxDuration": 30
+    },
+    "api/crm.js": {
+      "maxDuration": 60
+    },
+    "api/databases.js": {
+      "maxDuration": 30
+    }
   }
 }

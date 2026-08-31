@@ -16,6 +16,7 @@ const state = {
   favorites: [],
   recent: [],
   currentPageId: null,
+  crmView: null,      // 'contacts' | 'opportunities' | null
   page: null,         // página aberta (completa)
   blocks: [],
   breadcrumbs: [],

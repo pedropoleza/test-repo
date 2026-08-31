@@ -18,6 +18,8 @@ import { createEditor } from "./editor/editor.js";
 import { openModal } from "./ui/menu.js";
 import { toast } from "./ui/toast.js";
 import { renderIcon } from "./icon-picker.js";
+import { openSectionDialog } from "./section-dialog.js";
+import { createCrmView } from "./crm/crm-view.js";
 
 const els = {
   shell: document.getElementById("ws-shell"),
@@ -69,8 +71,11 @@ async function bootstrap() {
     sidebar.render();
     wireShell();
 
-    const initial = new URLSearchParams(window.location.search).get("p");
-    if (initial) await openPage(initial, { push: false });
+    const params = new URLSearchParams(window.location.search);
+    const crm = params.get("crm");
+    const initial = params.get("p");
+    if (crm) openCrm(crm);
+    else if (initial) await openPage(initial, { push: false });
     else await openInitialPage();
   } catch (err) {
     if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
@@ -144,7 +149,7 @@ async function openPage(pageId, { push = true } = {}) {
   if (!pageId) return;
   editor?.flush();
 
-  setState({ currentPageId: pageId }, "page-loading");
+  setState({ currentPageId: pageId, crmView: null }, "page-loading");
   renderSkeleton();
 
   try {
@@ -219,8 +224,11 @@ function errorState(title, detail, onRetry) {
 }
 
 window.addEventListener("popstate", () => {
-  const pageId = new URLSearchParams(window.location.search).get("p");
-  if (pageId) openPage(pageId, { push: false });
+  const params = new URLSearchParams(window.location.search);
+  const crm = params.get("crm");
+  const pageId = params.get("p");
+  if (crm) openCrm(crm);
+  else if (pageId) openPage(pageId, { push: false });
   else openInitialPage();
 });
 
@@ -326,13 +334,46 @@ const sidebarHandlers = {
   },
   onPageAction: (action, page) => pageAction(action, page),
   onOpenTrash: () => openTrash(),
+  onOpenCrm: (kind) => openCrm(kind),
 };
 
+/** Abre Leads ou Oportunidades: dados do GHL, organização nossa. */
+function openCrm(kind) {
+  editor?.flush();
+  setState({ currentPageId: null, page: null, blocks: [], crmView: kind }, "page");
+  els.header.replaceChildren();
+  els.editor.replaceChildren();
+  updatePageChrome();
+  sidebar.render();
+
+  const head = document.createElement("div");
+  head.className = "ws-crm__head";
+  const h = document.createElement("h1");
+  h.className = "ws-page__title ws-crm__title";
+  h.textContent = kind === "contacts" ? "Leads" : "Oportunidades";
+  const sub = document.createElement("p");
+  sub.className = "ws-muted";
+  sub.textContent = "Dados ao vivo do GoHighLevel. Leitura apenas nesta fase.";
+  head.append(h, sub);
+  els.header.appendChild(head);
+
+  const mount = document.createElement("div");
+  els.editor.appendChild(mount);
+  createCrmView(mount, { kind });
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete("p");
+  url.searchParams.set("crm", kind);
+  window.history.pushState({ crm: kind }, "", url.toString());
+  document.title = `${h.textContent} · Spark`;
+  closeMobileSidebar();
+}
+
 async function createSection() {
-  const name = window.prompt("Nome da nova seção:", "");
-  if (name === null) return;
+  const input = await openSectionDialog();
+  if (!input) return;
   try {
-    const { section } = await api.sections.create({ name: name.trim() || "Nova seção" });
+    const { section } = await api.sections.create(input);
     getState().sections.push(section);
     sidebar.render();
     toast(`Seção "${section.name}" criada.`, { tone: "success" });
@@ -347,15 +388,33 @@ async function sectionAction(action, sectionId, name) {
   if (action === "new-page") return createPage(null, { sectionId });
 
   if (action === "rename") {
-    const next = window.prompt("Nome da seção:", name);
-    if (next === null || !next.trim()) return;
+    const current = state.sections.find((s) => s.id === sectionId);
+    const input = await openSectionDialog({ section: current || { name } });
+    if (!input) return;
     try {
-      const { section } = await api.sections.update(sectionId, { name: next.trim() });
+      const { section } = await api.sections.update(sectionId, input);
       const i = state.sections.findIndex((s) => s.id === sectionId);
       if (i >= 0) state.sections[i] = section;
       sidebar.render();
     } catch {
       toast("Não foi possível renomear a seção.", { tone: "danger" });
+    }
+    return;
+  }
+
+  if (action === "move-up" || action === "move-down") {
+    const ordered = state.sections;
+    const i = ordered.findIndex((s) => s.id === sectionId);
+    const target = action === "move-up" ? ordered[i - 1] : ordered[i + 1];
+    if (!target) return;
+    try {
+      await api.sections.move(sectionId,
+        action === "move-up" ? { beforeId: target.id } : { afterId: target.id });
+      const { sections } = await api.sections.list();
+      state.sections = sections;
+      sidebar.render();
+    } catch {
+      toast("Não foi possível reordenar a seção.", { tone: "danger" });
     }
     return;
   }

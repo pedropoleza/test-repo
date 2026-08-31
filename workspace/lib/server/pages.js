@@ -4,15 +4,15 @@
  * Toda função recebe `ctx` (de context.js) e filtra por
  * `workspace_id = ctx.workspaceId`. Nenhuma leitura por id sozinho (§63).
  */
-import { db } from "../db.js";
-import { keyBetween, byPosition } from "./fracdex.js";
+import { db } from "./db.js";
+import { keyBetween, byPosition } from "../../src/shared/fracdex.js";
 import { WorkspaceError } from "./context.js";
 import { recordRevision } from "./revisions.js";
 import {
   normalizeBlockContent,
   normalizeBlockProps,
   isBlockType,
-} from "../../../src/workspace/shared/blocks.js";
+} from "../../src/shared/blocks.js";
 
 const PAGE_FIELDS =
   "id,workspace_id,parent_page_id,title,icon_type,icon_value,cover_type," +

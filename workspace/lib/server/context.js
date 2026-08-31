@@ -11,9 +11,9 @@
  * para ler um recurso.
  */
 import { timingSafeEqual } from "node:crypto";
-import { verify as jwtVerify } from "../jwt.js";
-import { db } from "../db.js";
-import { firstKey } from "./fracdex.js";
+import { verify as jwtVerify } from "./jwt.js";
+import { db } from "./db.js";
+import { firstKey } from "../../src/shared/fracdex.js";
 
 export class WorkspaceError extends Error {
   constructor(status, code, extra = {}) {

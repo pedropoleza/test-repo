@@ -4,8 +4,8 @@
  *
  * Nunca lança: histórico não pode derrubar uma edição.
  */
-import { db } from "../db.js";
-import { log } from "../log.js";
+import { db } from "./db.js";
+import { log } from "./log.js";
 
 export async function recordRevision(ctx, {
   pageId = null,

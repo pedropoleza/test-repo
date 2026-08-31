@@ -4,8 +4,8 @@
  * Ordenação por fractional indexing: mover um bloco é um UPDATE de uma
  * linha, independente do tamanho da página (§11).
  */
-import { db } from "../db.js";
-import { keyBetween, byPosition } from "./fracdex.js";
+import { db } from "./db.js";
+import { keyBetween, byPosition } from "../../src/shared/fracdex.js";
 import { WorkspaceError } from "./context.js";
 import { recordRevision } from "./revisions.js";
 import {
@@ -13,7 +13,7 @@ import {
   blockSpec,
   normalizeBlockContent,
   normalizeBlockProps,
-} from "../../../src/workspace/shared/blocks.js";
+} from "../../src/shared/blocks.js";
 
 const BLOCK_FIELDS =
   "id,page_id,tab_id,parent_block_id,type,content,props,position," +

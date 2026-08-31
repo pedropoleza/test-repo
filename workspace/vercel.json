@@ -1,0 +1,7 @@
+{
+  "cleanUrls": true,
+  "functions": {
+    "api/files.js": { "maxDuration": 30 },
+    "api/pages.js": { "maxDuration": 30 }
+  }
+}

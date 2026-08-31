@@ -20,7 +20,7 @@ trabalho da Etapa correspondente começar. Revisar a cada 90 dias.
 | D4 | Re-tentativa de webhook: idempotência via PK (source,event_id) | ✅ implementado |
 | D6 | Detecção de fraude: manual em V1 | ✅ status='fraud' setado manualmente |
 | D9 | Notificações por email: backend é stub em V1 | ⏳ provider não configurado |
-| D10 | Workspace Engine acopla ao CRM por `tenant_id` sem FK | ✅ implementado |
+| D10 | Workspace Engine é projeto/deploy separado, acoplado por `tenant_id` | ✅ implementado |
 
 ---
 
@@ -204,7 +204,8 @@ que já existe (`installations.location_id`)?
 - **(b)** `workspaces.location_id` com FK para `installations(location_id)`
 - **(c)** schema Postgres separado por tenant
 
-**Recomendação.** **(a)**. O Workspace é hoje uma aba/URL separada, com
+**Recomendação.** **(a)**. O Workspace é um projeto Vercel separado (ver
+`workspace/`), com URL, deploy e variáveis de ambiente próprios, com
 banco e ciclo de vida próprios; a integração com o CRM é a Phase 4. Sem FK,
 o módulo pode ser migrado, testado e até extraído sem travar a tabela
 `installations`, e uma location ainda não instalada não impede a criação de
@@ -215,7 +216,7 @@ nas tabelas de relação, que é onde elas de fato importam.
 
 **Resposta.** (a) — `tenant_id` sem FK.
 **Data.** 2026-08-31.
-**Responsável.** Implementado em `db/migrations/0002_workspace_engine.sql`.
+**Responsável.** Implementado em `workspace/db/migrations/0001_workspace_engine.sql`.
 
 ---
 

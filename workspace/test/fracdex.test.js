@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { keyBetween, keysBetween, firstKey } from "../src/workspace/shared/fracdex.js";
+import { keyBetween, keysBetween, firstKey } from "../src/shared/fracdex.js";
 
 test("first key on an empty list", () => {
   const k = firstKey();

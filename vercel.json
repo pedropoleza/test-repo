@@ -22,12 +22,6 @@
     },
     "api/checkout/intent.js": {
       "maxDuration": 30
-    },
-    "api/workspace/files.js": {
-      "maxDuration": 30
-    },
-    "api/workspace/pages.js": {
-      "maxDuration": 30
     }
   }
 }

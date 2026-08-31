@@ -202,7 +202,7 @@ function renderUpload(close) {
   return wrap;
 }
 
-/** Lê o arquivo como data URL e envia para /api/workspace/files. */
+/** Lê o arquivo como data URL e envia para /api/files. */
 export async function uploadFile(file) {
   const dataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();

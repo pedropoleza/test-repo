@@ -177,78 +177,11 @@ Ver `docs/decisions.md`. Working assumptions:
 - D7=a: Vercel Cron
 - D8=a: customer.metadata.location_id + backfill por email
 
-## Workspace Engine (módulo novo, URL própria)
+## Workspace Engine
 
-Aba separada em `/workspace`. Domínio, banco e componentes próprios; a
-integração com o Hub de Indicações e com o CRM é fase posterior. Detalhes
-de arquitetura em `docs/workspace-architecture.md`.
+Módulo separado, em **projeto Vercel e domínio próprios**. Vive em
+`workspace/` neste repositório e não compartilha deploy, env vars nem
+tabelas com o Hub de Indicações — o único elo é o `JWT_SIGNING_KEY`, que
+precisa ser o mesmo nos dois para o SSO do GHL valer nos dois lados.
 
-### Setup (uma vez, por ambiente)
-
-1. **Aplicar a migration.** No SQL Editor do Supabase (projeto
-   `mumdhdiliejulkblwhuw`), rodar `db/migrations/0002_workspace_engine.sql`.
-   É idempotente (`create table if not exists`), pode rodar de novo sem
-   estragar nada.
-
-2. **Criar o bucket de arquivos.** Storage → New bucket:
-   - nome: `workspace-files`
-   - público: **sim** (leitura); a escrita continua só pelo service role
-   Sem o bucket, upload de capa e de imagem responde
-   `502 storage_unavailable` — o resto do módulo funciona normalmente,
-   incluindo capa por URL/cor/gradiente.
-
-Nenhuma variável de ambiente nova. O módulo usa `SUPABASE_URL`,
-`SUPABASE_SERVICE_ROLE_KEY`, `JWT_SIGNING_KEY` e `ADMIN_URL_SECRET`, que
-já existem.
-
-### Acesso
-
-- **Usuário final:** abre pelo GHL, que passa o JWT do SSO —
-  `/workspace?session=<jwt>`. A sessão fica em `sessionStorage` e some da
-  barra de endereço.
-- **Suporte / operador Spark:**
-  `/workspace?k=$ADMIN_URL_SECRET&tenantId=<locationId>` — mesmo mecanismo
-  de `/admin`. Entra como `owner` daquele tenant.
-
-### Endpoints
-
-```
-GET    /api/workspace/bootstrap            workspace + árvore + favoritos + recentes
-GET    /api/workspace/pages?id=<uuid>      página + blocos + breadcrumbs
-POST   /api/workspace/pages                cria (?action= duplicate|move|archive|restore|favorite|visit)
-PATCH  /api/workspace/pages?id=<uuid>      título, ícone, capa, largura, visibilidade
-DELETE /api/workspace/pages?id=<uuid>      exclusão definitiva (exige papel admin)
-GET    /api/workspace/blocks?pageId=<uuid> blocos da página
-POST   /api/workspace/blocks               cria (?action= move|duplicate)
-PATCH  /api/workspace/blocks?action=bulk   autosave do editor
-DELETE /api/workspace/blocks?id=<uuid>     remove
-POST   /api/workspace/files                upload (JSON: name, mimeType, dataUrl)
-```
-
-### Troubleshooting
-
-**"Não foi possível carregar o workspace" com `db_error`.**
-A migration 0002 não foi aplicada nesse ambiente. Ver Setup acima.
-
-**Editor mostra "Sem salvar" e não volta pra "Salvo".**
-O autosave repete com backoff (1s → 30s) e não descarta o que foi
-digitado. Checar os logs por `workspace.*` e o status do Supabase. Se o
-erro for 401/403, a sessão do SSO expirou: recarregar a página com um
-`?session=` novo resolve.
-
-**Upload de imagem falhando com `storage_unavailable`.**
-Bucket `workspace-files` não existe ou está privado. Ver Setup, item 2.
-
-**Página sumiu.**
-Provavelmente foi para a lixeira (arquivar leva a subárvore inteira).
-Sidebar → Lixeira → Restaurar. Arquivar nunca apaga: só
-`DELETE /api/workspace/pages`, restrito a papel admin, apaga de verdade.
-
-### Testes
-
-```bash
-npm test    # node --test — fracdex, schema de blocos, rich text, fluxos do workspace
-```
-
-Os fluxos rodam contra um fake in-memory do Supabase (`test/helpers/fake-db.js`),
-sem rede e sem banco.
+Runbook próprio: `workspace/docs/runbook.md`.

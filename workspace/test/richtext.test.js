@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { splitRich } from "../src/workspace/editor/richtext.js";
+import { splitRich } from "../src/editor/richtext.js";
 
 test("splitting at a span boundary keeps both sides intact", () => {
   const [before, after] = splitRich([{ s: "abc" }, { s: "def", m: ["b"] }], 3);

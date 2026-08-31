@@ -8,7 +8,7 @@ import {
   safeUrl,
   isBlockType,
   blockSpec,
-} from "../src/workspace/shared/blocks.js";
+} from "../src/shared/blocks.js";
 
 test("normalizeRich drops unknown marks and empty spans", () => {
   const rich = normalizeRich([

@@ -45,19 +45,21 @@ páginas/blocos, ordenação fracionária, editor, sidebar em árvore.
 
 ## B. Proposed Workspace Architecture
 
-Nesta primeira etapa o Workspace é uma **aba/URL separada** (`/workspace`),
-com domínio, banco e componentes próprios. A comunicação com o Hub de
-Indicações e com as entidades do CRM é a segunda etapa (Phase 4).
+Nesta primeira etapa o Workspace é um **projeto Vercel separado**, com
+domínio, variáveis de ambiente, banco e componentes próprios. Vive em
+`workspace/` no mesmo repositório, com Root Directory apontando para essa
+pasta. A comunicação com o Hub de Indicações e com as entidades do CRM é a
+segunda etapa (Phase 4).
 
 ```
-Browser  /workspace  (workspace.html + src/workspace/**)
+Browser  /  (index.html + src/**)   ← domínio próprio do Workspace
                 │
                 │  x-spark-session (JWT do SSO já existente)
                 ▼
-         /api/workspace/*        ← rotas finas, sem regra de negócio
+         /api/*                  ← rotas finas, sem regra de negócio
                 │
                 ▼
-     lib/server/workspace/*      ← contexto, repositórios, ordenação
+        lib/server/*             ← contexto, repositórios, ordenação
                 │
                 ▼
         Supabase / Postgres      ← workspace_* (migration 0002)
@@ -87,7 +89,7 @@ demais → editor). Escrita exige `editor`; exclusão definitiva exige
 
 ## C. Data Model
 
-Migration `db/migrations/0002_workspace_engine.sql`:
+Migration `db/migrations/0001_workspace_engine.sql`:
 
 | Tabela | Papel |
 |---|---|
@@ -100,8 +102,8 @@ Migration `db/migrations/0002_workspace_engine.sql`:
 | `workspace_revisions` | histórico incremental por operação (§35) |
 | `workspace_files` | arquivos em storage próprio (§53) |
 
-Fases seguintes ganham migrations próprias: `0003` database engine,
-`0004` CRM relations, `0005` integrations + object mappings.
+Fases seguintes ganham migrations próprias: `0002` database engine,
+`0003` CRM relations, `0004` integrations + object mappings.
 
 **Ordenação — fractional indexing.** `position` é uma string base62 cuja
 ordem lexicográfica é a ordem de exibição. Reordenar é um `UPDATE` de uma
@@ -210,34 +212,36 @@ a sidebar precisa deles; o que fica para a Phase 2 é a UI dedicada
 
 ## G. Files
 
-**Criados**
+Projeto autônomo em `workspace/` (Root Directory do projeto Vercel):
 
 ```
-db/migrations/0002_workspace_engine.sql
-lib/server/workspace/{context,fracdex,pages,blocks,revisions}.js
-api/workspace/{bootstrap,pages,blocks,files}.js
-workspace.html
-src/styles/workspace.css
-src/workspace/{app,api,session,store,sidebar,page-header,cover,icon-picker}.js
-src/workspace/shared/blocks.js
-src/workspace/editor/{editor,render,richtext,slash-menu,block-menu,formatting,dnd}.js
-src/workspace/ui/{menu,toast}.js
-test/{fracdex,richtext,blocks-schema,workspace-flows}.test.js
-test/helpers/fake-db.js
-docs/workspace-architecture.md
+workspace/
+├── package.json  vercel.json  index.html  .gitignore
+├── api/{bootstrap,pages,blocks,files}.js
+├── lib/server/
+│   ├── db.js  jwt.js  log.js            (cópias próprias: projeto separado)
+│   └── context.js  pages.js  blocks.js  revisions.js
+├── db/migrations/0001_workspace_engine.sql
+├── src/
+│   ├── styles/{tokens,workspace}.css
+│   ├── shared/{blocks,fracdex}.js       (browser + servidor)
+│   ├── app.js api.js session.js store.js sidebar.js
+│   ├── page-header.js cover.js icon-picker.js
+│   ├── editor/{editor,render,richtext,slash-menu,block-menu,formatting,dnd}.js
+│   └── ui/{menu,toast}.js
+├── test/{fracdex,richtext,blocks-schema,workspace-flows}.test.js
+│   └── helpers/fake-db.js
+└── docs/{architecture,runbook}.md
 ```
 
-**Modificados**
+`db.js`, `jwt.js` e `log.js` são cópias das do Hub, e isso é intencional:
+projetos Vercel separados não enxergam a pasta pai. A duplicação é o preço
+da independência de deploy — são três arquivos pequenos e estáveis.
+`JWT_SIGNING_KEY` precisa ser o mesmo nos dois projetos.
 
-```
-package.json          → script de teste (node --test)
-lib/server/db.js      → seam de injeção para testes (__setDbClient)
-docs/decisions.md     → D10
-docs/runbook.md       → setup do módulo
-```
-
-Nenhum arquivo do Hub de Indicações (`index.html`, `src/app.js`,
-`components.css`, rotas existentes) foi alterado.
+**No projeto do Hub**, a única mudança é documental: um ponteiro em
+`docs/runbook.md` e a decisão D10 em `docs/decisions.md`. Nenhum código,
+rota, tabela ou config do Hub foi alterado.
 
 ---
 

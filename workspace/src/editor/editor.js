@@ -854,7 +854,7 @@ export function createEditor(root) {
   }
 
   async function copyBlockLink(block) {
-    const url = `${window.location.origin}/workspace?p=${getState().currentPageId}#b-${block.id}`;
+    const url = `${window.location.origin}/?p=${getState().currentPageId}#b-${block.id}`;
     try {
       await navigator.clipboard.writeText(url);
       toast("Link do bloco copiado.", { tone: "success" });

@@ -7,14 +7,14 @@ import assert from "node:assert/strict";
 
 import { __setDbClient } from "../lib/server/db.js";
 import { createFakeDb } from "./helpers/fake-db.js";
-import { ensureWorkspace, WorkspaceError } from "../lib/server/workspace/context.js";
+import { ensureWorkspace, WorkspaceError } from "../lib/server/context.js";
 import {
   listTree, getPage, getAncestors, createPage, updatePage, movePage,
   archivePage, duplicatePage, setFavorite, listFavorites,
-} from "../lib/server/workspace/pages.js";
+} from "../lib/server/pages.js";
 import {
   listBlocks, createBlock, updateBlock, moveBlock, deleteBlock, duplicateBlock,
-} from "../lib/server/workspace/blocks.js";
+} from "../lib/server/blocks.js";
 
 async function setup() {
   __setDbClient(createFakeDb());

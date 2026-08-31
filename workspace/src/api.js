@@ -47,55 +47,55 @@ async function request(method, path, { query, body, keepalive = false } = {}) {
 }
 
 export const api = {
-  bootstrap: () => request("GET", "/api/workspace/bootstrap"),
+  bootstrap: () => request("GET", "/api/bootstrap"),
 
   pages: {
-    tree: () => request("GET", "/api/workspace/pages", { query: { action: "tree" } }),
-    trash: () => request("GET", "/api/workspace/pages", { query: { action: "trash" } }),
-    get: (id) => request("GET", "/api/workspace/pages", { query: { id } }),
-    create: (input) => request("POST", "/api/workspace/pages", { body: input }),
+    tree: () => request("GET", "/api/pages", { query: { action: "tree" } }),
+    trash: () => request("GET", "/api/pages", { query: { action: "trash" } }),
+    get: (id) => request("GET", "/api/pages", { query: { id } }),
+    create: (input) => request("POST", "/api/pages", { body: input }),
     update: (id, patch, opts = {}) =>
-      request("PATCH", "/api/workspace/pages", { query: { id }, body: patch, ...opts }),
+      request("PATCH", "/api/pages", { query: { id }, body: patch, ...opts }),
     move: (input) =>
-      request("POST", "/api/workspace/pages", { query: { action: "move" }, body: input }),
+      request("POST", "/api/pages", { query: { action: "move" }, body: input }),
     duplicate: (id) =>
-      request("POST", "/api/workspace/pages", { query: { action: "duplicate" }, body: { id } }),
+      request("POST", "/api/pages", { query: { action: "duplicate" }, body: { id } }),
     archive: (id) =>
-      request("POST", "/api/workspace/pages", { query: { action: "archive" }, body: { id } }),
+      request("POST", "/api/pages", { query: { action: "archive" }, body: { id } }),
     restore: (id) =>
-      request("POST", "/api/workspace/pages", { query: { action: "restore" }, body: { id } }),
-    remove: (id) => request("DELETE", "/api/workspace/pages", { query: { id } }),
+      request("POST", "/api/pages", { query: { action: "restore" }, body: { id } }),
+    remove: (id) => request("DELETE", "/api/pages", { query: { id } }),
     favorite: (id, favorite) =>
-      request("POST", "/api/workspace/pages", {
+      request("POST", "/api/pages", {
         query: { action: "favorite" },
         body: { id, favorite },
       }),
     visit: (id) =>
-      request("POST", "/api/workspace/pages", { query: { action: "visit" }, body: { id } }),
+      request("POST", "/api/pages", { query: { action: "visit" }, body: { id } }),
   },
 
   blocks: {
-    list: (pageId) => request("GET", "/api/workspace/blocks", { query: { pageId } }),
-    create: (input) => request("POST", "/api/workspace/blocks", { body: input }),
+    list: (pageId) => request("GET", "/api/blocks", { query: { pageId } }),
+    create: (input) => request("POST", "/api/blocks", { body: input }),
     update: (id, patch) =>
-      request("PATCH", "/api/workspace/blocks", { query: { id }, body: patch }),
+      request("PATCH", "/api/blocks", { query: { id }, body: patch }),
     bulkUpdate: (blocks, opts = {}) =>
-      request("PATCH", "/api/workspace/blocks", {
+      request("PATCH", "/api/blocks", {
         query: { action: "bulk" },
         body: { blocks },
         ...opts,
       }),
     move: (input) =>
-      request("POST", "/api/workspace/blocks", { query: { action: "move" }, body: input }),
+      request("POST", "/api/blocks", { query: { action: "move" }, body: input }),
     duplicate: (id) =>
-      request("POST", "/api/workspace/blocks", {
+      request("POST", "/api/blocks", {
         query: { action: "duplicate" },
         body: { id },
       }),
-    remove: (id) => request("DELETE", "/api/workspace/blocks", { query: { id } }),
+    remove: (id) => request("DELETE", "/api/blocks", { query: { id } }),
   },
 
   files: {
-    upload: (file) => request("POST", "/api/workspace/files", { body: file }),
+    upload: (file) => request("POST", "/api/files", { body: file }),
   },
 };

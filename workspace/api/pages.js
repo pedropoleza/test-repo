@@ -21,7 +21,7 @@ import {
   requireRole,
   sendError,
   WorkspaceError,
-} from "../../lib/server/workspace/context.js";
+} from "../lib/server/context.js";
 import {
   listTree,
   getPage,
@@ -34,9 +34,9 @@ import {
   duplicatePage,
   setFavorite,
   touchRecent,
-} from "../../lib/server/workspace/pages.js";
-import { listBlocks } from "../../lib/server/workspace/blocks.js";
-import { log } from "../../lib/server/log.js";
+} from "../lib/server/pages.js";
+import { listBlocks } from "../lib/server/blocks.js";
+import { log } from "../lib/server/log.js";
 
 export default async function handler(req, res) {
   let ctx;

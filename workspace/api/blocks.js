@@ -17,7 +17,7 @@ import {
   requireRole,
   sendError,
   WorkspaceError,
-} from "../../lib/server/workspace/context.js";
+} from "../lib/server/context.js";
 import {
   listBlocks,
   createBlock,
@@ -26,7 +26,7 @@ import {
   moveBlock,
   duplicateBlock,
   deleteBlock,
-} from "../../lib/server/workspace/blocks.js";
+} from "../lib/server/blocks.js";
 
 export default async function handler(req, res) {
   let ctx;

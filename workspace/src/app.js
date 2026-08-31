@@ -2,8 +2,8 @@
  * Shell do Workspace: bootstrap, roteamento e ligação entre sidebar,
  * cabeçalho e editor.
  *
- * Rota: /workspace?p=<pageId>. Path fixo + query param funciona com o
- * hosting estático atual (cleanUrls na Vercel) e permite deep link sem
+ * Rota: /?p=<pageId> na raiz do domínio próprio do Workspace. Path fixo
+ * + query param funciona com hosting estático e permite deep link sem
  * configuração de rewrite.
  */
 import { api, ApiError } from "./api.js";
@@ -50,7 +50,7 @@ async function bootstrap() {
       "Sessão necessária",
       "Abra o Workspace pelo app (o SSO passa a sessão automaticamente). " +
         "Para acesso de suporte, informe a chave de admin e o tenant na URL: " +
-        "/workspace?k=SUA_CHAVE&tenantId=LOCATION_ID",
+        "?k=SUA_CHAVE&tenantId=LOCATION_ID",
     );
     return;
   }
@@ -356,7 +356,7 @@ async function pageAction(action, page) {
     }
 
     case "copy-link": {
-      const url = `${window.location.origin}/workspace?p=${page.id}`;
+      const url = `${window.location.origin}/?p=${page.id}`;
       try {
         await navigator.clipboard.writeText(url);
         toast("Link copiado.", { tone: "success" });

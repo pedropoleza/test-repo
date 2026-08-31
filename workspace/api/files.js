@@ -10,14 +10,14 @@
  * (≈4.5MB) é o teto prático; o cliente valida antes de enviar.
  */
 import { randomUUID } from "node:crypto";
-import { db } from "../../lib/server/db.js";
+import { db } from "../lib/server/db.js";
 import {
   resolveContext,
   requireRole,
   sendError,
   WorkspaceError,
-} from "../../lib/server/workspace/context.js";
-import { log } from "../../lib/server/log.js";
+} from "../lib/server/context.js";
+import { log } from "../lib/server/log.js";
 
 const BUCKET = "workspace-files";
 const MAX_BYTES = 4 * 1024 * 1024;

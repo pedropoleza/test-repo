@@ -7,9 +7,9 @@
  *
  * Auth: x-spark-session (JWT do SSO) ou admin key + ?tenantId.
  */
-import { resolveContext, sendError } from "../../lib/server/workspace/context.js";
-import { listTree, listFavorites, listRecent } from "../../lib/server/workspace/pages.js";
-import { log } from "../../lib/server/log.js";
+import { resolveContext, sendError } from "../lib/server/context.js";
+import { listTree, listFavorites, listRecent } from "../lib/server/pages.js";
+import { log } from "../lib/server/log.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {

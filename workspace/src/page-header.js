@@ -12,6 +12,9 @@ import { toast } from "./ui/toast.js";
 
 export function createPageHeader(root, handlers) {
   let repositioning = null;
+  // Rótulo do próprio breadcrumb, atualizado enquanto se digita o título.
+  // Re-renderizar o cabeçalho inteiro a cada tecla tiraria o foco do H1.
+  let ownCrumbLabel = null;
 
   function render(page, breadcrumbs) {
     root.replaceChildren();
@@ -32,6 +35,7 @@ export function createPageHeader(root, handlers) {
   }
 
   function renderBreadcrumbs(breadcrumbs, page) {
+    ownCrumbLabel = null;
     const nav = document.createElement("nav");
     nav.className = "ws-breadcrumbs";
     nav.setAttribute("aria-label", "Caminho da página");
@@ -57,6 +61,7 @@ export function createPageHeader(root, handlers) {
       const label = document.createElement("span");
       label.textContent = crumb.title || "Sem título";
       node.appendChild(label);
+      if (isLast) ownCrumbLabel = label;
       nav.appendChild(node);
     });
     return nav;
@@ -318,5 +323,11 @@ export function createPageHeader(root, handlers) {
     return { cover_type: picked.type, cover_value: picked.value, cover_position_y: 50 };
   }
 
-  return { render };
+  return {
+    render,
+    /** Mantém o breadcrumb em dia enquanto o título é digitado. */
+    updateTitle(title) {
+      if (ownCrumbLabel) ownCrumbLabel.textContent = title || "Sem título";
+    },
+  };
 }

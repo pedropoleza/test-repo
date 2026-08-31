@@ -424,6 +424,11 @@ export function createEditor(root) {
     const content = { ...(block.content || {}), rich };
 
     if (leftoverEmpty && blockSpec(block.type).rich) {
+      // Limpa o "/comando" digitado antes de despachar. Sem isto o texto
+      // "/tabela" ficava como parágrafo solto acima do bloco criado.
+      upsertBlock({ ...block, content });
+      markDirty(block.id, { content: normalizeBlockContent(block.type, content).content });
+
       if (cmd.id === "divider") {
         await turnInto(block, "divider");
         await createBlockAfter(blockById(block.id), { type: "paragraph" });

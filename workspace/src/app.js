@@ -274,6 +274,11 @@ function onTitleInput(title) {
   const state = getState();
   if (!state.page) return;
   state.page.title = title;
+  // O breadcrumb da própria página também mostra o título: sem isto ele
+  // ficava congelado no valor de quando a página foi aberta.
+  const own = state.breadcrumbs?.[state.breadcrumbs.length - 1];
+  if (own && own.id === state.page.id) own.title = title;
+  header.updateTitle(title);
   upsertPageInTree({ ...state.page, title });
   sidebar.render();
   document.title = `${title || "Sem título"} · Spark`;

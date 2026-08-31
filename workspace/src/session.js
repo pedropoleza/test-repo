@@ -64,10 +64,6 @@ export function getTenantId() {
   return memory.tenantId || recall(TENANT_KEY);
 }
 
-export function hasCredentials() {
-  return !!getSession() || !!(getAdminKey() && getTenantId());
-}
-
 export function authHeaders() {
   const headers = {};
   const session = getSession();

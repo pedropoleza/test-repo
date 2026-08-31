@@ -7,7 +7,7 @@
  * configuração de rewrite.
  */
 import { api, ApiError } from "./api.js";
-import { hasCredentials } from "./session.js";
+import "./session.js"; // captura ?session= / ?k= da URL e limpa a barra de endereço
 import {
   getState, setState, subscribe, childrenOf, isFavorite,
   revealPage, upsertPageInTree, removePagesFromTree,
@@ -45,16 +45,9 @@ let titleTimer = null;
 /* ------------------------------------------------------------------ */
 
 async function bootstrap() {
-  if (!hasCredentials()) {
-    renderGate(
-      "Sessão necessária",
-      "Abra o Workspace pelo app (o SSO passa a sessão automaticamente). " +
-        "Para acesso de suporte, informe a chave de admin e o tenant na URL: " +
-        "?k=SUA_CHAVE&tenantId=LOCATION_ID",
-    );
-    return;
-  }
-
+  // Quem decide se há acesso é o servidor: ele aceita JWT do SSO, chave de
+  // admin ou o modo de tenant fixo, e o browser não tem como saber qual
+  // está ativo. Tentamos o bootstrap e só mostramos a barreira num 401.
   try {
     const data = await api.bootstrap();
     setState(
@@ -82,7 +75,11 @@ async function bootstrap() {
     else await openInitialPage();
   } catch (err) {
     if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-      renderGate("Sem acesso", "Sua sessão expirou ou não tem permissão neste workspace.");
+      renderGate(
+        "Sessão necessária",
+        "Abra o Workspace pelo app — o SSO entrega a sessão automaticamente. " +
+          "Para acesso de suporte: ?k=SUA_CHAVE&tenantId=LOCATION_ID",
+      );
       return;
     }
     renderGate(

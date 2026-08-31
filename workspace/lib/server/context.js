@@ -74,8 +74,16 @@ function mapRole(claims) {
  *
  * Caminho 1 (usuário final): JWT do SSO do GHL.
  * Caminho 2 (operador Spark): ADMIN_URL_SECRET + ?tenantId — mesmo
- *   mecanismo já usado por /api/admin/*, para suporte e para rodar o
- *   módulo isoladamente antes da integração com o CRM.
+ *   mecanismo já usado por /api/admin/*, para suporte.
+ * Caminho 3 (modo tenant fixo): WORKSPACE_FIXED_TENANT_ID definido.
+ *   Sem SSO, sem chave: qualquer requisição entra como owner daquele
+ *   tenant. É o modo da primeira fase, com uma única subconta usando o
+ *   Workspace.
+ *
+ *   ATENÇÃO: enquanto essa variável existir, quem tiver a URL tem acesso
+ *   total de leitura e escrita ao workspace desse tenant. Não há login.
+ *   Para encerrar o modo, basta apagar a variável — o código volta a
+ *   exigir SSO sem mudança nenhuma.
  */
 export async function resolveContext(req, { ensure = true } = {}) {
   const token = req.headers["x-spark-session"] || req.query?.session;
@@ -104,6 +112,16 @@ export async function resolveContext(req, { ensure = true } = {}) {
     return buildContext({
       tenantId,
       userKey: `admin:${String(req.query?.as || "spark")}`,
+      role: "owner",
+      ensure,
+    });
+  }
+
+  const fixedTenant = process.env.WORKSPACE_FIXED_TENANT_ID;
+  if (fixedTenant) {
+    return buildContext({
+      tenantId: fixedTenant,
+      userKey: process.env.WORKSPACE_FIXED_USER_KEY || `fixed:${fixedTenant}`,
       role: "owner",
       ensure,
     });

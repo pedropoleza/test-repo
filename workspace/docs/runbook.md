@@ -15,6 +15,7 @@ nos dois projetos, senão o JWT emitido pelo SSO do GHL não valida aqui.
 | `SUPABASE_SERVICE_ROLE_KEY` | acesso server-side (bypassa RLS) | sim |
 | `JWT_SIGNING_KEY` | valida o JWT do SSO — mesmo valor do Hub | sim |
 | `ADMIN_URL_SECRET` | acesso de suporte via `?k=` | opcional |
+| `WORKSPACE_FIXED_TENANT_ID` | modo de tenant fixo (primeira fase) | opcional |
 
 `SUPABASE_URL` pode apontar para o mesmo projeto do Hub ou para um
 dedicado — o código não muda. As tabelas têm prefixo `workspace_` e não
@@ -35,13 +36,34 @@ colidem com as do Hub.
 
 ## Acesso
 
-- **Usuário final:** o SSO do GHL entrega o JWT — `/?session=<jwt>`. A
-  sessão vai para `sessionStorage` e some da barra de endereço.
-- **Suporte / operador:** `/?k=$ADMIN_URL_SECRET&tenantId=<locationId>`.
-  Entra como `owner` daquele tenant.
+O servidor tenta três caminhos, nessa ordem:
 
-Sem credencial a tela mostra "Sessão necessária" — não existe login
-próprio, por desenho.
+1. **JWT do SSO do GHL** — `/?session=<jwt>`. A sessão vai para
+   `sessionStorage` e some da barra de endereço.
+2. **Chave de suporte** — `/?k=$ADMIN_URL_SECRET&tenantId=<locationId>`.
+   Entra como `owner` daquele tenant.
+3. **Tenant fixo** — se `WORKSPACE_FIXED_TENANT_ID` estiver definida,
+   qualquer requisição sem credencial entra como `owner` desse tenant.
+
+Um JWT presente porém inválido é recusado; ele nunca "cai" para o modo
+fixo. O `?tenantId=` da query também é ignorado no modo fixo — ele não
+serve de porta para outros tenants.
+
+### Modo de tenant fixo — primeira fase
+
+Hoje: `WORKSPACE_FIXED_TENANT_ID = mqO0er6vDQahqWGS1FYJ` (subconta
+"Daniely Jones"). É o modo de uma subconta só, sem SSO.
+
+> **Enquanto essa variável existir, quem tiver a URL tem acesso total de
+> leitura e escrita ao workspace desse tenant.** Não há login, e a URL
+> `.vercel.app` é pública. É uma escolha consciente da primeira fase.
+
+Para encerrar o modo, apague a variável e faça redeploy: o código volta a
+exigir SSO ou chave de suporte, sem nenhuma alteração de código.
+
+Para trocar de subconta, mude o valor da variável — o workspace é criado
+na primeira visita e o conteúdo antigo continua ligado ao tenant anterior,
+intacto.
 
 ## Endpoints
 
@@ -65,7 +87,12 @@ A migration não foi aplicada nesse ambiente. Ver Setup, item 1.
 
 **Tela de "Sessão necessária" mesmo vindo do GHL.**
 `JWT_SIGNING_KEY` diferente do Hub. Os dois projetos precisam do mesmo
-valor.
+valor. No modo de tenant fixo essa tela não aparece.
+
+**O workspace abriu vazio depois de mexer nas variáveis.**
+Provavelmente `WORKSPACE_FIXED_TENANT_ID` mudou de valor: cada tenant tem
+seu próprio workspace. O conteúdo anterior não foi perdido — volte a
+variável ao valor antigo para revê-lo.
 
 **Editor preso em "Sem salvar".**
 O autosave repete com backoff (1s → 30s) e não descarta o que foi

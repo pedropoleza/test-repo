@@ -12,6 +12,7 @@ const state = {
   workspace: null,
   viewer: null,
   pages: [],          // árvore achatada
+  sections: [],       // seções da sidebar
   favorites: [],
   recent: [],
   currentPageId: null,
@@ -67,6 +68,14 @@ export function childrenOf(parentId) {
     .sort((a, b) => (a.position < b.position ? -1 : 1));
 }
 
+/** Páginas de raiz de uma seção. Sem seção definida caem na padrão. */
+export function pagesInSection(sectionId) {
+  const fallback = state.sections.find((s) => s.is_default)?.id || null;
+  return childrenOf(null).filter(
+    (p) => (p.section_id || fallback) === sectionId,
+  );
+}
+
 export function pageById(id) {
   return state.pages.find((p) => p.id === id) || null;
 }
@@ -110,6 +119,7 @@ export function upsertPageInTree(page) {
     icon_value: page.icon_value ?? null,
     visibility: page.visibility ?? "private",
     position: page.position ?? "V",
+    section_id: page.section_id ?? null,
     is_archived: page.is_archived ?? false,
     updated_at: page.updated_at ?? new Date().toISOString(),
     source: page.source ?? "native",

@@ -200,6 +200,9 @@ function renderBody(block, spec, ordinal) {
     case "subpage":
       return renderSubpageLink(block);
 
+    case "database":
+      return renderDatabaseMount(block);
+
     case "unsupported":
       return renderUnsupported(block);
 
@@ -335,6 +338,22 @@ function renderSubpageLink(block) {
   link.dataset.pageId = block.content?.pageId || "";
   link.textContent = block.content?.title || "Subpágina";
   return link;
+}
+
+/**
+ * O bloco de database só reserva o espaço; quem monta a tabela é o
+ * editor, que tem acesso à navegação para abrir registros como página.
+ */
+function renderDatabaseMount(block) {
+  const mount = document.createElement("div");
+  mount.className = "ws-db-mount";
+  mount.dataset.databaseId = block.content?.databaseId || "";
+  mount.dataset.viewId = block.content?.viewId || "";
+  if (!block.content?.databaseId) {
+    mount.textContent = "Tabela não encontrada.";
+    mount.classList.add("is-broken");
+  }
+  return mount;
 }
 
 /**

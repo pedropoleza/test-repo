@@ -36,6 +36,9 @@ import {
   touchRecent,
 } from "../lib/server/pages.js";
 import { listBlocks } from "../lib/server/blocks.js";
+import {
+  listSections, createSection, updateSection, moveSection, deleteSection,
+} from "../lib/server/sections.js";
 import { log } from "../lib/server/log.js";
 
 export default async function handler(req, res) {
@@ -85,6 +88,9 @@ async function handleGet(ctx, req) {
   if (action === "tree") {
     return { pages: await listTree(ctx) };
   }
+  if (action === "sections") {
+    return { sections: await listSections(ctx) };
+  }
   if (action === "trash") {
     const all = await listTree(ctx, { includeArchived: true });
     return { pages: all.filter((p) => p.is_archived) };
@@ -127,6 +133,15 @@ async function handlePost(ctx, action, body) {
     case "visit":
       await touchRecent(ctx, requireId(body));
       return { ok: true };
+
+    case "section_create":
+      return { section: await createSection(ctx, body) };
+    case "section_update":
+      return { section: await updateSection(ctx, requireId(body), body) };
+    case "section_move":
+      return { section: await moveSection(ctx, requireId(body), body) };
+    case "section_delete":
+      return await deleteSection(ctx, requireId(body));
     default:
       throw new WorkspaceError(400, "unknown_action", { action });
   }

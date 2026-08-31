@@ -7,6 +7,7 @@
  */
 import { paintCover, openCoverPicker } from "./cover.js";
 import { openIconPicker, renderIcon } from "./icon-picker.js";
+import { openMenu } from "./ui/menu.js";
 import { toast } from "./ui/toast.js";
 
 export function createPageHeader(root, handlers) {
@@ -85,6 +86,24 @@ export function createPageHeader(root, handlers) {
     }
 
     actions.appendChild(
+      coverButton("Altura", (event) => {
+        const atual = page.cover_height || 220;
+        openMenu({
+          anchor: event.currentTarget,
+          width: 180,
+          placement: "top-start",
+          items: [
+            { id: "160", label: "Baixa",  icon: atual === 160 ? "✓" : " " },
+            { id: "220", label: "Média",  icon: atual === 220 ? "✓" : " " },
+            { id: "320", label: "Alta",   icon: atual === 320 ? "✓" : " " },
+            { id: "420", label: "Máxima", icon: atual === 420 ? "✓" : " " },
+          ],
+          onSelect: (id) => handlers.onPatch({ cover_height: Number(id) }),
+        });
+      }),
+    );
+
+    actions.appendChild(
       coverButton("Remover", () => handlers.onPatch({ cover_type: null, cover_value: null })),
     );
 
@@ -101,54 +120,100 @@ export function createPageHeader(root, handlers) {
     return button;
   }
 
-  /** Arrasta verticalmente para escolher o enquadramento da capa. */
+  /**
+   * Modo de reposicionamento da capa.
+   *
+   * Antes isto usava mouseup no document para encerrar, e o próprio clique
+   * no botão "Reposicionar" já disparava o encerramento — o modo terminava
+   * antes de o usuário arrastar qualquer coisa. Agora o arrasto e a saída
+   * do modo são eventos separados: pointerdown/move/up movem, e só
+   * "Salvar" ou "Cancelar" (ou Esc) encerram.
+   */
   function startReposition(wrap, page) {
     if (repositioning) return;
+
+    const original = page.cover_position_y ?? 50;
+    let current = original;
+    let dragging = false;
+    let lastY = 0;
+
     wrap.classList.add("is-repositioning");
 
-    let current = page.cover_position_y ?? 50;
-    const startY = { value: null };
-
+    const onDown = (event) => {
+      if (event.target.closest(".ws-cover__reposition")) return; // barra não arrasta
+      dragging = true;
+      lastY = event.clientY;
+      wrap.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    };
     const onMove = (event) => {
-      const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-      if (startY.value === null) {
-        startY.value = clientY;
-        return;
-      }
-      const delta = ((clientY - startY.value) / wrap.offsetHeight) * 100;
-      startY.value = clientY;
+      if (!dragging) return;
+      const delta = ((event.clientY - lastY) / wrap.offsetHeight) * 100;
+      lastY = event.clientY;
       current = Math.min(100, Math.max(0, current - delta));
       wrap.style.backgroundPosition = `center ${current}%`;
+      readout.textContent = `${Math.round(current)}%`;
+      event.preventDefault();
     };
+    const onUp = () => { dragging = false; };
 
-    const finish = () => {
+    const exit = (save) => {
       wrap.classList.remove("is-repositioning");
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", finish);
-      document.removeEventListener("touchmove", onMove);
-      document.removeEventListener("touchend", finish);
+      wrap.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.removeEventListener("keydown", onKey, true);
       bar.remove();
       repositioning = null;
-      handlers.onPatch({ cover_position_y: Math.round(current) });
+      if (save) handlers.onPatch({ cover_position_y: Math.round(current) });
+      else wrap.style.backgroundPosition = `center ${original}%`;
+    };
+
+    const onKey = (event) => {
+      // Teclado também reposiciona: arrastar não pode ser o único caminho.
+      if (event.key === "Escape") { event.preventDefault(); exit(false); return; }
+      if (event.key === "Enter")  { event.preventDefault(); exit(true);  return; }
+      const step = event.shiftKey ? 10 : 2;
+      if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        event.preventDefault();
+        current = Math.min(100, Math.max(0, current + (event.key === "ArrowUp" ? -step : step)));
+        wrap.style.backgroundPosition = `center ${current}%`;
+        readout.textContent = `${Math.round(current)}%`;
+      }
     };
 
     const bar = document.createElement("div");
     bar.className = "ws-cover__reposition";
+
     const hint = document.createElement("span");
-    hint.textContent = "Arraste para reposicionar";
-    const done = document.createElement("button");
-    done.type = "button";
-    done.className = "ws-btn ws-btn--primary ws-btn--sm";
-    done.textContent = "Salvar posição";
-    done.addEventListener("click", finish);
-    bar.append(hint, done);
+    hint.className = "ws-cover__hint";
+    hint.textContent = "Arraste a capa ou use ↑ ↓";
+
+    const readout = document.createElement("span");
+    readout.className = "ws-cover__readout";
+    readout.textContent = `${Math.round(current)}%`;
+
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ws-btn ws-btn--ghost ws-btn--sm";
+    cancel.textContent = "Cancelar";
+    cancel.addEventListener("click", () => exit(false));
+
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "ws-btn ws-btn--primary ws-btn--sm";
+    save.textContent = "Salvar posição";
+    save.addEventListener("click", () => exit(true));
+
+    bar.append(hint, readout, cancel, save);
     wrap.appendChild(bar);
 
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", finish, { once: false });
-    document.addEventListener("touchmove", onMove, { passive: true });
-    document.addEventListener("touchend", finish);
-    repositioning = { finish };
+    wrap.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    document.addEventListener("keydown", onKey, true);
+    repositioning = { exit };
+    save.focus();
   }
 
   function renderIconSlot(page) {
@@ -172,6 +237,10 @@ export function createPageHeader(root, handlers) {
   function renderControls(page) {
     const bar = document.createElement("div");
     bar.className = "ws-page__controls";
+    // Página sem capa e sem ícone: mostra os controles direto. Esconder a
+    // única forma de adicioná-los atrás de um hover é fricção pura (§71
+    // pede contextual, não invisível).
+    if (!page.cover_type && !page.icon_type) bar.classList.add("is-visible");
 
     if (!page.icon_type) {
       bar.appendChild(

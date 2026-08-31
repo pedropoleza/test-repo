@@ -74,6 +74,18 @@ export const api = {
       request("POST", "/api/pages", { query: { action: "visit" }, body: { id } }),
   },
 
+  sections: {
+    list: () => request("GET", "/api/pages", { query: { action: "sections" } }),
+    create: (input) =>
+      request("POST", "/api/pages", { query: { action: "section_create" }, body: input }),
+    update: (id, patch) =>
+      request("POST", "/api/pages", { query: { action: "section_update" }, body: { id, ...patch } }),
+    move: (id, target) =>
+      request("POST", "/api/pages", { query: { action: "section_move" }, body: { id, ...target } }),
+    remove: (id) =>
+      request("POST", "/api/pages", { query: { action: "section_delete" }, body: { id } }),
+  },
+
   blocks: {
     list: (pageId) => request("GET", "/api/blocks", { query: { pageId } }),
     create: (input) => request("POST", "/api/blocks", { body: input }),
@@ -97,5 +109,37 @@ export const api = {
 
   files: {
     upload: (file) => request("POST", "/api/files", { body: file }),
+  },
+
+  databases: {
+    get: (id, viewId) => request("GET", "/api/databases", { query: { id, viewId } }),
+    create: (input) => request("POST", "/api/databases", { body: input }),
+    update: (id, patch) => request("PATCH", "/api/databases", { query: { id }, body: patch }),
+    remove: (id) => request("DELETE", "/api/databases", { query: { id } }),
+
+    createField: (id, input) =>
+      request("POST", "/api/databases", { query: { action: "field", id }, body: input }),
+    updateField: (fieldId, patch) =>
+      request("PATCH", "/api/databases", { query: { action: "field", fieldId }, body: patch }),
+    moveField: (fieldId, target) =>
+      request("POST", "/api/databases", { query: { action: "field_move", fieldId }, body: target }),
+    removeField: (fieldId) =>
+      request("DELETE", "/api/databases", { query: { action: "field", fieldId } }),
+
+    createView: (id, input) =>
+      request("POST", "/api/databases", { query: { action: "view", id }, body: input }),
+    updateView: (viewId, patch) =>
+      request("PATCH", "/api/databases", { query: { action: "view", viewId }, body: patch }),
+    removeView: (viewId) =>
+      request("DELETE", "/api/databases", { query: { action: "view", viewId } }),
+
+    createRecord: (id, input) =>
+      request("POST", "/api/databases", { query: { action: "record", id }, body: input }),
+    updateRecord: (recordId, patch) =>
+      request("PATCH", "/api/databases", { query: { action: "record", recordId }, body: patch }),
+    moveRecord: (recordId, target) =>
+      request("POST", "/api/databases", { query: { action: "record_move", recordId }, body: target }),
+    removeRecord: (recordId) =>
+      request("DELETE", "/api/databases", { query: { action: "record", recordId } }),
   },
 };

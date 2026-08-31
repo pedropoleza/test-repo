@@ -9,7 +9,7 @@
 import { api, ApiError } from "./api.js";
 import "./session.js"; // captura ?session= / ?k= da URL e limpa a barra de endereço
 import {
-  getState, setState, subscribe, childrenOf, isFavorite,
+  getState, setState, subscribe, childrenOf, pagesInSection, isFavorite,
   revealPage, upsertPageInTree, removePagesFromTree,
 } from "./store.js";
 import { createSidebar } from "./sidebar.js";
@@ -25,7 +25,6 @@ const els = {
   sidebarToggle: document.getElementById("ws-sidebar-toggle"),
   sidebarPanel: document.getElementById("ws-sidebar"),
   backdrop: document.getElementById("ws-sidebar-backdrop"),
-  workspaceName: document.getElementById("ws-workspace-name"),
   newPage: document.getElementById("ws-new-page"),
   saveState: document.getElementById("ws-save-state"),
   header: document.getElementById("ws-page-header"),
@@ -56,13 +55,13 @@ async function bootstrap() {
         workspace: data.workspace,
         viewer: data.viewer,
         pages: data.pages,
+        sections: data.sections || [],
         favorites: data.favorites,
         recent: data.recent,
       },
       "bootstrap",
     );
 
-    els.workspaceName.textContent = data.workspace.name;
     sidebar = createSidebar(els.sidebar, sidebarHandlers);
     header = createPageHeader(els.header, headerHandlers);
     editor = createEditor(els.editor);
@@ -130,7 +129,9 @@ function renderEmptyWorkspace() {
   cta.type = "button";
   cta.className = "ws-btn ws-btn--primary";
   cta.textContent = "Nova página";
-  cta.addEventListener("click", () => createPage(null, "private"));
+  cta.addEventListener("click", () => createPage(null, {
+    sectionId: getState().sections.find((s) => s.is_default)?.id,
+  }));
   empty.append(h, p, cta);
   els.editor.appendChild(empty);
 }
@@ -149,14 +150,18 @@ async function openPage(pageId, { push = true } = {}) {
   try {
     const { page, blocks, breadcrumbs } = await api.pages.get(pageId);
     setState({ page, blocks, breadcrumbs }, "page");
-    upsertPageInTree(page);
-    revealPage(pageId);
+    // Registro de tabela é página, mas não é item de navegação: injetá-lo
+    // na árvore fazia cada linha aberta virar uma entrada na sidebar.
+    if (!page.database_id) {
+      upsertPageInTree(page);
+      revealPage(pageId);
+    }
 
     header.render(page, breadcrumbs);
     editor.render();
     sidebar.render();
     updatePageChrome();
-    document.title = `${page.title || "Sem título"} · Workspace`;
+    document.title = `${page.title || "Sem título"} · Spark`;
 
     if (push) {
       const url = new URL(window.location.href);
@@ -223,12 +228,12 @@ window.addEventListener("popstate", () => {
 /* Ações de página                                                    */
 /* ------------------------------------------------------------------ */
 
-async function createPage(parentPageId, visibility) {
+async function createPage(parentPageId, options = {}) {
   try {
     const siblings = childrenOf(parentPageId);
     const { page } = await api.pages.create({
       parentPageId,
-      visibility,
+      sectionId: options.sectionId,
       afterId: siblings[siblings.length - 1]?.id,
     });
     upsertPageInTree(page);
@@ -271,7 +276,7 @@ function onTitleInput(title) {
   state.page.title = title;
   upsertPageInTree({ ...state.page, title });
   sidebar.render();
-  document.title = `${title || "Sem título"} · Workspace`;
+  document.title = `${title || "Sem título"} · Spark`;
   setState({ saveState: "saving" }, "save-state");
 
   clearTimeout(titleTimer);
@@ -292,7 +297,9 @@ async function commitTitle({ keepalive = false } = {}) {
 
 const sidebarHandlers = {
   onOpen: (pageId) => openPage(pageId),
-  onCreate: (parentPageId, visibility) => createPage(parentPageId, visibility),
+  onCreate: (parentPageId, options) => createPage(parentPageId, options),
+  onCreateSection: () => createSection(),
+  onSectionAction: (action, sectionId, name) => sectionAction(action, sectionId, name),
   onMove: async (id, target) => {
     try {
       const { page } = await api.pages.move({ id, ...target });
@@ -315,6 +322,62 @@ const sidebarHandlers = {
   onPageAction: (action, page) => pageAction(action, page),
   onOpenTrash: () => openTrash(),
 };
+
+async function createSection() {
+  const name = window.prompt("Nome da nova seção:", "");
+  if (name === null) return;
+  try {
+    const { section } = await api.sections.create({ name: name.trim() || "Nova seção" });
+    getState().sections.push(section);
+    sidebar.render();
+    toast(`Seção "${section.name}" criada.`, { tone: "success" });
+  } catch {
+    toast("Não foi possível criar a seção.", { tone: "danger" });
+  }
+}
+
+async function sectionAction(action, sectionId, name) {
+  const state = getState();
+
+  if (action === "new-page") return createPage(null, { sectionId });
+
+  if (action === "rename") {
+    const next = window.prompt("Nome da seção:", name);
+    if (next === null || !next.trim()) return;
+    try {
+      const { section } = await api.sections.update(sectionId, { name: next.trim() });
+      const i = state.sections.findIndex((s) => s.id === sectionId);
+      if (i >= 0) state.sections[i] = section;
+      sidebar.render();
+    } catch {
+      toast("Não foi possível renomear a seção.", { tone: "danger" });
+    }
+    return;
+  }
+
+  if (action === "delete") {
+    const pages = pagesInSection(sectionId);
+    const ok = await confirmDialog({
+      title: "Excluir seção?",
+      message: pages.length
+        ? `As ${pages.length} página(s) desta seção vão para a seção padrão. Nada é excluído.`
+        : "A seção será removida. Nenhuma página é afetada.",
+      confirmLabel: "Excluir seção",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      const { movedTo } = await api.sections.remove(sectionId);
+      state.sections = state.sections.filter((s) => s.id !== sectionId);
+      for (const p of state.pages) if (p.section_id === sectionId) p.section_id = movedTo;
+      sidebar.render();
+    } catch (err) {
+      toast(err.code === "cannot_delete_default_section"
+        ? "A seção padrão não pode ser excluída."
+        : "Não foi possível excluir a seção.", { tone: "danger" });
+    }
+  }
+}
 
 async function pageAction(action, page) {
   switch (action) {
@@ -360,6 +423,32 @@ async function pageAction(action, page) {
       } catch {
         window.prompt("Copie o link:", url);
       }
+      return;
+    }
+
+    case "move-to-section": {
+      const state = getState();
+      const { openMenu } = await import("./ui/menu.js");
+      openMenu({
+        anchor: els.pageMenuBtn,
+        placement: "bottom-end",
+        width: 230,
+        items: state.sections.map((s) => ({
+          id: s.id, label: s.name, icon: page.section_id === s.id ? "✓" : " ",
+          section: "Mover para",
+        })),
+        onSelect: async (sectionId) => {
+          try {
+            const { page: saved } = await api.pages.move({
+              id: page.id, parentPageId: null, sectionId,
+            });
+            upsertPageInTree(saved);
+            sidebar.render();
+          } catch {
+            toast("Não foi possível mover a página.", { tone: "danger" });
+          }
+        },
+      });
       return;
     }
 
@@ -563,7 +652,9 @@ subscribe((state, reason) => {
 });
 
 function wireShell() {
-  els.newPage.addEventListener("click", () => createPage(null, "private"));
+  els.newPage.addEventListener("click", () => createPage(null, {
+    sectionId: getState().sections.find((s) => s.is_default)?.id,
+  }));
 
   els.favoriteBtn.addEventListener("click", () => {
     const state = getState();

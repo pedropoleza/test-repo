@@ -31,6 +31,9 @@ export const SLASH_COMMANDS = [
   { id: "bookmark",      group: "Mídia",  label: "Bookmark",        icon: "🔖", keywords: "bookmark link favorito url" },
 
   { id: "subpage",       group: "Estrutura", label: "Subpágina",    icon: "📄", keywords: "subpagina pagina nova page" },
+
+  { id: "database",      group: "Dados", label: "Tabela",           icon: "▦",  keywords: "tabela database base dados grade planilha table" },
+  { id: "database_board",group: "Dados", label: "Quadro (kanban)",  icon: "▤",  keywords: "quadro kanban board colunas status" },
 ];
 
 const norm = (s) =>

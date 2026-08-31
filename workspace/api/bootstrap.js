@@ -9,6 +9,7 @@
  */
 import { resolveContext, sendError } from "../lib/server/context.js";
 import { listTree, listFavorites, listRecent } from "../lib/server/pages.js";
+import { listSections } from "../lib/server/sections.js";
 import { log } from "../lib/server/log.js";
 
 export default async function handler(req, res) {
@@ -19,10 +20,11 @@ export default async function handler(req, res) {
   try {
     const ctx = await resolveContext(req);
     const includeArchived = req.query?.includeArchived === "1";
-    const [tree, favorites, recent] = await Promise.all([
+    const [tree, favorites, recent, sections] = await Promise.all([
       listTree(ctx, { includeArchived }),
       listFavorites(ctx),
       listRecent(ctx),
+      listSections(ctx),
     ]);
 
     return res.status(200).json({
@@ -34,6 +36,7 @@ export default async function handler(req, res) {
       },
       viewer: { userKey: ctx.userKey, role: ctx.role, tenantId: ctx.tenantId },
       pages: tree,
+      sections,
       favorites,
       recent,
       asOf: new Date().toISOString(),

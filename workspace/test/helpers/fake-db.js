@@ -11,7 +11,24 @@ import { randomUUID } from "node:crypto";
 
 const DEFAULTS = {
   workspaces: () => ({ slug: "default", name: "Workspace", settings: {} }),
+  workspace_databases: () => ({
+    page_id: null, title: "Nova tabela", icon_type: null, icon_value: null,
+    description: null, source: "native", source_external_id: null,
+  }),
+  workspace_database_fields: () => ({
+    name: "Campo", type: "text", config: {}, is_primary: false,
+  }),
+  workspace_database_views: () => ({
+    name: "Tabela", type: "table",
+    filters: { op: "and", conditions: [] }, sorts: [],
+    group_by: null, visible_fields: null, field_order: [], layout: {},
+  }),
+  workspace_sections: () => ({
+    name: "Nova seção", icon_type: null, icon_value: null, is_default: false,
+  }),
   workspace_pages: () => ({
+    database_id: null,
+    section_id: null,
     parent_page_id: null,
     title: "",
     icon_type: null,
@@ -59,6 +76,17 @@ export function createFakeDb() {
       }
       for (const block of rowsOf("workspace_blocks").filter((r) => r.page_id === row.id)) {
         removeRow("workspace_blocks", block);
+      }
+    }
+    if (table === "workspace_databases") {
+      for (const f of rowsOf("workspace_database_fields").filter((r) => r.database_id === row.id)) {
+        removeRow("workspace_database_fields", f);
+      }
+      for (const v of rowsOf("workspace_database_views").filter((r) => r.database_id === row.id)) {
+        removeRow("workspace_database_views", v);
+      }
+      for (const r of rowsOf("workspace_pages").filter((p) => p.database_id === row.id)) {
+        removeRow("workspace_pages", r);
       }
     }
     if (table === "workspace_blocks") {

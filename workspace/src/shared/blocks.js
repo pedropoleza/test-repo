@@ -39,6 +39,7 @@ export const BLOCK_TYPES = {
   embed:          { group: "media", rich: false, children: false, void: true },
   bookmark:       { group: "media", rich: false, children: false, void: true },
   subpage:        { group: "structure", rich: false, children: false, void: true },
+  database:       { group: "data",      rich: false, children: false, void: true },
   /**
    * Fallback obrigatório (§52). Qualquer tipo desconhecido — inclusive
    * bloco do Notion ainda não suportado — vira `unsupported` guardando o
@@ -167,6 +168,10 @@ export function normalizeBlockContent(type, rawContent) {
       break;
     case "subpage":
       out.pageId = clampString(content.pageId, 64);
+      break;
+    case "database":
+      out.databaseId = clampString(content.databaseId, 64);
+      out.viewId = clampString(content.viewId, 64) || null;
       break;
     case "unsupported":
       out.originalType = clampString(content.originalType, 120) || "unknown";

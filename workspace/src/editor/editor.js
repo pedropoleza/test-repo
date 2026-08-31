@@ -26,6 +26,7 @@ import { syncFormattingBar, hideFormattingBar, handleFormattingShortcut } from "
 import { initDnd } from "./dnd.js";
 import { openModal, closeMenu } from "../ui/menu.js";
 import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
+import { createTableView } from "../database/table-view.js";
 import { toast } from "../ui/toast.js";
 
 const AUTOSAVE_DELAY_MS = 700;
@@ -85,6 +86,8 @@ export function createEditor(root) {
       focusAfterRender = null;
       requestAnimationFrame(() => focusBlock(blockId, { atEnd }));
     }
+
+    mountDatabases();
   }
 
   function emptyHint() {
@@ -427,6 +430,9 @@ export function createEditor(root) {
         return;
       }
       if (cmd.id === "subpage") return insertSubpage(block);
+      if (cmd.id === "database" || cmd.id === "database_board") {
+        return insertDatabase(block, cmd.id === "database_board");
+      }
       await turnInto(block, cmd.id);
       if (MEDIA_TYPES.has(cmd.id)) await promptMedia(blockById(block.id));
       return;
@@ -436,6 +442,9 @@ export function createEditor(root) {
     markDirty(block.id, { content: normalizeBlockContent(block.type, content).content });
 
     if (cmd.id === "subpage") return insertSubpage(block);
+    if (cmd.id === "database" || cmd.id === "database_board") {
+      return insertDatabase(block, cmd.id === "database_board");
+    }
     const created = await createBlockAfter(block, { type: cmd.id, focus: false });
     if (MEDIA_TYPES.has(cmd.id)) await promptMedia(created);
     if (cmd.id === "divider") await createBlockAfter(created, { type: "paragraph" });
@@ -458,6 +467,54 @@ export function createEditor(root) {
     } catch {
       toast("Não foi possível criar a subpágina.", { tone: "danger" });
       return null;
+    }
+  }
+
+  /**
+   * Cria a database e o bloco que a exibe. A database nasce com campos
+   * padrão e uma view, então a tabela já aparece utilizável.
+   */
+  async function insertDatabase(afterBlock, asBoard) {
+    const pageId = getState().currentPageId;
+    try {
+      const { database } = await api.databases.create({ pageId, title: "Nova tabela" });
+      let viewId = null;
+      if (asBoard) {
+        const full = await api.databases.get(database.id);
+        const status = full.fields.find((f) => f.type === "status") || full.fields[1];
+        const { view } = await api.databases.createView(database.id, {
+          type: "board", name: "Quadro",
+        });
+        if (status) await api.databases.updateView(view.id, { groupBy: status.key });
+        viewId = view.id;
+      }
+      const block = await createBlockAfter(afterBlock, {
+        type: "database",
+        content: { databaseId: database.id, viewId },
+        focus: false,
+      });
+      await createBlockAfter(block, { type: "paragraph" });
+      return block;
+    } catch {
+      toast("Não foi possível criar a tabela.", { tone: "danger" });
+      return null;
+    }
+  }
+
+  /** Monta uma tabela em cada bloco de database presente na página. */
+  function mountDatabases() {
+    for (const mount of root.querySelectorAll(".ws-db-mount[data-database-id]")) {
+      if (mount.dataset.mounted === "1" || !mount.dataset.databaseId) continue;
+      mount.dataset.mounted = "1";
+      createTableView(mount, {
+        databaseId: mount.dataset.databaseId,
+        viewId: mount.dataset.viewId || null,
+        onOpenRecord: (recordId) => {
+          root.dispatchEvent(new CustomEvent("workspace:navigate", {
+            bubbles: true, detail: { pageId: recordId },
+          }));
+        },
+      });
     }
   }
 
@@ -865,6 +922,14 @@ export function createEditor(root) {
 
   // Colagem sempre como texto: nada de HTML de outro site entrando no
   // documento (§64 na prática — o conteúdo colado é dado, não markup).
+  root.addEventListener("workspace:database-deleted", async (event) => {
+    const { databaseId } = event.detail;
+    const block = getState().blocks.find(
+      (b) => b.type === "database" && b.content?.databaseId === databaseId,
+    );
+    if (block) await deleteBlock(block, { focusPrevious: false });
+  });
+
   root.addEventListener("paste", (event) => {
     const editableEl = event.target.closest("[data-editable]");
     if (!editableEl) return;

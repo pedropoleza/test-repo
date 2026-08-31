@@ -6,7 +6,7 @@
  * não dispara request. Conteúdo de página é que carrega sob demanda.
  */
 import {
-  getState, childrenOf, pageById, isFavorite, isExpanded, toggleExpanded,
+  getState, childrenOf, pagesInSection, pageById, isFavorite, isExpanded, toggleExpanded,
 } from "./store.js";
 import { renderIcon } from "./icon-picker.js";
 import { openMenu } from "./ui/menu.js";
@@ -27,12 +27,17 @@ export function createSidebar(root, handlers) {
       }
       return false;
     },
-    onDrop: ({ id, targetId, place }) => {
+    onDrop: ({ id, targetId, place, targetEl }) => {
       const target = pageById(targetId);
       if (!target) return;
       if (place === "inside") return handlers.onMove(id, { parentPageId: targetId });
+      // Solta ao lado de uma página de raiz: herda a seção dela.
+      const sectionId = target.parent_page_id
+        ? undefined
+        : (targetEl?.closest("[data-section-id]")?.dataset.sectionId || null);
       return handlers.onMove(id, {
         parentPageId: target.parent_page_id || null,
+        ...(sectionId !== undefined ? { sectionId } : {}),
         ...(place === "before" ? { beforeId: targetId } : { afterId: targetId }),
       });
     },
@@ -49,22 +54,28 @@ export function createSidebar(root, handlers) {
       root.appendChild(section("Favoritos", favorites.map((p) => item(p, 0, { flat: true }))));
     }
 
-    const priv = childrenOf(null).filter((p) => p.visibility !== "shared");
-    const shared = childrenOf(null).filter((p) => p.visibility === "shared");
+    // Seções vêm do banco: o usuário cria, renomeia e reordena as suas.
+    for (const sec of state.sections) {
+      const pages = pagesInSection(sec.id);
+      root.appendChild(
+        section(sec.name, pages.map((p) => item(p, 0)), {
+          sectionId: sec.id,
+          isDefault: sec.is_default,
+          action: {
+            label: `Nova página em ${sec.name}`,
+            onClick: () => handlers.onCreate(null, { sectionId: sec.id }),
+          },
+          empty: "Nenhuma página aqui.",
+        }),
+      );
+    }
 
-    root.appendChild(
-      section("Privado", priv.map((p) => item(p, 0)), {
-        action: { label: "Nova página privada", onClick: () => handlers.onCreate(null, "private") },
-        empty: "Nenhuma página ainda.",
-      }),
-    );
-
-    root.appendChild(
-      section("Compartilhado", shared.map((p) => item(p, 0)), {
-        action: { label: "Nova página compartilhada", onClick: () => handlers.onCreate(null, "shared") },
-        empty: "Nada compartilhado com o time.",
-      }),
-    );
+    const newSection = document.createElement("button");
+    newSection.type = "button";
+    newSection.className = "ws-tree__new-section";
+    newSection.textContent = "+ Nova seção";
+    newSection.addEventListener("click", () => handlers.onCreateSection());
+    root.appendChild(newSection);
 
     const trash = document.createElement("button");
     trash.type = "button";
@@ -84,12 +95,43 @@ export function createSidebar(root, handlers) {
     const wrap = document.createElement("div");
     wrap.className = "ws-tree__section";
 
+    if (options.sectionId) wrap.dataset.sectionId = options.sectionId;
+
     if (title) {
       const head = document.createElement("div");
       head.className = "ws-tree__section-head";
-      const label = document.createElement("span");
-      label.textContent = title;
-      head.appendChild(label);
+
+      if (options.sectionId) {
+        const label = document.createElement("button");
+        label.type = "button";
+        label.className = "ws-tree__section-name";
+        label.textContent = title;
+        label.setAttribute("aria-label", `Ações da seção ${title}`);
+        label.addEventListener("click", () => {
+          openMenu({
+            anchor: label,
+            width: 220,
+            items: [
+              { id: "rename", label: "Renomear seção", icon: "✎" },
+              { id: "new-page", label: "Nova página aqui", icon: "+" },
+              { separator: true },
+              {
+                id: "delete",
+                label: options.isDefault ? "Seção padrão (fixa)" : "Excluir seção",
+                icon: "🗑",
+                danger: !options.isDefault,
+                disabled: options.isDefault,
+              },
+            ],
+            onSelect: (id) => handlers.onSectionAction(id, options.sectionId, title),
+          });
+        });
+        head.appendChild(label);
+      } else {
+        const label = document.createElement("span");
+        label.textContent = title;
+        head.appendChild(label);
+      }
 
       if (options.action) {
         const add = document.createElement("button");
@@ -210,6 +252,7 @@ export function createSidebar(root, handlers) {
         { id: "rename", label: "Renomear", icon: "✎" },
         { id: "favorite", label: favorited ? "Remover dos favoritos" : "Adicionar aos favoritos", icon: "★" },
         { id: "duplicate", label: "Duplicar", icon: "⧉" },
+        { id: "move-to-section", label: "Mover para seção…", icon: "⇄" },
         { id: "visibility", label: page.visibility === "shared" ? "Tornar privada" : "Compartilhar com o time", icon: "👥" },
         { separator: true },
         { id: "copy-link", label: "Copiar link", icon: "🔗" },

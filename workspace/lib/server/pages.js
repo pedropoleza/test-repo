@@ -15,14 +15,14 @@ import {
 } from "../../src/shared/blocks.js";
 
 const PAGE_FIELDS =
-  "id,workspace_id,parent_page_id,title,icon_type,icon_value,cover_type," +
+  "id,workspace_id,parent_page_id,database_id,section_id,title,icon_type,icon_value,cover_type," +
   "cover_value,cover_position_y,cover_height,layout_width,visibility,position," +
   "properties,source,source_external_id,is_archived,archived_at,created_by," +
   "updated_by,created_at,updated_at";
 
 const TREE_FIELDS =
   "id,parent_page_id,title,icon_type,icon_value,visibility,position," +
-  "is_archived,updated_at,source";
+  "is_archived,updated_at,source,database_id,section_id";
 
 function fail(error, code = "db_error") {
   throw new WorkspaceError(500, code, { detail: error.message });
@@ -32,14 +32,21 @@ function fail(error, code = "db_error") {
 /* Leitura                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Árvore completa do workspace (sidebar). Um request, não N. */
-export async function listTree(ctx, { includeArchived = false } = {}) {
+/**
+ * Árvore completa do workspace (sidebar). Um request, não N.
+ *
+ * Registros de database são páginas também, mas ficam de fora por padrão:
+ * uma tabela com 500 linhas viraria 500 itens na navegação. Breadcrumbs
+ * pedem `includeRecords` para conseguir subir a partir de um registro.
+ */
+export async function listTree(ctx, { includeArchived = false, includeRecords = false } = {}) {
   let query = db()
     .from("workspace_pages")
     .select(TREE_FIELDS)
     .eq("workspace_id", ctx.workspaceId)
     .order("position", { ascending: true });
   if (!includeArchived) query = query.eq("is_archived", false);
+  if (!includeRecords) query = query.is("database_id", null);
 
   const { data, error } = await query;
   if (error) fail(error);
@@ -60,7 +67,7 @@ export async function getPage(ctx, pageId) {
 
 /** Cadeia de ancestrais, da raiz até a página (breadcrumbs). */
 export async function getAncestors(ctx, pageId) {
-  const tree = await listTree(ctx, { includeArchived: true });
+  const tree = await listTree(ctx, { includeArchived: true, includeRecords: true });
   const byId = new Map(tree.map((p) => [p.id, p]));
   const chain = [];
   let current = byId.get(pageId);
@@ -142,6 +149,7 @@ export async function createPage(ctx, input = {}) {
     icon_type: input.iconType || null,
     icon_value: input.iconValue || null,
     visibility: input.visibility === "shared" ? "shared" : "private",
+    section_id: parentPageId ? null : (input.sectionId || null),
     position,
     created_by: ctx.userKey,
     updated_by: ctx.userKey,
@@ -218,7 +226,9 @@ function pick(obj, keys) {
 }
 
 /** Move uma página para outro pai e/ou outra posição entre irmãos. */
-export async function movePage(ctx, pageId, { parentPageId = undefined, afterId, beforeId }) {
+export async function movePage(
+  ctx, pageId, { parentPageId = undefined, sectionId = undefined, afterId, beforeId },
+) {
   const page = await getPage(ctx, pageId);
   const nextParent =
     parentPageId === undefined ? page.parent_page_id : parentPageId || null;
@@ -238,9 +248,14 @@ export async function movePage(ctx, pageId, { parentPageId = undefined, afterId,
     excludeId: pageId,
   });
 
+  const row = { parent_page_id: nextParent, position, updated_by: ctx.userKey };
+  // Seção só faz sentido em página de raiz: subpágina segue o pai.
+  if (nextParent) row.section_id = null;
+  else if (sectionId !== undefined) row.section_id = sectionId || null;
+
   const { data, error } = await db()
     .from("workspace_pages")
-    .update({ parent_page_id: nextParent, position, updated_by: ctx.userKey })
+    .update(row)
     .eq("workspace_id", ctx.workspaceId)
     .eq("id", pageId)
     .select(PAGE_FIELDS)

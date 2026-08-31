@@ -118,7 +118,7 @@ export function initDnd(root, {
     root.querySelectorAll(".is-dragging").forEach((el) => el.classList.remove("is-dragging"));
 
     if (!targetId || targetId === moved) return;
-    onDrop?.({ id: moved, targetId, place });
+    onDrop?.({ id: moved, targetId, place, targetEl: item });
   });
 
   root.addEventListener("dragleave", (event) => {

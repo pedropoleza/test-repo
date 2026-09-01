@@ -10,6 +10,11 @@
  *   POST action=update-opportunity → grava campos da oportunidade
  *   POST action=update-contact     → grava campos do contato
  *
+ *   GET  ?action=lists         → abas salvas de pipeline/estágio
+ *   POST action=list-create    → cria uma aba a partir de pipeline/estágio
+ *   POST action=list-update    → renomeia ou troca o ícone
+ *   POST action=list-delete    → remove a aba (não toca no CRM)
+ *
  * A escrita é campo a campo e sempre parcial: mandamos só o que mudou.
  * Não há resolução de conflito — quem grava por último vence, igual ao
  * próprio CRM. O que evitamos é o pior caso, que é um PUT com o objeto
@@ -19,6 +24,9 @@ import {
   resolveContext, requireRole, sendError, WorkspaceError,
 } from "../lib/server/context.js";
 import { openContactDossier, listDossiers } from "../lib/server/dossier.js";
+import {
+  listCrmLists, createCrmList, updateCrmList, deleteCrmList,
+} from "../lib/server/crm-lists.js";
 import {
   isConfigured, ghlLocationId, checkScopes, getLocation,
   listContacts, listCustomFields, listTags, listOpportunities, listPipelines, listUsers,
@@ -52,6 +60,24 @@ export default async function handler(req, res) {
   try {
     if (action === "status") return res.status(200).json(await status());
     if (action === "dossiers") return res.status(200).json({ dossiers: await listDossiers(ctx) });
+
+    if (action === "lists") return res.status(200).json({ lists: await listCrmLists(ctx) });
+
+    if (action === "list-create") {
+      requireRole(ctx, "editor");
+      const list = await createCrmList(ctx, body);
+      log.info("crm.list.created", { workspaceId: ctx.workspaceId, listId: list.id });
+      return res.status(201).json({ list });
+    }
+    if (action === "list-update") {
+      requireRole(ctx, "editor");
+      return res.status(200).json({ list: await updateCrmList(ctx, body.id, body) });
+    }
+    if (action === "list-delete") {
+      requireRole(ctx, "editor");
+      await deleteCrmList(ctx, body.id || req.query?.id);
+      return res.status(200).json({ ok: true });
+    }
 
     if (!isConfigured()) throw new WorkspaceError(503, "ghl_not_configured");
 

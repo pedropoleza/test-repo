@@ -20,6 +20,7 @@ import { toast } from "./ui/toast.js";
 import { renderIcon } from "./icon-picker.js";
 import { openSectionDialog } from "./section-dialog.js";
 import { createCrmView } from "./crm/crm-view.js";
+import { openListDialog } from "./crm/list-dialog.js";
 
 const els = {
   shell: document.getElementById("ws-shell"),
@@ -75,8 +76,20 @@ async function bootstrap() {
 
     const params = new URLSearchParams(window.location.search);
     const crm = params.get("crm");
+    const lista = params.get("lista");
     const initial = params.get("p");
-    if (crm) openCrm(crm);
+
+    // As listas dependem do CRM (a de Apólices nasce da pipeline da
+    // conta), então chegam depois: fazer o bootstrap esperar por elas
+    // atrasaria a navegação inteira por causa de uma seção.
+    const listasPromise = carregarCrmLists();
+
+    if (lista) {
+      await listasPromise;
+      const alvo = (getState().crmLists || []).find((l) => l.id === lista);
+      if (alvo) openCrm(alvo.kind, alvo);
+      else await openInitialPage();
+    } else if (crm) openCrm(crm);
     else if (initial) await openPage(initial, { push: false });
     else await openInitialPage();
   } catch (err) {
@@ -343,12 +356,19 @@ const sidebarHandlers = {
   onPageAction: (action, page) => pageAction(action, page),
   onOpenTrash: () => openTrash(),
   onOpenCrm: (kind) => openCrm(kind),
+  onOpenCrmList: (listId) => openCrmList(listId),
+  onCreateCrmList: () => createCrmList(),
+  onCrmListAction: (action, list) => crmListAction(action, list),
 };
 
 /** Abre Leads ou Oportunidades: dados do GHL, organização nossa. */
-function openCrm(kind) {
+function openCrm(kind, list = null) {
   editor?.flush();
-  setState({ currentPageId: null, page: null, blocks: [], crmView: kind }, "page");
+  setState({
+    currentPageId: null, page: null, blocks: [],
+    crmView: list ? null : kind,
+    crmListId: list?.id || null,
+  }, "page");
   els.header.replaceChildren();
   els.editor.replaceChildren();
   // Tabela de dados pede largura: a coluna de 780px do editor é para
@@ -363,10 +383,12 @@ function openCrm(kind) {
   const h = document.createElement("h1");
   h.className = "ws-page__title ws-crm__title";
   const TITULOS = { contacts: "Leads", opportunities: "Oportunidades", tasks: "Tarefas" };
-  h.textContent = TITULOS[kind] || "CRM";
+  h.textContent = list ? list.name : (TITULOS[kind] || "CRM");
   const sub = document.createElement("p");
   sub.className = "ws-muted";
-  sub.textContent = kind === "tasks"
+  sub.textContent = list
+    ? "Quem está nesse recorte agora. A lista consulta o CRM a cada abertura."
+    : kind === "tasks"
     // Tarefas vêm do Spark Tasks e são editadas lá: aqui é a réplica que
     // permite filtrar e agrupar junto do resto.
     ? "Tarefas recebidas do Spark Tasks. Para alterar, use o Spark Tasks."
@@ -378,6 +400,7 @@ function openCrm(kind) {
   els.editor.appendChild(mount);
   createCrmView(mount, {
     kind,
+    list,
     onOpenPage: async (pageId) => {
       // A ficha pode ter criado a seção "Contatos": recarrega a árvore
       // para ela aparecer na navegação já na primeira vez.
@@ -391,10 +414,106 @@ function openCrm(kind) {
 
   const url = new URL(window.location.href);
   url.searchParams.delete("p");
-  url.searchParams.set("crm", kind);
-  window.history.pushState({ crm: kind }, "", url.toString());
+  if (list) {
+    url.searchParams.delete("crm");
+    url.searchParams.set("lista", list.id);
+  } else {
+    url.searchParams.delete("lista");
+    url.searchParams.set("crm", kind);
+  }
+  window.history.pushState(list ? { lista: list.id } : { crm: kind }, "", url.toString());
   document.title = `${h.textContent} · Spark`;
   closeMobileSidebar();
+}
+
+/** Carrega as abas salvas. Falha aqui não pode derrubar a navegação. */
+async function carregarCrmLists() {
+  try {
+    const { lists } = await api.crm.lists();
+    setState({ crmLists: lists || [] }, "crm-lists");
+    sidebar?.render();
+  } catch {
+    // Sem CRM, a seção fica só com as abas fixas — que é o certo.
+  }
+}
+
+function openCrmList(listId) {
+  const lista = (getState().crmLists || []).find((l) => l.id === listId);
+  if (lista) openCrm(lista.kind, lista);
+}
+
+async function createCrmList() {
+  // As pipelines vêm do CRM; sem elas o diálogo não tem o que oferecer.
+  let pipelines = [];
+  try {
+    pipelines = (await api.crm.opportunities(1)).pipelines || [];
+  } catch {
+    toast("Não foi possível carregar as pipelines da conta.", { tone: "danger" });
+    return;
+  }
+
+  const input = await openListDialog({ pipelines });
+  if (!input) return;
+  try {
+    const { list } = await api.crm.createList(input);
+    setState({ crmLists: [...(getState().crmLists || []), list] }, "crm-lists");
+    sidebar.render();
+    openCrm(list.kind, list);
+    toast(`Lista "${list.name}" criada.`, { tone: "success" });
+  } catch {
+    toast("Não foi possível criar a lista.", { tone: "danger" });
+  }
+}
+
+async function crmListAction(action, lista) {
+  if (action === "rename") {
+    const input = await openSectionDialog({
+      section: { name: lista.name, icon_type: "emoji", icon_value: lista.icon_value },
+    });
+    if (!input) return;
+    try {
+      const { list } = await api.crm.updateList(lista.id, {
+        name: input.name,
+        icon: input.iconValue || "📋",
+      });
+      trocarLista(list);
+      toast("Lista renomeada.", { tone: "success" });
+    } catch {
+      toast("Não foi possível renomear a lista.", { tone: "danger" });
+    }
+    return;
+  }
+
+  if (action === "delete") {
+    // Remover a lista não toca no CRM: some a aba, não as oportunidades.
+    const ok = await confirmDialog({
+      title: `Remover "${lista.name}"?`,
+      message: "A aba sai da navegação. As oportunidades continuam no CRM, "
+        + "intactas — some só este recorte salvo.",
+      confirmLabel: "Remover lista",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api.crm.deleteList(lista.id);
+      setState({
+        crmLists: (getState().crmLists || []).filter((l) => l.id !== lista.id),
+      }, "crm-lists");
+      sidebar.render();
+      if (getState().crmListId === lista.id) openCrm("opportunities");
+      toast("Lista removida.", { tone: "success" });
+    } catch {
+      toast("Não foi possível remover a lista.", { tone: "danger" });
+    }
+  }
+}
+
+function trocarLista(list) {
+  setState({
+    crmLists: (getState().crmLists || []).map((l) => (l.id === list.id ? list : l)),
+  }, "crm-lists");
+  sidebar.render();
+  if (getState().crmListId === list.id) openCrm(list.kind, list);
 }
 
 async function createSection() {

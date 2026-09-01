@@ -1656,7 +1656,8 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 }
 .ws-tree__section-name:hover { background: var(--gray-200); color: var(--gray-900); }
 
-.ws-tree__new-section {
+.ws-tree__new-section,
+.ws-tree__new-list {
   border: 0;
   background: none;
   font: inherit;
@@ -1887,3 +1888,55 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 .ws-crm-panel__opp[data-color="orange"] { border-left-color: #f97316; }
 .ws-crm-panel__opp[data-color="green"]  { border-left-color: #10b981; }
 .ws-crm-panel__opp[data-color="red"]    { border-left-color: #ef4444; }
+
+/* Listas salvas na seção CRM. As ações reusam .ws-tree__actions, que já
+   trata hover e foco. */
+/* Mesma aparência de "+ Nova seção", classe própria: são duas ações
+   diferentes, e compartilhar o seletor faz uma ser clicada no lugar da
+   outra. */
+.ws-tree__new-list {
+  margin: 2px 0 0;
+  padding-left: 8px;
+  font-size: var(--fs-sm);
+}
+.ws-tree__row--static .ws-tree__actions { margin-left: auto; }
+
+/* Recorte da lista, na barra de ferramentas: diz o que esta aba É, e por
+   isso não é um filtro que se possa limpar. */
+.ws-db__scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--ghl-200);
+  border-radius: 999px;
+  background: var(--ghl-50);
+  color: var(--ghl-800);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Campo com rótulo em cima e um seletor de menu embaixo. */
+.ws-field { display: flex; flex-direction: column; gap: 5px; }
+.ws-field__label { font-size: var(--fs-sm); color: var(--gray-600); font-weight: 600; }
+.ws-select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 11px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-sm);
+  background: var(--white);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.ws-select:hover:not(:disabled) { border-color: var(--ghl-300); }
+.ws-select:disabled { opacity: .55; cursor: not-allowed; }
+.ws-select.is-invalid { border-color: var(--danger); }
+.ws-select__value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-select__value.is-empty { color: var(--gray-400); }
+.ws-select__caret { color: var(--gray-400); font-size: 10px; flex: none; }

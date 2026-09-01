@@ -135,6 +135,13 @@ export const api = {
         query: { action: "update-contact" },
         body: { contactId, changes },
       }),
+    lists: () => request("GET", "/api/crm", { query: { action: "lists" } }),
+    createList: (input) =>
+      request("POST", "/api/crm", { query: { action: "list-create" }, body: input }),
+    updateList: (id, patch) =>
+      request("POST", "/api/crm", { query: { action: "list-update" }, body: { id, ...patch } }),
+    deleteList: (id) =>
+      request("POST", "/api/crm", { query: { action: "list-delete" }, body: { id } }),
     openDossier: (contactId) =>
       request("POST", "/api/crm", { query: { action: "dossier" }, body: { contactId } }),
   },

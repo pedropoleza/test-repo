@@ -177,3 +177,29 @@ openssl rand -hex 32
 
 Nunca colar o segredo em chat, commit ou log. Trocar o segredo é trocar
 os dois lados: enquanto estiverem diferentes, toda entrega volta 401.
+
+## Listas de CRM (recortes de pipeline/estágio)
+
+Uma lista é uma aba salva com a pergunta "quem está nesta pipeline/neste
+estágio". Ela **não guarda os registros** — consulta o CRM a cada
+abertura. Congelar a resposta faria a aba envelhecer e virar um relatório
+velho com cara de lista viva.
+
+- **Criar**: na seção CRM da navegação, "+ Nova lista" → escolher
+  pipeline e, opcionalmente, um estágio. O nome é sugerido e editável.
+- **Apólices** nasce pronta, achada pelo nome da pipeline (`/pol[ií]c|ap[oó]lic/i`).
+  Se a conta não tiver essa pipeline, a aba simplesmente não aparece.
+- **Remover** tira a aba da navegação. Não toca no CRM: as oportunidades
+  continuam lá.
+
+O recorte da lista fica **fora** dos filtros da barra de propósito: é o
+que define a aba. "Limpar todos" nos filtros não transforma Apólices na
+base inteira.
+
+Cada lista tem preferências próprias (colunas, larguras, ordenação):
+filtrar Apólices por "Setembro" não mexe na aba de Oportunidades.
+
+Para semear outra lista pronta, acrescente uma entrada em `SEEDS` em
+`lib/server/crm-lists.js`. O `seed_key` é o que impede duplicata — o
+unique index em `(workspace_id, seed_key)` garante isso no banco, não só
+no código.

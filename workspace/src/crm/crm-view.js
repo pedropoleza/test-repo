@@ -49,25 +49,28 @@ function toField(col) {
   };
 }
 
-export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
+export function createCrmView(host, { kind = "contacts", onOpenPage, list = null } = {}) {
   let columns = [];
   let records = [];
   let meta = {};
   let dossiers = new Map();   // contactId → pageId
   let pipelines = [];         // com estágios, para mover pela célula
-  const widths = loadWidths(`crm:${kind}`);
+  // Uma lista salva tem preferências próprias: filtrar Apólices por
+  // "Setembro" não pode mexer no que a aba de Oportunidades mostra.
+  const escopo = list ? `list:${list.id}` : kind;
+  const widths = loadWidths(`crm:${escopo}`);
   let prefs = {
     visible: null,        // null = só os padrão
     sorts: [],
     filters: { op: "and", conditions: [] },
     groupBy: null,
     search: "",
-    ...loadPrefs(kind),
+    ...loadPrefs(escopo),
   };
   if (!prefs.filters?.conditions) prefs.filters = { op: "and", conditions: [] };
 
   function persist() {
-    savePrefs(kind, prefs);
+    savePrefs(escopo, prefs);
   }
 
   async function load() {
@@ -148,10 +151,23 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
     return columns.filter((c) => c.is_primary || set.has(c.key));
   }
 
+  /**
+   * Recorte da lista salva. Fica fora de `prefs.filters` de propósito:
+   * é o que define a aba, não uma escolha da sessão — "Limpar todos" nos
+   * filtros não pode transformar Apólices na lista inteira.
+   */
+  function noRecorte(record) {
+    const f = list?.filters;
+    if (!f) return true;
+    if (f.pipelineId && record.pipelineId !== f.pipelineId) return false;
+    if (f.stageId && record.stageId !== f.stageId) return false;
+    return true;
+  }
+
   function filtered() {
     const byKey = Object.fromEntries(columns.map((c) => [c.key, c]));
     const term = prefs.search.trim().toLowerCase();
-    let out = records.filter((r) => matchesFilter(prefs.filters, r, byKey));
+    let out = records.filter((r) => noRecorte(r) && matchesFilter(prefs.filters, r, byKey));
     if (term) {
       out = out.filter((r) => {
         if ((r.title || "").toLowerCase().includes(term)) return true;
@@ -229,6 +245,16 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
       }, 220);
     });
     bar.appendChild(search);
+
+    if (list?.filters?.pipelineName) {
+      const recorte = document.createElement("span");
+      recorte.className = "ws-db__scope";
+      recorte.textContent = list.filters.stageName
+        ? `${list.filters.pipelineName} · ${list.filters.stageName}`
+        : list.filters.pipelineName;
+      recorte.title = "Recorte desta lista. Os filtros da barra somam a ele.";
+      bar.appendChild(recorte);
+    }
 
     const actions = document.createElement("div");
     actions.className = "ws-db__toolbar-actions";
@@ -603,7 +629,7 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
         openColumnMenu(th, col);
       });
       attachResizer(th, col, {
-        scope: `crm:${kind}`, gridEl: grid, fields: cols, widths, trailing: "96px",
+        scope: `crm:${escopo}`, gridEl: grid, fields: cols, widths, trailing: "96px",
       });
       head.appendChild(th);
     }

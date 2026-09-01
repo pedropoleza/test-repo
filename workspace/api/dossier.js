@@ -105,7 +105,11 @@ async function pdfPorToken(req, res, token) {
 
   const { data: page } = await db()
     .from("workspace_pages")
-    .select("id,title,source,source_external_id,is_archived")
+    // Capa e foto entram no PDF: sem elas aqui, o download pelo QR saía
+    // sem banner e sem rosto, enquanto o download com sessão (que usa
+    // getPage) saía completo. Duas consultas, dois documentos diferentes.
+    .select("id,title,source,source_external_id,is_archived,"
+      + "cover_type,cover_value,cover_position_y,icon_type,icon_value")
     .eq("id", share.page_id)
     .maybeSingle();
 

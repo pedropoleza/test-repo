@@ -118,6 +118,13 @@ export const api = {
       request("GET", "/api/crm", { query: { action: "opportunities", limit } }),
     contact: (id) => request("GET", "/api/crm", { query: { action: "contact", id } }),
     dossiers: () => request("GET", "/api/crm", { query: { action: "dossiers" } }),
+    contactOpportunities: (id) =>
+      request("GET", "/api/crm", { query: { action: "contact-opportunities", id } }),
+    moveStage: (opportunityId, pipelineId, stageId) =>
+      request("POST", "/api/crm", {
+        query: { action: "move-stage" },
+        body: { opportunityId, pipelineId, stageId },
+      }),
     openDossier: (contactId) =>
       request("POST", "/api/crm", { query: { action: "dossier" }, body: { contactId } }),
   },

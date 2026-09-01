@@ -207,8 +207,29 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
       const name = document.createElement("span");
       name.textContent = field.name;
       cell.append(icon, name);
-      cell.addEventListener("click", () =>
-        openFieldEditor(cell, field, { databaseId, onDone: load }));
+      const ordemAtiva = (currentView()?.sorts || []).find((s) => s.field === field.key);
+      if (ordemAtiva) {
+        const seta = document.createElement("span");
+        seta.className = "ws-db__th-flag";
+        seta.textContent = ordemAtiva.direction === "asc" ? "↑" : "↓";
+        cell.appendChild(seta);
+      }
+      cell.addEventListener("click", (event) => {
+        if (event.target.closest(".ws-db__resize")) return;
+        openFieldEditor(cell, field, {
+          databaseId,
+          onDone: load,
+          view: currentView(),
+          onView: async (patch) => {
+            try {
+              await api.databases.updateView(activeViewId, patch);
+              await load();
+            } catch {
+              toast("Não foi possível aplicar na vista.", { tone: "danger" });
+            }
+          },
+        });
+      });
       attachResizer(cell, field, {
         scope: `db:${databaseId}`, gridEl: grid, fields, widths, trailing: "44px 44px",
       });

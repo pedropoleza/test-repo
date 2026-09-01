@@ -780,12 +780,51 @@ function updatePageChrome() {
 
 const SAVE_LABEL = { saved: "Salvo", saving: "Salvando…", error: "Sem salvar" };
 
+/*
+ * O indicador só fala quando tem o que dizer.
+ *
+ * "Salvo" permanente vira ruído: fica na tela mesmo quando nada
+ * aconteceu, e aí deixa de significar qualquer coisa. Agora aparece
+ * enquanto salva, confirma por 2s depois de concluir e some. Erro é a
+ * exceção: fica até resolver, porque aí há o que fazer.
+ */
+let saveHideTimer = null;
+let estavaSalvando = false;
+
 subscribe((state, reason) => {
-  if (reason === "save-state" || reason === "page") {
-    els.saveState.textContent = SAVE_LABEL[state.saveState] || "";
-    els.saveState.dataset.state = state.saveState;
+  if (reason !== "save-state" && reason !== "page") return;
+  const estado = state.saveState;
+  clearTimeout(saveHideTimer);
+
+  if (estado === "saving") {
+    estavaSalvando = true;
+    mostrarSave("saving");
+    return;
+  }
+  if (estado === "error") {
+    estavaSalvando = false;
+    mostrarSave("error");
+    return;
+  }
+  // "saved": só confirma se de fato houve um salvamento agora.
+  if (estavaSalvando) {
+    estavaSalvando = false;
+    mostrarSave("saved");
+    saveHideTimer = setTimeout(esconderSave, 2000);
+  } else {
+    esconderSave();
   }
 });
+
+function mostrarSave(estado) {
+  els.saveState.textContent = SAVE_LABEL[estado] || "";
+  els.saveState.dataset.state = estado;
+  els.saveState.classList.add("is-visible");
+}
+
+function esconderSave() {
+  els.saveState.classList.remove("is-visible");
+}
 
 function wireShell() {
   els.newPage.addEventListener("click", () => createPage(null, {
@@ -805,6 +844,14 @@ function wireShell() {
   // Voltar para onde o usuário estava. O app usa pushState em toda
   // navegação, então o histórico do browser já é a trilha certa.
   els.back.addEventListener("click", () => window.history.back());
+  // Alt+← é o atalho que o navegador já usa; espelhar aqui evita que o
+  // usuário precise decidir entre os dois caminhos.
+  document.addEventListener("keydown", (event) => {
+    if (event.altKey && event.key === "ArrowLeft") {
+      event.preventDefault();
+      window.history.back();
+    }
+  });
 
   const SIDEBAR_KEY = "workspace:sidebarCollapsed";
   const setSidebar = (collapsed) => {

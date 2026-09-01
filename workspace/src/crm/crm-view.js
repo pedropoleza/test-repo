@@ -13,7 +13,9 @@ import { api } from "../api.js";
 import { openMenu, openModal } from "../ui/menu.js";
 import { toast } from "../ui/toast.js";
 import { renderCellValue } from "../database/cells.js";
-import { applySorts, groupRecords, fieldSpec } from "../shared/fields.js";
+import {
+  applySorts, groupRecords, fieldSpec, matchesFilter, operatorsFor, OPERATOR_LABEL,
+} from "../shared/fields.js";
 import { loadWidths, applyTemplate, attachResizer } from "../database/columns.js";
 
 const PREFS_KEY = "workspace:crmPrefs";
@@ -50,14 +52,17 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
   let records = [];
   let meta = {};
   let dossiers = new Map();   // contactId → pageId
+  let pipelines = [];         // com estágios, para mover pela célula
   const widths = loadWidths(`crm:${kind}`);
   let prefs = {
     visible: null,        // null = só os padrão
     sorts: [],
+    filters: { op: "and", conditions: [] },
     groupBy: null,
     search: "",
     ...loadPrefs(kind),
   };
+  if (!prefs.filters?.conditions) prefs.filters = { op: "and", conditions: [] };
 
   function persist() {
     savePrefs(kind, prefs);
@@ -72,6 +77,7 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
       ]);
       columns = (data.columns || []).map(toField);
       records = data.records || [];
+      pipelines = data.pipelines || [];
       meta = { total: data.total, truncated: data.truncated };
       dossiers = new Map((fichas?.dossiers || []).map((d) => [d.contactId, d.pageId]));
       render();
@@ -135,8 +141,9 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
   }
 
   function filtered() {
+    const byKey = Object.fromEntries(columns.map((c) => [c.key, c]));
     const term = prefs.search.trim().toLowerCase();
-    let out = records;
+    let out = records.filter((r) => matchesFilter(prefs.filters, r, byKey));
     if (term) {
       out = out.filter((r) => {
         if ((r.title || "").toLowerCase().includes(term)) return true;
@@ -144,7 +151,6 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
           String(Array.isArray(v) ? v.join(" ") : v ?? "").toLowerCase().includes(term));
       });
     }
-    const byKey = Object.fromEntries(columns.map((c) => [c.key, c]));
     return applySorts(out, prefs.sorts, byKey);
   }
 
@@ -218,7 +224,9 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
 
     const actions = document.createElement("div");
     actions.className = "ws-db__toolbar-actions";
+    const nFiltros = prefs.filters.conditions.length;
     actions.append(
+      pill(nFiltros ? `Filtros · ${nFiltros}` : "Filtros", (a) => openFilterSummary(a)),
       pill(prefs.sorts.length ? `Ordenar · ${prefs.sorts.length}` : "Ordenar", openSort),
       pill(prefs.groupBy
         ? `Agrupar · ${columns.find((c) => c.key === prefs.groupBy)?.name || ""}`
@@ -286,6 +294,181 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
       },
     });
   }
+
+  /**
+   * Menu da própria coluna: ordenar, filtrar, agrupar e ocultar no lugar
+   * onde a pessoa está olhando, em vez de só na barra de cima.
+   */
+  function openColumnMenu(anchor, col) {
+    const ordem = prefs.sorts.find((s) => s.field === col.key);
+    const temFiltro = prefs.filters.conditions.some((c) => c.field === col.key);
+    const ordenavel = fieldSpec(col.type).sortable;
+
+    openMenu({
+      anchor,
+      width: 250,
+      items: [
+        ...(ordenavel ? [
+          { id: "asc", label: "Ordenar crescente", icon: ordem?.direction === "asc" ? "✓" : "↑" },
+          { id: "desc", label: "Ordenar decrescente", icon: ordem?.direction === "desc" ? "✓" : "↓" },
+          ...(ordem ? [{ id: "unsort", label: "Remover ordenação", icon: "×" }] : []),
+          { separator: true },
+        ] : []),
+        { id: "filter", label: temFiltro ? "Editar filtro desta coluna" : "Filtrar por esta coluna", icon: "⚟" },
+        ...(temFiltro ? [{ id: "unfilter", label: "Remover filtro desta coluna", icon: "×" }] : []),
+        { separator: true },
+        { id: "group", label: "Agrupar por esta coluna", icon: "▤" },
+        { id: "hide", label: "Ocultar coluna", icon: "◌", disabled: !!col.is_primary },
+      ],
+      onSelect: (id) => {
+        if (id === "asc" || id === "desc") {
+          prefs.sorts = [...prefs.sorts.filter((s) => s.field !== col.key),
+                         { field: col.key, direction: id }];
+        } else if (id === "unsort") {
+          prefs.sorts = prefs.sorts.filter((s) => s.field !== col.key);
+        } else if (id === "filter") {
+          return openColumnFilter(col);
+        } else if (id === "unfilter") {
+          prefs.filters.conditions = prefs.filters.conditions.filter((c) => c.field !== col.key);
+        } else if (id === "group") {
+          prefs.groupBy = prefs.groupBy === col.key ? null : col.key;
+        } else if (id === "hide") {
+          prefs.visible = visibleColumns().map((c) => c.key).filter((k) => k !== col.key);
+        }
+        persist();
+        render();
+        return undefined;
+      },
+    });
+  }
+
+  /** Filtro de uma coluna: operador + valor, com as opções que existem. */
+  function openColumnFilter(col) {
+    const atual = { ...(prefs.filters.conditions.find((c) => c.field === col.key)
+      || { field: col.key, operator: operatorsFor(col.type)[0], value: "" }) };
+
+    openModal({
+      title: `Filtrar por "${col.name}"`,
+      width: 460,
+      render: (body, close) => {
+        const stack = document.createElement("div");
+        stack.className = "ws-stack";
+
+        const op = document.createElement("select");
+        op.className = "ws-select";
+        op.setAttribute("aria-label", "Operador");
+        for (const o of operatorsFor(col.type)) {
+          const opt = document.createElement("option");
+          opt.value = o;
+          opt.textContent = OPERATOR_LABEL[o];
+          opt.selected = o === atual.operator;
+          op.appendChild(opt);
+        }
+
+        const campoValor = document.createElement("div");
+        const desenharValor = () => {
+          campoValor.replaceChildren();
+          if (["is_empty", "is_not_empty"].includes(op.value)) return;
+
+          // Coluna de opção oferece os valores que existem de fato:
+          // filtrar digitando o texto exato é pedir erro.
+          if (col.config?.options?.length) {
+            const sel = document.createElement("select");
+            sel.className = "ws-select";
+            sel.setAttribute("aria-label", "Valor");
+            for (const o of col.config.options) {
+              const opt = document.createElement("option");
+              opt.value = o.id;
+              opt.textContent = o.name;
+              opt.selected = o.id === atual.value;
+              sel.appendChild(opt);
+            }
+            sel.addEventListener("change", () => { atual.value = sel.value; });
+            if (!atual.value && sel.options.length) atual.value = sel.options[0].value;
+            campoValor.appendChild(sel);
+            return;
+          }
+          const input = document.createElement("input");
+          input.className = "ws-input";
+          input.type = col.type === "date" ? "date" : "text";
+          input.setAttribute("aria-label", "Valor");
+          input.placeholder = "Valor";
+          input.value = atual.value ?? "";
+          input.addEventListener("input", () => { atual.value = input.value; });
+          campoValor.appendChild(input);
+        };
+        op.addEventListener("change", () => { atual.operator = op.value; desenharValor(); });
+        desenharValor();
+
+        const footer = document.createElement("div");
+        footer.className = "ws-modal__footer";
+        const limpar = document.createElement("button");
+        limpar.type = "button";
+        limpar.className = "ws-btn ws-btn--ghost";
+        limpar.textContent = "Remover filtro";
+        limpar.addEventListener("click", () => {
+          prefs.filters.conditions = prefs.filters.conditions.filter((c) => c.field !== col.key);
+          persist(); close(true); render();
+        });
+        const aplicar = document.createElement("button");
+        aplicar.type = "button";
+        aplicar.className = "ws-btn ws-btn--primary";
+        aplicar.textContent = "Aplicar filtro";
+        aplicar.addEventListener("click", () => {
+          atual.operator = op.value;
+          prefs.filters.conditions = [
+            ...prefs.filters.conditions.filter((c) => c.field !== col.key),
+            atual,
+          ];
+          persist(); close(true); render();
+        });
+        footer.append(limpar, aplicar);
+        stack.append(op, campoValor, footer);
+        body.appendChild(stack);
+      },
+    });
+  }
+
+  /** Resumo dos filtros ativos, para remover um a um ou todos. */
+  function openFilterSummary(anchor) {
+    const conds = prefs.filters.conditions;
+    if (!conds.length) {
+      toast("Nenhum filtro ativo. Clique no título de uma coluna para filtrar.", { tone: "info" });
+      return;
+    }
+    openMenu({
+      anchor,
+      width: 320,
+      items: [
+        ...conds.map((c, i) => {
+          const col = columns.find((x) => x.key === c.field);
+          const valor = ["is_empty", "is_not_empty"].includes(c.operator)
+            ? "" : ` ${valorLegivel(col, c.value)}`;
+          return {
+            id: `rm:${i}`,
+            label: `${col?.name || c.field} ${OPERATOR_LABEL[c.operator]}${valor}`,
+            icon: "✕",
+            section: "Filtros ativos",
+          };
+        }),
+        { separator: true },
+        { id: "clear", label: "Limpar todos os filtros", icon: "×", danger: true },
+      ],
+      onSelect: (id) => {
+        if (id === "clear") prefs.filters.conditions = [];
+        else prefs.filters.conditions.splice(Number(id.slice(3)), 1);
+        persist();
+        render();
+      },
+    });
+  }
+
+  function valorLegivel(col, valor) {
+    if (!col) return String(valor ?? "");
+    const opt = (col.config?.options || []).find((o) => o.id === valor);
+    return opt ? opt.name : String(valor ?? "");
+  }
+
 
   /**
    * Seletor de colunas em modal, não em menu: com 115 custom fields um
@@ -379,7 +562,8 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
     const head = document.createElement("div");
     head.className = "ws-db__row ws-db__row--head";
     for (const col of cols) {
-      const th = document.createElement("div");
+      const th = document.createElement("button");
+      th.type = "button";
       th.className = "ws-db__th";
       th.setAttribute("role", "columnheader");
       const icon = document.createElement("span");
@@ -388,6 +572,28 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
       const name = document.createElement("span");
       name.textContent = col.name;
       th.append(icon, name);
+
+      // Sinais do estado da coluna: sem isso não dá para saber por que a
+      // lista está daquele jeito.
+      const ordem = prefs.sorts.find((s) => s.field === col.key);
+      if (ordem) {
+        const seta = document.createElement("span");
+        seta.className = "ws-db__th-flag";
+        seta.textContent = ordem.direction === "asc" ? "↑" : "↓";
+        th.appendChild(seta);
+      }
+      if (prefs.filters.conditions.some((c) => c.field === col.key)) {
+        const funil = document.createElement("span");
+        funil.className = "ws-db__th-flag";
+        funil.textContent = "⚟";
+        funil.title = "Coluna com filtro";
+        th.appendChild(funil);
+      }
+
+      th.addEventListener("click", (event) => {
+        if (event.target.closest(".ws-db__resize")) return;
+        openColumnMenu(th, col);
+      });
       attachResizer(th, col, {
         scope: `crm:${kind}`, gridEl: grid, fields: cols, widths, trailing: "96px",
       });
@@ -409,6 +615,39 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
         const value = col.is_primary
           ? { title: record.title, properties: record.properties }
           : record;
+
+        // Clicar no nome abre a pasta: é o gesto que a pessoa tenta
+        // primeiro, e antes ele não fazia nada.
+        if (col.is_primary && (kind === "contacts" || record.contactId)) {
+          td.classList.add("ws-db__td--link");
+          td.setAttribute("role", "button");
+          td.tabIndex = 0;
+          const abrir = () => abrirFicha(
+            kind === "contacts" ? record : { ...record, externalId: record.contactId },
+            td,
+          );
+          td.addEventListener("click", abrir);
+          td.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); }
+          });
+          td.title = kind === "contacts"
+            ? "Abrir a pasta deste contato"
+            : "Abrir a pasta do contato desta oportunidade";
+        }
+
+        // Estágio e pipeline viram ação: clicar move a oportunidade.
+        if (kind === "opportunities" && ["stage", "pipeline"].includes(col.key) && record.externalId) {
+          td.classList.add("ws-db__td--action");
+          td.setAttribute("role", "button");
+          td.tabIndex = 0;
+          const abrir = () => openStageMenu(td, record);
+          td.addEventListener("click", abrir);
+          td.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); }
+          });
+          td.title = "Mover para outro estágio";
+        }
+
         td.appendChild(renderCellValue(col, value));
         if (col.is_primary && kind === "contacts" && dossiers.has(record.externalId)) {
           const mark = document.createElement("span");
@@ -424,6 +663,16 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
       // disputavam espaço com o nome e a linha ficava ilegível.
       const acoes = document.createElement("div");
       acoes.className = "ws-db__td ws-db__td--actions";
+      if (kind === "opportunities" && record.contactId) {
+        const abrir = document.createElement("button");
+        abrir.type = "button";
+        abrir.className = "ws-db__row-action";
+        abrir.textContent = "Pasta";
+        abrir.title = "Abrir a pasta do contato desta oportunidade";
+        abrir.addEventListener("click", () =>
+          abrirFicha({ ...record, externalId: record.contactId }, abrir));
+        acoes.appendChild(abrir);
+      }
       if (kind === "contacts") {
         const abrir = document.createElement("button");
         abrir.type = "button";
@@ -469,9 +718,13 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
    * devolve a mesma página em vez de criar uma segunda.
    */
   async function abrirFicha(record, button) {
-    const rotuloAnterior = button.textContent;
-    button.disabled = true;
-    button.textContent = "Abrindo…";
+    if (!record?.externalId) {
+      toast("Esta oportunidade não está ligada a um contato.", { tone: "warn" });
+      return;
+    }
+    const ehBotao = button?.tagName === "BUTTON";
+    const rotuloAnterior = ehBotao ? button.textContent : null;
+    if (ehBotao) { button.disabled = true; button.textContent = "Abrindo…"; }
     try {
       const { page, created } = await api.crm.openDossier(record.externalId);
       dossiers.set(record.externalId, page.id);
@@ -481,8 +734,66 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
       toast(err.code === "contact_not_found"
         ? "Este contato não existe mais na sua conta Spark."
         : "Não foi possível abrir a pasta.", { tone: "danger" });
-      button.disabled = false;
-      button.textContent = rotuloAnterior;
+      if (ehBotao) { button.disabled = false; button.textContent = rotuloAnterior; }
+    }
+  }
+
+  /**
+   * Dropdown de estágios com a hierarquia visível: cada pipeline vira uma
+   * seção do menu e os estágios dela aparecem embaixo. Assim dá para
+   * mover dentro da pipeline ou para outra sem trocar de tela.
+   */
+  function openStageMenu(anchor, record) {
+    if (!pipelines.length) {
+      toast("Não foi possível carregar os estágios.", { tone: "warn" });
+      return;
+    }
+    const items = [];
+    for (const pipe of pipelines) {
+      for (const stage of pipe.stages || []) {
+        items.push({
+          id: `${pipe.id}:${stage.id}`,
+          label: stage.name,
+          icon: stage.id === record.stageId ? "✓" : " ",
+          section: pipe.name,
+          disabled: stage.id === record.stageId,
+        });
+      }
+    }
+    openMenu({
+      anchor,
+      width: 300,
+      items,
+      onSelect: (id) => {
+        const [pipelineId, stageId] = id.split(":");
+        moverEstagio(record, pipelineId, stageId);
+      },
+    });
+  }
+
+  async function moverEstagio(record, pipelineId, stageId) {
+    const anterior = { pipelineId: record.pipelineId, stageId: record.stageId,
+                        props: { ...record.properties } };
+    const pipe = pipelines.find((p) => p.id === pipelineId);
+    const stage = (pipe?.stages || []).find((s) => s.id === stageId);
+
+    // Otimista: a linha muda na hora e volta atrás se o CRM recusar.
+    record.pipelineId = pipelineId;
+    record.stageId = stageId;
+    record.properties = { ...record.properties, pipeline: pipe?.name || "", stage: stage?.name || "" };
+    render();
+
+    try {
+      await api.crm.moveStage(record.externalId, pipelineId, stageId);
+      toast(`Movido para "${stage?.name}".`, { tone: "success" });
+    } catch (err) {
+      record.pipelineId = anterior.pipelineId;
+      record.stageId = anterior.stageId;
+      record.properties = anterior.props;
+      render();
+      toast(err.code === "missing_scope"
+        ? "O token não tem permissão para mover oportunidades."
+        : "Não foi possível mover. Nada foi alterado.", { tone: "danger" });
     }
   }
 

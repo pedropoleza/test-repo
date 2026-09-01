@@ -41,13 +41,21 @@ function defaultOptions() {
   ];
 }
 
-export function openFieldEditor(anchor, field, { databaseId, onDone }) {
+export function openFieldEditor(anchor, field, { databaseId, onDone, view, onView }) {
   const hasOptions = ["select", "multi_select", "status"].includes(field.type);
+  const ordem = (view?.sorts || []).find((s) => s.field === field.key);
 
   openMenu({
     anchor,
-    width: 236,
+    width: 250,
     items: [
+      // Ordenar e filtrar ficam no topo: é o que se procura ao clicar
+      // num cabeçalho de tabela.
+      { id: "sort-asc", label: "Ordenar crescente", icon: ordem?.direction === "asc" ? "✓" : "↑" },
+      { id: "sort-desc", label: "Ordenar decrescente", icon: ordem?.direction === "desc" ? "✓" : "↓" },
+      ...(ordem ? [{ id: "unsort", label: "Remover ordenação", icon: "×" }] : []),
+      { id: "group", label: "Agrupar por esta coluna", icon: "▤" },
+      { separator: true },
       { id: "rename", label: "Renomear", icon: "✎" },
       { id: "type", label: `Tipo: ${fieldSpec(field.type).label}`, icon: fieldSpec(field.type).icon },
       ...(hasOptions ? [{ id: "options", label: "Editar opções", icon: "◦" }] : []),
@@ -66,6 +74,19 @@ export function openFieldEditor(anchor, field, { databaseId, onDone }) {
     ],
     onSelect: async (id) => {
       try {
+        if (id === "sort-asc" || id === "sort-desc") {
+          const direction = id === "sort-asc" ? "asc" : "desc";
+          return onView?.({
+            sorts: [...(view?.sorts || []).filter((s) => s.field !== field.key),
+                    { field: field.key, direction }],
+          });
+        }
+        if (id === "unsort") {
+          return onView?.({ sorts: (view?.sorts || []).filter((s) => s.field !== field.key) });
+        }
+        if (id === "group") {
+          return onView?.({ groupBy: view?.group_by === field.key ? "" : field.key });
+        }
         if (id === "rename") return renameField(field, onDone);
         if (id === "type") return chooseType(anchor, field, onDone);
         if (id === "options") return editOptions(field, onDone);

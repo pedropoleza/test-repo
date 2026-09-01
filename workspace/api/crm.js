@@ -16,7 +16,7 @@ import { openContactDossier, listDossiers } from "../lib/server/dossier.js";
 import {
   isConfigured, ghlLocationId, checkScopes, getLocation,
   listContacts, listCustomFields, listTags, listOpportunities, listPipelines,
-  listContactNotes, listContactTasks, GhlError,
+  listContactNotes, listContactTasks, listContactOpportunities, moveOpportunity, GhlError,
 } from "../lib/server/ghl.js";
 import {
   STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS,
@@ -49,6 +49,37 @@ export default async function handler(req, res) {
     if (action === "contacts")      return res.status(200).json(await contacts(req));
     if (action === "opportunities") return res.status(200).json(await opportunities(req));
     if (action === "contact")       return res.status(200).json(await contactDetail(req));
+
+    if (action === "contact-opportunities") {
+      const id = req.query?.id || body.contactId;
+      if (!id) throw new WorkspaceError(400, "missing_id");
+      const [rows, pipelines] = await Promise.all([
+        listContactOpportunities(id),
+        listPipelines().catch(() => []),
+      ]);
+      return res.status(200).json({
+        contactId: id,
+        pipelines: pipelines.map((p) => ({
+          id: p.id, name: p.name,
+          stages: (p.stages || []).map((s) => ({ id: s.id, name: s.name })),
+        })),
+        opportunities: rows.map((o) => ({
+          ...opportunityToRecord(o, pipelines),
+          pipelineId: o.pipelineId,
+          stageId: o.pipelineStageId,
+        })),
+      });
+    }
+
+    if (action === "move-stage") {
+      requireRole(ctx, "editor");
+      const { opportunityId, pipelineId, stageId } = body;
+      const moved = await moveOpportunity(opportunityId, { pipelineId, stageId });
+      log.info("crm.opportunity.moved", {
+        workspaceId: ctx.workspaceId, opportunityId, stageId,
+      });
+      return res.status(200).json({ opportunity: moved });
+    }
 
     if (action === "dossier") {
       requireRole(ctx, "editor");
@@ -159,8 +190,18 @@ async function opportunities(req) {
   return {
     source: "spark",
     columns,
-    pipelines: pipelines.map((p) => ({ id: p.id, name: p.name })),
-    records: rows.map((o) => opportunityToRecord(o, pipelines)),
+    // Com os estágios: é o que permite mover a oportunidade direto da
+    // célula, inclusive para outra pipeline.
+    pipelines: pipelines.map((p) => ({
+      id: p.id,
+      name: p.name,
+      stages: (p.stages || []).map((s) => ({ id: s.id, name: s.name })),
+    })),
+    records: rows.map((o) => ({
+      ...opportunityToRecord(o, pipelines),
+      pipelineId: o.pipelineId,
+      stageId: o.pipelineStageId,
+    })),
     total: rows.length,
     truncated: rows.length >= limit,
   };

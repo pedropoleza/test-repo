@@ -201,6 +201,30 @@ export async function listOpportunities({ locationId = ghlLocationId(), limit = 
   return out.slice(0, limit);
 }
 
+/** Oportunidades de um contato específico. */
+export async function listContactOpportunities(contactId, locationId = ghlLocationId()) {
+  const data = await ghlFetch("/opportunities/search", {
+    query: { location_id: locationId, contact_id: contactId, limit: 50 },
+  });
+  return data?.opportunities || [];
+}
+
+/**
+ * Move a oportunidade de estágio (e de pipeline, quando pedido).
+ *
+ * Única escrita que o módulo faz no CRM hoje. Mandamos só os campos que
+ * mudam: um PUT com o objeto inteiro sobrescreveria o que outra pessoa
+ * alterou entre a leitura e a gravação.
+ */
+export async function moveOpportunity(opportunityId, { pipelineId, stageId }) {
+  if (!opportunityId) throw new GhlError(400, "missing_opportunity");
+  if (!stageId) throw new GhlError(400, "missing_stage");
+  const body = { pipelineStageId: stageId };
+  if (pipelineId) body.pipelineId = pipelineId;
+  const data = await ghlFetch(`/opportunities/${opportunityId}`, { method: "PUT", body });
+  return data?.opportunity || null;
+}
+
 export async function listContactNotes(contactId) {
   const data = await ghlFetch(`/contacts/${contactId}/notes`);
   return data?.notes || [];

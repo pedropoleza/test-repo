@@ -291,6 +291,35 @@ body.ws-sidebar-collapsed .ws-sidebar { display: none; }
   border-bottom: 1px solid var(--gray-150);
 }
 .ws-topbar__toggle { display: none; }
+
+/* Voltar é ação frequente: botão com contorno e rótulo, não um glifo
+   cinza que se perde na barra. */
+.ws-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  color: var(--gray-700);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  padding: 5px 12px 5px 9px;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--d-fast) var(--bezier),
+              color var(--d-fast) var(--bezier),
+              transform var(--d-fast) var(--bezier);
+}
+.ws-back svg { width: 15px; height: 15px; flex: none; }
+.ws-back:hover {
+  border-color: var(--ghl-400);
+  color: var(--ghl-700);
+  transform: translateX(-1px);
+}
+.ws-back:active { transform: translateX(-2px); }
+.ws-back[disabled] { opacity: 0.4; cursor: default; transform: none; }
 .ws-topbar__right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
 .ws-icon-btn {
@@ -306,9 +335,29 @@ body.ws-sidebar-collapsed .ws-sidebar { display: none; }
 }
 .ws-icon-btn:hover { background: var(--gray-150); color: var(--gray-900); }
 
-.ws-save { font-size: var(--fs-sm); color: var(--gray-400); }
+.ws-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--gray-500);
+  opacity: 0;
+  transform: translateY(-2px);
+  pointer-events: none;
+  transition: opacity var(--d) var(--bezier), transform var(--d) var(--bezier);
+}
+.ws-save.is-visible { opacity: 1; transform: none; }
+.ws-save::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
 .ws-save[data-state="saving"] { color: var(--ghl-600); }
-.ws-save[data-state="error"] { color: var(--danger); font-weight: 600; }
+.ws-save[data-state="saved"]  { color: var(--success); }
+.ws-save[data-state="error"]  { color: var(--danger); font-weight: 600; }
 
 /* ================= Página ================= */
 
@@ -1181,6 +1230,9 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   }
   .ws-sidebar.is-open { transform: none; }
   .ws-topbar__toggle { display: inline-flex; }
+  /* No celular a barra é estreita: fica só a seta. */
+  .ws-back span { display: none; }
+  .ws-back { padding: 5px 9px; }
 
   .ws-sidebar-backdrop {
     display: block;
@@ -1348,6 +1400,31 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 body.is-resizing-col { cursor: col-resize; user-select: none; }
 .ws-db__th span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-db__th-icon { color: var(--gray-400); flex: none; width: 16px; text-align: center; }
+.ws-db__th-flag {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--ghl-600);
+  font-weight: 700;
+}
+
+/* Célula que abre a pasta: precisa parecer clicável. */
+.ws-db__td--action { cursor: pointer; }
+.ws-db__td--action:hover { background: var(--ghl-50); }
+.ws-db__td--action:hover .ws-chip { box-shadow: 0 0 0 2px var(--ghl-200); }
+.ws-db__td--action::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--gray-300);
+  font-size: 10px;
+  flex: none;
+}
+.ws-db__td--action:hover::after { color: var(--ghl-600); }
+.ws-db__td--link { cursor: pointer; }
+.ws-db__td--link .ws-cell__value { color: var(--ghl-700); font-weight: 500; }
+.ws-db__td--link:hover { background: var(--ghl-50); }
+.ws-db__td--link:hover .ws-cell__value { text-decoration: underline; text-underline-offset: 2px; }
+.ws-db__td--link:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: -2px; }
 .ws-db__th--add { justify-content: center; color: var(--gray-400); }
 
 .ws-db__td {

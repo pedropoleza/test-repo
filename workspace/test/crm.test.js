@@ -144,3 +144,12 @@ test("pipeline desconhecido não quebra a oportunidade", () => {
   assert.equal(rec.properties.pipeline, "");
   assert.equal(rec.properties.stage, "");
 });
+
+test("oportunidade carrega o id do contato, para abrir a pasta dele", () => {
+  const a = opportunityToRecord({ id: "o1", name: "X", contactId: "ct_9" }, []);
+  assert.equal(a.contactId, "ct_9");
+  const b = opportunityToRecord({ id: "o2", name: "Y", contact: { id: "ct_7", name: "Ana" } }, []);
+  assert.equal(b.contactId, "ct_7");
+  const c = opportunityToRecord({ id: "o3", name: "Z" }, []);
+  assert.equal(c.contactId, null);
+});

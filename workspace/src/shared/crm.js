@@ -144,6 +144,9 @@ export function opportunityToRecord(opp, pipelines = []) {
   const stage = pipeline?.stages?.find((s) => s.id === opp.pipelineStageId);
   return {
     externalId: opp.id,
+    // Guardado fora de properties: não é coluna, é o elo para abrir a
+    // pasta do contato a partir da oportunidade.
+    contactId: opp.contactId || opp.contact?.id || null,
     title: opp.name || "Sem nome",
     properties: {
       status: opp.status || "",

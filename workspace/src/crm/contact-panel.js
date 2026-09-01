@@ -70,6 +70,7 @@ export function createContactPanel(host, {
     const frag = document.createDocumentFragment();
     frag.appendChild(secaoContato());
     frag.appendChild(secaoOportunidades());
+    frag.appendChild(secaoLevar());
     host.replaceChildren(frag);
   }
 
@@ -138,6 +139,86 @@ export function createContactPanel(host, {
       card.appendChild(props);
       box.appendChild(card);
     }
+    return box;
+  }
+
+  /* ---------------- levar a ficha ---------------- */
+
+  /**
+   * QR e download do PDF.
+   *
+   * Um QR carrega texto, não arquivo — um PDF não cabe nele e nenhum
+   * leitor de celular renderiza PDF de bytes crus. O que o código carrega
+   * é um endereço que RESPONDE o PDF como anexo: ler baixa o arquivo, sem
+   * passar pelo app nem pedir login.
+   *
+   * O botão ao lado é o mesmo PDF para quem está no computador e não vai
+   * apontar a câmera para a própria tela.
+   */
+  function secaoLevar() {
+    const box = bloco("Levar a ficha");
+
+    if (!pageId) {
+      box.appendChild(aviso("Abra a ficha para gerar o QR code."));
+      return box;
+    }
+
+    const linha = document.createElement("div");
+    linha.className = "ws-share";
+
+    const quadro = document.createElement("div");
+    quadro.className = "ws-share__qr";
+    quadro.appendChild(aviso("Gerando o QR…"));
+
+    const lado = document.createElement("div");
+    lado.className = "ws-share__side";
+
+    const explica = document.createElement("p");
+    explica.className = "ws-share__hint";
+    explica.textContent = "Aponte a câmera para baixar o PDF desta ficha, "
+      + "com os dados e as oportunidades preenchidos. Não precisa de login.";
+
+    const baixar = document.createElement("a");
+    baixar.className = "ws-btn ws-btn--primary ws-share__download";
+    baixar.textContent = "Baixar PDF";
+    baixar.rel = "noopener";
+    // Desabilitado até o endereço chegar: um href vazio baixaria a
+    // própria página.
+    baixar.setAttribute("aria-disabled", "true");
+
+    const aviso_ = document.createElement("p");
+    aviso_.className = "ws-share__warn";
+    aviso_.textContent = "Quem tiver este código vê os dados deste contato.";
+
+    lado.append(explica, baixar, aviso_);
+    linha.append(quadro, lado);
+    box.appendChild(linha);
+
+    api.dossier.share(pageId).then(({ qr, url }) => {
+      if (!quadro.isConnected) return;
+      // O botão usa o MESMO endereço do QR. Um link com a chave da sessão
+      // na query só funcionaria para quem já está logado do mesmo jeito, e
+      // seria um segundo caminho para manter em sincronia com o primeiro.
+      baixar.href = url;
+      baixar.removeAttribute("aria-disabled");
+      const svg = new DOMParser().parseFromString(qr, "image/svg+xml").documentElement;
+      // parseFromString devolve um <parsererror> em vez de lançar quando
+      // o SVG vem quebrado; sem esta checagem ele entraria na página.
+      if (svg.nodeName.toLowerCase() !== "svg") {
+        quadro.replaceChildren(aviso("Não foi possível gerar o QR code.", "is-error"));
+        return;
+      }
+      svg.removeAttribute("width");
+      svg.removeAttribute("height");
+      svg.setAttribute("role", "img");
+      svg.setAttribute("aria-label", "QR code para baixar o PDF desta ficha");
+      quadro.replaceChildren(svg);
+    }).catch(() => {
+      if (quadro.isConnected) {
+        quadro.replaceChildren(aviso("Não foi possível gerar o QR code.", "is-error"));
+      }
+    });
+
     return box;
   }
 

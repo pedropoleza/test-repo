@@ -30,15 +30,14 @@ import {
 import {
   isConfigured, ghlLocationId, checkScopes, getLocation,
   listContacts, listCustomFields, listTags, listOpportunities, listPipelines, listUsers,
-  getContact,
-  listContactNotes, listContactTasks, listContactOpportunities,
-  moveOpportunity, updateOpportunity, updateContact, GhlError,
+  listContactOpportunities, moveOpportunity, updateOpportunity, updateContact, GhlError,
 } from "../lib/server/ghl.js";
 import {
   STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS, OPPORTUNITY_STATUS,
   customFieldsToColumns, tagsToOptions, usersToOptions, stageOptions,
   contactToRecord, opportunityToRecord, opportunityPatch, contactPatch,
 } from "../src/shared/crm.js";
+import { loadContactDetail } from "../lib/server/contact-detail.js";
 import { log } from "../lib/server/log.js";
 
 export default async function handler(req, res) {
@@ -281,63 +280,6 @@ function parseBody(req) {
   return req.body;
 }
 
-/**
- * Tudo o que a pasta do contato precisa numa chamada só: o registro
- * normalizado com as colunas (para poder editar), as oportunidades dele
- * e o histórico do CRM.
- *
- * Uma chamada e não cinco porque a pasta abre com a página, e cinco
- * idas ao CRM em série apareceriam como meio segundo de tela vazia.
- */
 async function contactDetail(req) {
-  const id = req.query?.id;
-  if (!id) throw new WorkspaceError(400, "missing_id");
-
-  const [contact, customFields, tags, notes, tasks, pipelines, users] = await Promise.all([
-    getContact(id),
-    listCustomFields().catch(() => []),
-    listTags().catch(() => []),
-    listContactNotes(id).catch(() => []),
-    listContactTasks(id).catch(() => []),
-    listPipelines().catch(() => []),
-    listUsers().catch(() => []),
-  ]);
-  if (!contact) throw new WorkspaceError(404, "contact_not_found");
-
-  const opps = await listContactOpportunities(id).catch(() => []);
-
-  const columns = [
-    ...STANDARD_CONTACT_FIELDS,
-    ...customFieldsToColumns(customFields),
-  ].map((c) => (c.key === "tags" ? { ...c, options: tagsToOptions(tags) } : c));
-
-  const oppColumns = OPPORTUNITY_FIELDS.map((c) => {
-    if (c.key === "status") return { ...c, options: OPPORTUNITY_STATUS };
-    if (c.key === "assigned") {
-      return { ...c, options: usersToOptions(users, opps.map((o) => o.assignedTo)) };
-    }
-    if (c.key === "stage") return { ...c, options: stageOptions(pipelines) };
-    if (c.key === "pipeline") {
-      return { ...c, options: pipelines.map((p) => ({ id: p.name, name: p.name, color: "gray" })) };
-    }
-    return c;
-  });
-
-  return {
-    contactId: id,
-    columns,
-    record: contactToRecord(contact, customFields),
-    notes,
-    tasks,
-    opportunityColumns: oppColumns,
-    opportunities: opps.map((o) => ({
-      ...opportunityToRecord(o, pipelines),
-      pipelineId: o.pipelineId,
-      stageId: o.pipelineStageId,
-    })),
-    pipelines: pipelines.map((p) => ({
-      id: p.id, name: p.name,
-      stages: (p.stages || []).map((st) => ({ id: st.id, name: st.name })),
-    })),
-  };
+  return loadContactDetail(req.query?.id);
 }

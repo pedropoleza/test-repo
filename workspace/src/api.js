@@ -146,6 +146,12 @@ export const api = {
       request("POST", "/api/crm", { query: { action: "dossier" }, body: { contactId } }),
   },
 
+  dossier: {
+    share: (pageId) => request("GET", "/api/dossier", { query: { action: "share", pageId } }),
+    revoke: (pageId) =>
+      request("POST", "/api/dossier", { query: { action: "revoke" }, body: { pageId } }),
+  },
+
   tasks: {
     list: (limit) => request("GET", "/api/tasks", { query: { limit } }),
   },

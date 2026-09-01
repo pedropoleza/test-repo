@@ -261,3 +261,50 @@ O `pushState` continua existindo para a URL ser compartilhável e o Voltar
 do navegador funcionar; abrir o mesmo destino usa `replaceState` para não
 criar entrada duplicada. Ao adicionar um novo tipo de tela, acrescente-o
 a `destinoAtual()`, `abrirDestino()` e ao `popstate` — os três.
+
+## QR code e PDF da ficha
+
+Toda ficha tem, na seção "Levar a ficha", um QR code e um botão de baixar.
+
+### O que o QR carrega, e por quê
+
+Um QR code carrega **texto, não arquivo**. Um PDF não cabe nele (a
+capacidade é de alguns KB) e nenhum leitor de celular renderiza PDF a
+partir de bytes crus. O que o código carrega é um endereço que RESPONDE
+o PDF como anexo (`Content-Disposition: attachment`): ler o código baixa
+o arquivo direto, sem abrir o app e sem pedir login.
+
+O botão "Baixar PDF" usa **o mesmo endereço**. Um link com a chave da
+sessão na query só funcionaria para quem já está logado do mesmo jeito, e
+seria um segundo caminho para manter em sincronia.
+
+### O token
+
+`workspace_share_tokens` guarda um token aleatório de 32 bytes por ficha.
+Ele é a credencial de quem lê o código — dá acesso a UMA coisa, o PDF
+daquela ficha, somente leitura.
+
+- **Estável de propósito**: um QR impresso ou colado num contrato não
+  pode parar de funcionar porque expirou. Reabrir a ficha reaproveita o
+  mesmo token.
+- **Revogável**: `POST /api/dossier` com `action=revoke` invalida aquele
+  QR; o próximo acesso à ficha emite um novo, sem tocar nos das outras.
+- **QUEM TIVER O CÓDIGO VÊ OS DADOS DAQUELE CONTATO.** É a natureza do
+  pedido (ler e baixar sem login), e está dito na própria tela.
+
+### O PDF
+
+Gerado com pdf-lib, fonte Helvetica base-14 com WinAnsiEncoding — cobre o
+português inteiro sem embutir fonte (embutir custaria ~300 KB por PDF).
+Caracteres fora do WinAnsi (emoji, CJK) são removidos antes de escrever:
+o pdf-lib estoura ao encontrá-los, e um nome com emoji não pode impedir a
+ficha de sair.
+
+Campos personalizados vazios ficam de fora — esta conta tem 115, e listar
+todos daria páginas de rótulos vazios. Colunas de escolha saem pelo NOME
+da opção, nunca pelo id.
+
+O endereço do QR é montado a partir do host da requisição
+(`x-forwarded-proto`/`x-forwarded-host`). Defina `WORKSPACE_PUBLIC_URL`
+se o domínio público for diferente do que chega ao servidor — um QR
+impresso apontando para o domínio errado não tem conserto.

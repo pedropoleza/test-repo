@@ -2081,3 +2081,31 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   white-space: nowrap;
 }
 .ws-tree__row--mini .ws-tree__icon { line-height: 0; }
+
+/* ------------------------------------------------------------------ */
+/* Levar a ficha: QR + download do PDF                                */
+/* ------------------------------------------------------------------ */
+
+.ws-share { display: flex; gap: 16px; align-items: flex-start; }
+.ws-share__qr {
+  flex: none;
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--white);
+}
+/* Fundo branco e sem escala fracionária: um QR sobre cor ou meio pixel
+   deixa de ser lido por alguns celulares. */
+.ws-share__qr svg { width: 100%; height: 100%; display: block; shape-rendering: crispEdges; }
+.ws-share__side { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; min-width: 0; }
+.ws-share__hint { margin: 0; font-size: var(--fs-sm); color: var(--gray-600); }
+.ws-share__warn { margin: 0; font-size: var(--fs-xs); color: var(--gray-500); }
+.ws-share__download { text-decoration: none; }
+@media (max-width: 640px) {
+  .ws-share { flex-direction: column; }
+}
+.ws-share__download[aria-disabled="true"] { opacity: .5; pointer-events: none; }

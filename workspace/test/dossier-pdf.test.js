@@ -92,3 +92,64 @@ test("nome de arquivo é seguro em qualquer sistema", () => {
   assert.equal(nomeDoArquivo("🎉🎉🎉"), "ficha.pdf", "nome só de emoji não vira arquivo sem nome");
   assert.ok(nomeDoArquivo("x".repeat(200)).length <= 64);
 });
+
+/* ------------------------------------------------------------------ */
+/* Capa e foto no papel                                               */
+/* ------------------------------------------------------------------ */
+
+const comCapa = (page) => ({ ...base({ email: "a@b.com" }), page });
+
+test("a capa em gradiente é desenhada, e o PDF cresce por causa dela", async () => {
+  const semCapa = await gerar(comCapa({ title: "X" }));
+  const comGradiente = await gerar(comCapa({ title: "X", cover_type: "gradient", cover_value: "plum" }));
+  assert.ok(comGradiente.length > semCapa.length + 2000,
+    `gradiente: ${comGradiente.length} vs sem capa: ${semCapa.length}`);
+});
+
+test("capa em cor sólida também sai, e mais leve que o gradiente", async () => {
+  const cor = await gerar(comCapa({ title: "X", cover_type: "color", cover_value: "navy" }));
+  const grad = await gerar(comCapa({ title: "X", cover_type: "gradient", cover_value: "navy" }));
+  assert.ok(cor.length < grad.length, "uma cor chapada não pode custar como 160 faixas");
+});
+
+test("gradiente desconhecido cai no padrão em vez de estourar", async () => {
+  const pdf = await gerar(comCapa({ title: "X", cover_type: "gradient", cover_value: "inventado" }));
+  assert.ok(pdf.length > 2000);
+});
+
+test("foto que não carrega não impede a ficha de sair", async () => {
+  // Timeout curto e falha soft: o documento continua útil sem o rosto.
+  const pdf = await gerar(comCapa({
+    title: "X", cover_type: "gradient",
+    icon_type: "url", icon_value: "https://dominio-inexistente-xyz.invalid/a.png",
+  }));
+  assert.ok(pdf.length > 1500);
+});
+
+test("capa que não carrega também não impede", async () => {
+  const pdf = await gerar(comCapa({
+    title: "X", cover_type: "image", cover_value: "https://dominio-inexistente-xyz.invalid/c.jpg",
+  }));
+  assert.ok(pdf.length > 1500);
+});
+
+test("endereço que não é http é ignorado sem tentar buscar", async () => {
+  const t = Date.now();
+  await gerar(comCapa({ title: "X", icon_type: "url", icon_value: "file:///etc/passwd" }));
+  assert.ok(Date.now() - t < 2000, "não pode nem tentar abrir o que não é http");
+});
+
+test("sem foto, as iniciais do nome vão para o círculo", async () => {
+  const entrada = comCapa({ title: "X", cover_type: "gradient" });
+  entrada.record.title = "Maria Souza";
+  const comIniciais = await gerar(entrada);
+
+  const semNome = comCapa({ title: "X", cover_type: "gradient" });
+  semNome.record = { title: "+16893505757", properties: { email: "a@b.com" } };
+  const semIniciais = await gerar(semNome);
+
+  // Nome que é só telefone não rende inicial que sirva; o círculo fica
+  // vazio em vez de mostrar "+1".
+  assert.ok(comIniciais.length > semIniciais.length,
+    "as iniciais precisam aparecer no PDF de quem tem nome");
+});

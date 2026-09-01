@@ -390,3 +390,34 @@ A linha compacta dos últimos contatos também arrasta: ela vive num
 `.ws-tree__item` com `data-page-id`, que é o que o arrasto reconhece.
 Sem isso era preciso expandir a lista inteira só para pegar a ficha que
 acabou de ser aberta.
+
+## PDF: capa e foto
+
+O PDF repete o enquadramento da tela — banner no topo, rosto metade sobre
+ele, nome embaixo. Quem recebe reconhece a ficha que viu no app, em vez
+de um relatório de aparência alheia.
+
+- **Gradiente**: o pdf-lib não tem gradiente, então são 160 faixas
+  verticais interpolando as MESMAS paradas que o browser usa
+  (`src/shared/cover.js`). Na resolução de impressão não se distinguem de
+  um degradê contínuo. Meio ponto de sobreposição entre faixas evita fios
+  brancos em alguns leitores.
+- **Cor sólida** e **imagem** também, a imagem em `cover`, sem distorcer.
+- **Foto**: recorte circular por quatro arcos de Bézier, com anel branco
+  por baixo para destacar de qualquer capa. Sem foto, as iniciais — um
+  círculo vazio no papel parece imagem que não carregou.
+
+As imagens são buscadas com timeout de 6s e teto de 6 MB, e **falham
+soft**: capa ou foto que não carrega não pode impedir a ficha de sair. O
+formato é decidido pelos bytes iniciais, não pelo content-type — servidores
+mentem com frequência, e o pdf-lib estoura se receber o formato errado.
+
+## Ícones dos diálogos
+
+`renderIconGrid()` (`src/ui/icon-grid.js`) é a grade usada pelos diálogos
+de seção e de lista: 74 ícones, a mesma curadoria do seletor completo,
+para não haver duas listas divergindo.
+
+Antes cada diálogo abria um menu com oito, e **cada linha mostrava o mesmo
+emoji duas vezes** — o menu põe `icon` à esquerda e `label` no corpo, e os
+dois recebiam o emoji.

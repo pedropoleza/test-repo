@@ -10,8 +10,7 @@
  * September" antes de escrever.
  */
 import { openModal, openMenu } from "../ui/menu.js";
-
-const ICONES = ["📋", "📄", "🎯", "🔥", "⭐", "💰", "📌", "🧾"];
+import { renderIconGrid } from "../ui/icon-grid.js";
 
 /** Resolve com { name, icon, filters } ou null se cancelado. */
 export function openListDialog({ pipelines = [] } = {}) {
@@ -44,13 +43,15 @@ export function openListDialog({ pipelines = [] } = {}) {
       iconBtn.className = "ws-section-dialog__icon";
       iconBtn.setAttribute("aria-label", "Ícone da lista");
       iconBtn.textContent = icon;
+
+      // Grade aberta, e não um menu de oito: escolher ícone é olhar, não
+      // navegar por lista.
+      const grade = renderIconGrid({
+        getValue: () => icon,
+        onPick: (e) => { icon = e; iconBtn.textContent = icon; },
+      });
       iconBtn.addEventListener("click", () => {
-        openMenu({
-          anchor: iconBtn,
-          width: 200,
-          items: ICONES.map((e) => ({ id: e, label: e, icon: e })),
-          onSelect: (id) => { icon = id; iconBtn.textContent = icon; },
-        });
+        grade.el.hidden = !grade.el.hidden;
       });
 
       const name = document.createElement("input");
@@ -63,7 +64,7 @@ export function openListDialog({ pipelines = [] } = {}) {
         name.classList.remove("is-invalid");
       });
       row.append(iconBtn, name);
-      stack.append(row);
+      stack.append(row, grade.el);
 
       /* ---- pipeline ---- */
       const btnPipeline = escolha("Pipeline", "Escolher pipeline…");

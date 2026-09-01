@@ -12,9 +12,15 @@
  * não usa. Caracteres fora do WinAnsi (emoji, por exemplo) quebrariam a
  * geração, então são retirados antes de escrever.
  */
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import {
+  PDFDocument, StandardFonts, rgb,
+  pushGraphicsState, popGraphicsState, moveTo, appendBezierCurve, closePath, clip, endPath,
+} from "pdf-lib";
+import { COLORS, GRADIENT_STOPS, corDoGradiente, hexToRgb } from "../../src/shared/cover.js";
 
 const A4 = [595.28, 841.89];
+const ALTURA_CAPA = 132;
+const FOTO = 76;
 const MARGEM = 48;
 const LARGURA_UTIL = A4[0] - MARGEM * 2;
 
@@ -146,18 +152,52 @@ export async function buildDossierPdf({
     y -= altura;
   }
 
-  /* ---------------- cabeçalho ---------------- */
+  /* ---------------- capa, foto e nome ---------------- */
 
-  atual.drawText("SPARK", { x: MARGEM, y: y - 11, size: 11, font: negrito, color: MARCA });
-  atual.drawText(limpar(`Ficha do contato · ${geradoEm.toLocaleDateString("pt-BR")}`), {
-    x: MARGEM, y: y - 25, size: 9, font: regular, color: SUAVE,
-  });
-  y -= 44;
+  /*
+   * O papel repete o enquadramento da tela: banner no topo, rosto metade
+   * sobre ele, nome embaixo. Quem recebe o PDF reconhece a ficha que viu
+   * no app, em vez de um relatório de aparência alheia.
+   *
+   * As duas imagens são buscadas juntas e falham soft: capa ou foto que
+   * não carrega não pode impedir a ficha de sair.
+   */
+  const fotoUrl = page?.icon_type === "url" ? page.icon_value : null;
+  const capaUrl = page?.cover_type === "image" ? page.cover_value : null;
+  const [capaBuf, fotoBuf] = await Promise.all([baixarImagem(capaUrl), baixarImagem(fotoUrl)]);
+  const capaImg = await embutir(doc, capaBuf);
+  const fotoImg = await embutir(doc, fotoBuf);
+
+  const temCapa = !!(page?.cover_type);
+  if (temCapa) {
+    desenharCapa(page, atual, capaImg);
+    // A marca sobre a capa, em branco: sobre um degradê escuro o azul da
+    // marca some.
+    atual.drawText("SPARK", {
+      x: MARGEM, y: A4[1] - 26, size: 11, font: negrito, color: rgb(1, 1, 1),
+    });
+    y = A4[1] - ALTURA_CAPA;
+    desenharFoto(atual, {
+      imagem: fotoImg, iniciais: iniciaisDe(record?.title || page?.title),
+      fonte: negrito, x: MARGEM, cy: y,
+    });
+    y -= FOTO / 2 + 16;
+  } else {
+    atual.drawText("SPARK", { x: MARGEM, y: y - 11, size: 11, font: negrito, color: MARCA });
+    y -= 26;
+    const iniciais = iniciaisDe(record?.title || page?.title);
+    if (fotoImg || iniciais) {
+      desenharFoto(atual, { imagem: fotoImg, iniciais, fonte: negrito, x: MARGEM, cy: y - FOTO / 2 });
+      y -= FOTO + 12;
+    }
+  }
 
   texto(record?.title || page?.title || "Sem nome", { size: 22, font: negrito, gap: 6 });
   const p = record?.properties || {};
   const contato = [p.email, p.phone].filter(Boolean).join("  ·  ");
   if (contato) texto(contato, { size: 10, cor: SUAVE, gap: 4 });
+  texto(`Ficha do contato · ${geradoEm.toLocaleDateString("pt-BR")}`,
+    { size: 8.5, cor: SUAVE, gap: 4 });
   regua(14);
 
   /* ---------------- dados ---------------- */
@@ -277,4 +317,176 @@ export function nomeDoArquivo(titulo) {
     .replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-")
     .slice(0, 60) || "ficha";
   return `${base}.pdf`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Capa e foto                                                        */
+/* ------------------------------------------------------------------ */
+
+const MAX_IMAGEM_BYTES = 6 * 1024 * 1024;
+const TIMEOUT_IMAGEM_MS = 6000;
+
+/**
+ * Baixa uma imagem para embutir no PDF.
+ *
+ * Falha soft de propósito: capa ou foto que não carrega não pode impedir
+ * a ficha de sair — o documento continua útil sem elas. Por isso o
+ * timeout curto e o teto de tamanho, que também evitam um PDF de 40 MB
+ * por causa de uma foto que alguém subiu sem redimensionar.
+ */
+async function baixarImagem(url) {
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_IMAGEM_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return null;
+    const tamanho = Number(res.headers.get("content-length"));
+    if (Number.isFinite(tamanho) && tamanho > MAX_IMAGEM_BYTES) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > MAX_IMAGEM_BYTES) return null;
+    return buf;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Embute PNG ou JPEG, decidindo pelos bytes iniciais.
+ *
+ * O content-type do servidor mente com frequência (imagens servidas como
+ * octet-stream), e o pdf-lib estoura se receber o formato errado.
+ */
+async function embutir(doc, buf) {
+  if (!buf || buf.length < 4) return null;
+  const png = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+  const jpg = buf[0] === 0xff && buf[1] === 0xd8;
+  try {
+    if (png) return await doc.embedPng(buf);
+    if (jpg) return await doc.embedJpg(buf);
+  } catch {
+    // Imagem corrompida ou em formato que o pdf-lib não lê (webp, avif).
+  }
+  return null;
+}
+
+/** Caminho de recorte circular, em quatro arcos de Bézier. */
+const KAPPA = 0.5522847498;
+function recorteCircular(page, cx, cy, r) {
+  const k = r * KAPPA;
+  page.pushOperators(
+    pushGraphicsState(),
+    moveTo(cx - r, cy),
+    appendBezierCurve(cx - r, cy + k, cx - k, cy + r, cx, cy + r),
+    appendBezierCurve(cx + k, cy + r, cx + r, cy + k, cx + r, cy),
+    appendBezierCurve(cx + r, cy - k, cx + k, cy - r, cx, cy - r),
+    appendBezierCurve(cx - k, cy - r, cx - r, cy - k, cx - r, cy),
+    closePath(),
+    clip(),
+    endPath(),
+  );
+}
+
+/**
+ * A faixa do topo, reproduzindo a capa da página.
+ *
+ * Gradiente vira faixas verticais interpolando as mesmas paradas que o
+ * browser usa — o pdf-lib não tem gradiente, e na resolução de impressão
+ * 160 faixas não se distinguem de um degradê contínuo.
+ */
+function desenharCapa(page, pdfPage, imagem) {
+  const [largura] = A4;
+  const topo = A4[1] - ALTURA_CAPA;
+
+  if (imagem) {
+    // `cover`: preenche a faixa sem distorcer, cortando o excedente.
+    const escala = Math.max(largura / imagem.width, ALTURA_CAPA / imagem.height);
+    const w = imagem.width * escala;
+    const h = imagem.height * escala;
+    const y = (page.cover_position_y ?? 50) / 100;
+    pdfPage.pushOperators(pushGraphicsState());
+    pdfPage.drawRectangle({ x: 0, y: topo, width: largura, height: ALTURA_CAPA, color: rgb(1, 1, 1) });
+    pdfPage.drawImage(imagem, {
+      x: (largura - w) / 2,
+      y: topo - (h - ALTURA_CAPA) * (1 - y),
+      width: w,
+      height: h,
+    });
+    pdfPage.pushOperators(popGraphicsState());
+    return;
+  }
+
+  if (page.cover_type === "color") {
+    const { r, g, b } = hexToRgb(COLORS[page.cover_value] || page.cover_value || COLORS.blue);
+    pdfPage.drawRectangle({ x: 0, y: topo, width: largura, height: ALTURA_CAPA, color: rgb(r, g, b) });
+    return;
+  }
+
+  const nome = GRADIENT_STOPS[page.cover_value] ? page.cover_value : "spark-blue";
+  const faixas = 160;
+  const passo = largura / faixas;
+  for (let i = 0; i < faixas; i += 1) {
+    const { r, g, b } = corDoGradiente(nome, i / (faixas - 1));
+    pdfPage.drawRectangle({
+      x: i * passo,
+      y: topo,
+      // Meio ponto de sobreposição: sem ele aparecem fios brancos entre
+      // as faixas em alguns leitores.
+      width: passo + 0.5,
+      height: ALTURA_CAPA,
+      color: rgb(r, g, b),
+    });
+  }
+}
+
+/** O rosto, metade sobre a capa — o mesmo enquadramento da tela. */
+function desenharFoto(pdfPage, { imagem, iniciais, fonte, x, cy }) {
+  const r = FOTO / 2;
+  const cx = x + r;
+
+  // Anel branco por baixo, para destacar de qualquer capa.
+  pdfPage.drawCircle({ x: cx, y: cy, size: r + 3.5, color: rgb(1, 1, 1) });
+
+  if (imagem) {
+    recorteCircular(pdfPage, cx, cy, r);
+    // `cover`: preenche o círculo sem distorcer o rosto.
+    const escala = Math.max(FOTO / imagem.width, FOTO / imagem.height);
+    const w = imagem.width * escala;
+    const h = imagem.height * escala;
+    pdfPage.drawImage(imagem, { x: cx - w / 2, y: cy - h / 2, width: w, height: h });
+    pdfPage.pushOperators(popGraphicsState());
+    return;
+  }
+
+  // Sem foto, as iniciais — as mesmas da tela. Um círculo vazio no papel
+  // parece imagem que não carregou.
+  pdfPage.drawCircle({ x: cx, y: cy, size: r, color: rgb(0.85, 0.9, 1) });
+  const texto = limpar(iniciais || "");
+  if (!texto || !fonte) return;
+  const tamanho = 26;
+  const largura = fonte.widthOfTextAtSize(texto, tamanho);
+  pdfPage.drawText(texto, {
+    x: cx - largura / 2,
+    // O 0.34 aproxima a altura das maiúsculas da Helvetica: centralizar
+    // pela caixa da fonte deixaria as letras visivelmente altas.
+    y: cy - tamanho * 0.34,
+    size: tamanho,
+    font: fonte,
+    color: rgb(0.08, 0.29, 0.72),
+  });
+}
+
+/**
+ * Iniciais do nome — primeira e última palavra, a mesma regra da tela.
+ * Nome que é só telefone ou e-mail não tem inicial que sirva.
+ */
+function iniciaisDe(nome) {
+  const partes = limpar(nome).split(" ").filter(Boolean);
+  if (!partes.length) return "";
+  const primeira = partes[0][0] || "";
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : "";
+  const iniciais = (primeira + ultima).toUpperCase();
+  return /[A-ZÀ-Ý]/.test(iniciais) ? iniciais : "";
 }

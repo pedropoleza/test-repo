@@ -5,11 +5,9 @@
  * ícone, não valida, não combina com o resto da interface e no mobile
  * aparece como caixa do sistema.
  */
-import { openModal, openMenu } from "./ui/menu.js";
+import { openModal } from "./ui/menu.js";
+import { renderIconGrid } from "./ui/icon-grid.js";
 import { openIconPicker, renderIcon } from "./icon-picker.js";
-
-/** Ícones sugeridos: cobre a maioria dos casos sem abrir o seletor. */
-const SUGGESTED = ["📁", "🎯", "💼", "📣", "💰", "🛠", "📚", "🚀", "👥", "🧭"];
 
 /**
  * Resolve com { name, iconType, iconValue } ou null se cancelado.
@@ -41,29 +39,15 @@ export function openSectionDialog({ section = null } = {}) {
         );
         iconBtn.classList.toggle("is-empty", !iconType);
       };
-      iconBtn.addEventListener("click", () => {
-        openMenu({
-          anchor: iconBtn,
-          width: 210,
-          items: [
-            ...SUGGESTED.map((e) => ({ id: `emoji:${e}`, label: e, icon: e, section: "Sugestões" })),
-            { separator: true },
-            { id: "__more__", label: "Escolher outro ícone…", icon: "🔎" },
-            ...(iconType ? [{ id: "__none__", label: "Sem ícone", icon: "×" }] : []),
-          ],
-          onSelect: async (id) => {
-            if (id === "__none__") { iconType = null; iconValue = null; paintIcon(); return; }
-            if (id === "__more__") {
-              const picked = await openIconPicker({ hasIcon: !!iconType });
-              if (picked) { iconType = picked.type; iconValue = picked.value || null; paintIcon(); }
-              return;
-            }
-            iconType = "emoji";
-            iconValue = id.slice(6);
-            paintIcon();
-          },
-        });
+      // Grade aberta, e não um menu: no menu cada linha mostrava o mesmo
+      // emoji duas vezes (ele ia como ícone E como rótulo), e eram só
+      // dez opções.
+      const grade = renderIconGrid({
+        getValue: () => (iconType === "emoji" ? iconValue : null),
+        onPick: (emoji) => { iconType = "emoji"; iconValue = emoji; paintIcon(); },
       });
+      iconBtn.addEventListener("click", () => { grade.el.hidden = !grade.el.hidden; });
+
       paintIcon();
 
       const name = document.createElement("input");
@@ -74,7 +58,21 @@ export function openSectionDialog({ section = null } = {}) {
       name.maxLength = 120;
 
       row.append(iconBtn, name);
-      stack.appendChild(row);
+      stack.append(row, grade.el);
+
+      const outros = document.createElement("button");
+      outros.type = "button";
+      outros.className = "ws-btn ws-btn--ghost ws-icon-grid__more";
+      outros.textContent = "Buscar outro ícone ou usar uma imagem…";
+      outros.addEventListener("click", async () => {
+        const picked = await openIconPicker({ hasIcon: !!iconType });
+        if (!picked) return;
+        iconType = picked.type;
+        iconValue = picked.value || null;
+        paintIcon();
+        grade.refresh();
+      });
+      stack.appendChild(outros);
 
       const hint = document.createElement("p");
       hint.className = "ws-muted";

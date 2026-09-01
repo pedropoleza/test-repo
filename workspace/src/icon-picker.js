@@ -57,6 +57,13 @@ const EMOJI = [
   ]],
 ];
 
+/**
+ * A lista achatada, para quem só precisa de uma grade de escolha rápida.
+ * São 74 — o bastante para não obrigar a abrir o seletor completo a cada
+ * seção nova.
+ */
+export const EMOJI_LIST = EMOJI.flatMap(([, itens]) => itens.map(([emoji]) => emoji));
+
 const RECENT_KEY = "workspace:recentIcons";
 
 function recentIcons() {

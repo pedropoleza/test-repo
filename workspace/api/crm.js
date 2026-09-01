@@ -284,6 +284,10 @@ async function opportunities(req) {
       ...opportunityToRecord(o, pipelines),
       pipelineId: o.pipelineId,
       stageId: o.pipelineStageId,
+      // Quando o estágio mudou pela última vez. É o único sinal de
+      // abandono que esta conta tem preenchido (300/300), e é o que a
+      // tela de Renovações usa para ordenar quem ligar primeiro.
+      lastStageChangeAt: o.lastStageChangeAt || o.updatedAt || null,
     })),
     total: rows.length,
     truncated: rows.length >= limit,

@@ -21,6 +21,7 @@ import { renderLoader } from "./ui/loader.js";
 import { renderIcon } from "./icon-picker.js";
 import { openSectionDialog } from "./section-dialog.js";
 import { createCrmView } from "./crm/crm-view.js";
+import { createRenewalsView } from "./crm/renewals-view.js";
 import { openListDialog } from "./crm/list-dialog.js";
 import { openCopyLink } from "./ui/prompt.js";
 
@@ -474,12 +475,17 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
   head.className = "ws-crm__head";
   const h = document.createElement("h1");
   h.className = "ws-page__title ws-crm__title";
-  const TITULOS = { contacts: "Leads", opportunities: "Oportunidades", tasks: "Tarefas" };
+  const TITULOS = {
+    contacts: "Leads", opportunities: "Oportunidades",
+    tasks: "Tarefas", renewals: "Renovações",
+  };
   h.textContent = list ? list.name : (TITULOS[kind] || "CRM");
   const sub = document.createElement("p");
   sub.className = "ws-muted";
   sub.textContent = list
     ? "Quem está nesse recorte agora. A lista consulta o CRM a cada abertura."
+    : kind === "renewals"
+    ? "As apólices pelo mês em que vencem, e há quanto tempo cada uma não é tocada."
     : kind === "tasks"
     // Tarefas vêm do Spark Tasks e são editadas lá: aqui é a réplica que
     // permite filtrar e agrupar junto do resto.
@@ -490,19 +496,22 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
 
   const mount = document.createElement("div");
   els.editor.appendChild(mount);
-  createCrmView(mount, {
-    kind,
-    list,
-    onOpenPage: async (pageId) => {
-      // A ficha pode ter criado a seção "Contatos": recarrega a árvore
-      // para ela aparecer na navegação já na primeira vez.
-      try {
-        const data = await api.bootstrap();
-        setState({ pages: data.pages, sections: data.sections || [] }, "tree");
-      } catch { /* a navegação atualiza no próximo carregamento */ }
-      await openPage(pageId);
-    },
-  });
+  // A ficha pode ter criado a seção "Contatos": recarrega a árvore para
+  // ela aparecer na navegação já na primeira vez.
+  const abrirFicha = async (pageId) => {
+    try {
+      const data = await api.bootstrap();
+      setState({ pages: data.pages, sections: data.sections || [] }, "tree");
+    } catch { /* a navegação atualiza no próximo carregamento */ }
+    await openPage(pageId);
+  };
+  // Renovações não é uma tabela com outro filtro: é outra leitura dos
+  // mesmos dados, em faixas de prazo. Por isso tem view própria.
+  if (kind === "renewals" && !list) {
+    createRenewalsView(mount, { onOpenPage: abrirFicha });
+  } else {
+    createCrmView(mount, { kind, list, onOpenPage: abrirFicha });
+  }
 
   if (push) {
     const url = new URL(window.location.href);

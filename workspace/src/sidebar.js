@@ -99,6 +99,7 @@ export function createSidebar(root, handlers) {
     for (const [id, label, icon] of [
       ["contacts", "Leads", "👥"],
       ["opportunities", "Oportunidades", "💰"],
+      ["renewals", "Renovações", "🔄"],
       ["tasks", "Tarefas", "✓"],
     ]) {
       const btn = document.createElement("button");

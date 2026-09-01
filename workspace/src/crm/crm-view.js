@@ -17,7 +17,10 @@ import {
   applySorts, groupRecords, fieldSpec, matchesFilter, operatorsFor, OPERATOR_LABEL,
 } from "../shared/fields.js";
 import { loadWidths, applyTemplate, attachResizer } from "../database/columns.js";
-import { isWritable, isMoveField, openStageMenu, commitField, commitMove } from "./editing.js";
+import {
+  isWritable, isMoveField, openStageMenu, commitField, commitMove,
+  aplicarMovimentosRecentes,
+} from "./editing.js";
 import { attachDragScroll } from "../database/drag-scroll.js";
 import { renderLoader } from "../ui/loader.js";
 
@@ -83,7 +86,10 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
         kind === "contacts" ? api.crm.dossiers().catch(() => ({ dossiers: [] })) : null,
       ]);
       columns = (data.columns || []).map(toField);
-      records = data.records || [];
+      // A busca do CRM leva mais de um minuto para enxergar um estágio
+      // que acabamos de gravar; sem isto a lista traria o valor antigo
+      // de volta e a alteração pareceria perdida.
+      records = aplicarMovimentosRecentes(data.records || []);
       pipelines = data.pipelines || [];
       meta = { total: data.total, truncated: data.truncated, connected: data.connected !== false };
       dossiers = new Map((fichas?.dossiers || []).map((d) => [d.contactId, d.pageId]));

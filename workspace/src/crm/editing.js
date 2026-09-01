@@ -56,6 +56,89 @@ export function openStageMenu(anchor, record, pipelines, onPick) {
   });
 }
 
+/* ------------------------------------------------------------------ */
+/* Movimentos recentes                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * O que movemos nesta sessão, por oportunidade.
+ *
+ * Existe porque o CRM tem duas leituras que discordam: o PUT grava e o
+ * `GET /opportunities/:id` já devolve o estágio novo, mas a busca
+ * (`/opportunities/search`), que é de onde saem as listas, leva mais de
+ * um minuto para enxergar a mudança — medido nesta conta.
+ *
+ * Sem isto, mover e clicar em "Atualizar" traz o estágio ANTIGO de
+ * volta: a pessoa vê a alteração se desfazer sozinha e conclui, com
+ * razão, que o app não gravou. Guardamos o que gravamos e reaplicamos
+ * por cima da lista até a busca alcançar.
+ */
+const CHAVE = "workspace:crmMovimentos";
+
+/** Depois disso, se a busca ainda discorda, o certo é ela: nós é que
+ *  estamos vendo um estado que alguém alterou por fora. */
+const VALIDADE_MS = 15 * 60 * 1000;
+
+/**
+ * Em localStorage, e não só em memória: recarregar a página logo depois
+ * de mover é justamente quando a pessoa vai conferir se gravou, e é o
+ * momento em que a busca do CRM ainda devolve o valor antigo.
+ */
+const movimentos = carregar();
+
+function carregar() {
+  try {
+    return new Map(Object.entries(JSON.parse(localStorage.getItem(CHAVE) || "{}")));
+  } catch {
+    return new Map();
+  }
+}
+
+function persistir() {
+  try {
+    localStorage.setItem(CHAVE, JSON.stringify(Object.fromEntries(movimentos)));
+  } catch { /* storage bloqueado: vale só nesta aba, que já é o essencial */ }
+}
+
+function lembrarMovimento(externalId, dados) {
+  movimentos.set(externalId, { em: Date.now(), ...dados });
+  persistir();
+}
+
+/** Só para os testes: registrar um movimento sem passar pelo CRM. */
+export { lembrarMovimento as __lembrarMovimento };
+
+/**
+ * Reaplica os movimentos recentes sobre os registros recém-carregados.
+ * Devolve os mesmos objetos, alterados no lugar — quem chama já montou
+ * a lista em cima deles.
+ */
+export function aplicarMovimentosRecentes(records = []) {
+  const agora = Date.now();
+  let mudou = false;
+  for (const [id, mov] of movimentos) {
+    if (agora - mov.em > VALIDADE_MS) { movimentos.delete(id); mudou = true; continue; }
+    const record = records.find((r) => r.externalId === id);
+    if (!record) continue;
+    // A busca alcançou: o registro do movimento deixa de ter função e
+    // sair daqui é o que permite que uma alteração feita no CRM por
+    // outra pessoa volte a aparecer.
+    if (record.stageId === mov.stageId) { movimentos.delete(id); mudou = true; continue; }
+    record.pipelineId = mov.pipelineId;
+    record.stageId = mov.stageId;
+    record.properties = {
+      ...record.properties,
+      pipeline: mov.pipelineName,
+      stage: mov.stageName,
+    };
+  }
+  if (mudou) persistir();
+  return records;
+}
+
+/** Só para os testes: a memória não pode vazar de um caso para o outro. */
+export function __limparMovimentos() { movimentos.clear(); persistir(); }
+
 function mensagemDeErro(err) {
   if (err?.code === "missing_scope") {
     return "O token não tem permissão para gravar neste campo.";
@@ -121,6 +204,11 @@ export async function commitMove({ record, pipelines, pipelineId, stageId, repai
 
   try {
     await api.crm.moveStage(record.externalId, pipelineId, stageId);
+    lembrarMovimento(record.externalId, {
+      pipelineId, stageId,
+      pipelineName: pipe?.name || "",
+      stageName: stage?.name || "",
+    });
     toast(`Movido para "${stage?.name}".`, { tone: "success" });
     return true;
   } catch (err) {

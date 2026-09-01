@@ -14,6 +14,9 @@ import { api } from "../api.js";
 import { renderCellValue, editCell } from "../database/cells.js";
 import { isEmptyValue, optionColor } from "../shared/fields.js";
 import { isWritable, isMoveField, openStageMenu, commitField, commitMove } from "./editing.js";
+import { groupRelations } from "../shared/relations.js";
+import { renderAvatar } from "./photo.js";
+import { toast } from "../ui/toast.js";
 import { renderLoader } from "../ui/loader.js";
 
 /** Campos do contato sempre visíveis, mesmo vazios: são os que se preenche. */
@@ -44,6 +47,7 @@ export function createContactPanel(host, { contactId } = {}) {
         columns: (data.columns || []).map(toField),
         record: data.record,
         oppColumns: (data.opportunityColumns || []).map(toField),
+        relations: data.relations || [],
         opportunities: data.opportunities || [],
         pipelines: data.pipelines || [],
       };
@@ -65,6 +69,7 @@ export function createContactPanel(host, { contactId } = {}) {
 
     const frag = document.createDocumentFragment();
     frag.appendChild(secaoContato());
+    if (dados.relations.length) frag.appendChild(secaoVinculos());
     frag.appendChild(secaoOportunidades());
     host.replaceChildren(frag);
   }
@@ -95,6 +100,90 @@ export function createContactPanel(host, { contactId } = {}) {
 
     box.appendChild(lista);
     return box;
+  }
+
+  /* ---------------- vínculos ---------------- */
+
+  /**
+   * Família e associações.
+   *
+   * O vínculo é simétrico no banco, então esta seção aparece nas DUAS
+   * fichas — marcar "João é filho de Maria" faz a ficha de Maria mostrar
+   * João como filho, sem ninguém precisar repetir o gesto do outro lado.
+   */
+  function secaoVinculos() {
+    const box = bloco(`Família e associações (${dados.relations.length})`);
+    const lista = document.createElement("div");
+    lista.className = "ws-links";
+
+    for (const grupo of groupRelations(dados.relations)) {
+      for (const item of grupo.itens) {
+        const linha = document.createElement("div");
+        linha.className = "ws-links__row";
+
+        const face = renderAvatar({ title: item.title }, { size: 30 });
+
+        const texto = document.createElement("div");
+        texto.className = "ws-links__text";
+        const nome = document.createElement("span");
+        nome.className = "ws-links__name";
+        nome.textContent = item.title;
+        const papel = document.createElement("span");
+        papel.className = "ws-links__role";
+        papel.textContent = grupo.nome;
+        texto.append(nome, papel);
+
+        const abrir = document.createElement("button");
+        abrir.type = "button";
+        abrir.className = "ws-btn ws-btn--ghost ws-links__open";
+        abrir.textContent = "Abrir pasta";
+        abrir.disabled = !item.existe;
+        abrir.title = item.existe ? `Abrir a pasta de ${item.title}` : "Contato removido do CRM";
+        abrir.addEventListener("click", () => abrirFicha(item.contactId, abrir));
+
+        const soltar = document.createElement("button");
+        soltar.type = "button";
+        soltar.className = "ws-links__remove";
+        soltar.textContent = "×";
+        soltar.title = "Desfazer o vínculo";
+        soltar.setAttribute("aria-label", `Desfazer o vínculo com ${item.title}`);
+        soltar.addEventListener("click", () => desfazer(item));
+
+        linha.append(face, texto, abrir, soltar);
+        lista.appendChild(linha);
+      }
+    }
+
+    box.appendChild(lista);
+    return box;
+  }
+
+  async function abrirFicha(idContato, botao) {
+    botao.disabled = true;
+    try {
+      const { page } = await api.crm.openDossier(idContato);
+      host.dispatchEvent(new CustomEvent("workspace:navigate", {
+        bubbles: true, detail: { pageId: page.id },
+      }));
+    } catch {
+      toast("Não foi possível abrir a pasta desse contato.", { tone: "danger" });
+      botao.disabled = false;
+    }
+  }
+
+  async function desfazer(item) {
+    // Some dos DOIS lados: um vínculo pela metade não é um vínculo.
+    const anterior = dados.relations;
+    dados.relations = anterior.filter((r) => r.contactId !== item.contactId);
+    render();
+    try {
+      await api.crm.unlink(contactId, item.contactId);
+      toast("Vínculo desfeito.", { tone: "success" });
+    } catch {
+      dados.relations = anterior;
+      render();
+      toast("Não foi possível desfazer o vínculo.", { tone: "danger" });
+    }
   }
 
   /* ---------------- oportunidades ---------------- */

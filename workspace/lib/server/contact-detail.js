@@ -10,13 +10,14 @@ import {
   listContactNotes, listContactTasks, listContactOpportunities,
 } from "./ghl.js";
 import { WorkspaceError } from "./context.js";
+import { listRelations } from "./relations.js";
 import {
   STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS, OPPORTUNITY_STATUS,
   customFieldsToColumns, tagsToOptions, usersToOptions, stageOptions,
   contactToRecord, opportunityToRecord,
 } from "../../src/shared/crm.js";
 
-export async function loadContactDetail(contactId) {
+export async function loadContactDetail(contactId, ctx = null) {
   if (!contactId) throw new WorkspaceError(400, "missing_id");
 
   const [contact, customFields, tags, notes, tasks, pipelines, users] = await Promise.all([
@@ -55,8 +56,28 @@ export async function loadContactDetail(contactId) {
     return c;
   });
 
+  // Vínculos com nome e foto de quem está do outro lado: uma lista de
+  // ids não diria nada a quem abre a ficha.
+  let relations = [];
+  if (ctx) {
+    const brutos = await listRelations(ctx, contactId).catch(() => []);
+    relations = await Promise.all(brutos.map(async (r) => {
+      const outro = await getContact(r.related_contact_id).catch(() => null);
+      return {
+        contactId: r.related_contact_id,
+        relation: r.relation,
+        // Contato apagado no CRM: o vínculo continua, com o que sobrou.
+        title: outro ? contactToRecord(outro, customFields).title : "Contato removido",
+        email: outro?.email || "",
+        phone: outro?.phone || "",
+        existe: !!outro,
+      };
+    }));
+  }
+
   return {
     contactId,
+    relations,
     columns,
     record,
     notes,

@@ -135,6 +135,16 @@ export const api = {
         query: { action: "update-contact" },
         body: { contactId, changes },
       }),
+    link: (contactId, relatedContactId, relation) =>
+      request("POST", "/api/crm", {
+        query: { action: "link-contacts" },
+        body: { contactId, relatedContactId, relation },
+      }),
+    unlink: (contactId, relatedContactId) =>
+      request("POST", "/api/crm", {
+        query: { action: "unlink-contacts" },
+        body: { contactId, relatedContactId },
+      }),
     lists: () => request("GET", "/api/crm", { query: { action: "lists" } }),
     createList: (input) =>
       request("POST", "/api/crm", { query: { action: "list-create" }, body: input }),

@@ -88,10 +88,28 @@ export function createEditor(root) {
 
     if (!top.length) root.appendChild(emptyHint());
 
+    /*
+     * Foco SÍNCRONO, ainda dentro do render.
+     *
+     * Era num requestAnimationFrame, e nesse intervalo o cursor não
+     * existia: `replaceChildren` acabara de destruir o elemento que tinha
+     * o foco, então ele voltava para o <body>. Quem apertava Enter e
+     * continuava digitando perdia as teclas do caminho — um quadro no
+     * papel, mas muito mais quando a aba está ocupada ou em segundo
+     * plano. Era o que fazia o menu "/" abrir sem filtro ao digitar
+     * rápido.
+     *
+     * O nó já está no documento aqui (root está montado e acabou de
+     * receber os filhos), e focusBlock só consulta e foca — não depende
+     * de layout. O quadro extra não comprava nada.
+     */
     if (focusAfterRender) {
       const { blockId, atEnd } = focusAfterRender;
       focusAfterRender = null;
-      requestAnimationFrame(() => focusBlock(blockId, { atEnd }));
+      const focado = focusBlock(blockId, { atEnd });
+      // Bloco que ainda não existe no DOM (montagem assíncrona): aí sim
+      // vale esperar o próximo quadro.
+      if (!focado) requestAnimationFrame(() => focusBlock(blockId, { atEnd }));
     }
 
     mountDatabases();
@@ -363,12 +381,24 @@ export function createEditor(root) {
   /* Slash menu                                                         */
   /* ------------------------------------------------------------------ */
 
-  function openSlash(blockId, editableEl) {
+  /**
+   * Abre o menu de comandos.
+   *
+   * `startOffset` vem de fora, capturado no keydown do "/": deduzi-lo aqui
+   * (caret − 1) só valia se o menu abrisse antes da próxima tecla. Quem
+   * digita "/destaque" de uma vez chegava aqui com o caret no fim, o
+   * offset saía errado e a busca ficava sempre vazia — o menu abria com
+   * TODOS os comandos e o Enter escolhia "Texto".
+   */
+  function openSlash(blockId, editableEl, startOffset) {
     closeSlash();
     const rect = caretRect(editableEl);
     // O estado vai por closure: o menu fecha ANTES de entregar a escolha,
     // então `slash` já é null quando o comando chega.
-    const state = { blockId, startOffset: Math.max(0, caretOffset(editableEl) - 1) };
+    const inicio = Number.isInteger(startOffset)
+      ? startOffset
+      : Math.max(0, caretOffset(editableEl) - 1);
+    const state = { blockId, startOffset: inicio };
     state.controller = openSlashMenu({
       rect,
       onPick: (cmd) => applySlashCommand(cmd, state),
@@ -377,6 +407,12 @@ export function createEditor(root) {
       },
     });
     slash = state;
+
+    // Já pode haver texto digitado entre o "/" e agora: numa rajada, os
+    // caracteres seguintes chegaram antes deste callback e não haverá
+    // outro `input` para filtrar.
+    const jaDigitado = editableEl.textContent.slice(inicio + 1, caretOffset(editableEl));
+    if (jaDigitado) state.controller.setQuery(jaDigitado);
   }
 
   function closeSlash() {
@@ -473,8 +509,26 @@ export function createEditor(root) {
    * ele vira peça de comparação ou de uma capa de família.
    */
   async function insertContact(afterBlock) {
-    const escolhido = await openContactPicker({ title: "Dados de contato" });
+    // Dentro da ficha de alguém, dá para dizer o que a pessoa é dela —
+    // numa página comum não há "dela".
+    const daFicha = getState().page?.source === "ghl_contact"
+      ? getState().page.source_external_id
+      : null;
+    const escolhido = await openContactPicker({
+      title: "Dados de contato",
+      pedirParentesco: !!daFicha,
+    });
     if (!escolhido) return;
+
+    if (daFicha && escolhido.relation) {
+      try {
+        await api.crm.link(daFicha, escolhido.id, escolhido.relation);
+      } catch {
+        // O cartão entra mesmo assim: o vínculo é um extra, e falhar nele
+        // não pode custar a inserção que a pessoa pediu.
+        toast("O contato foi adicionado, mas o vínculo não foi salvo.", { tone: "warn" });
+      }
+    }
     try {
       const bloco = await createBlockAfter(afterBlock, {
         type: "crm_contact",
@@ -714,8 +768,12 @@ export function createEditor(root) {
     if (handleFormattingShortcut(event, () => commit(host.id, editableEl))) return;
 
     if (event.key === "/" && editableEl.dataset.editable === "rich") {
-      // Abre depois que o "/" entra no DOM, para o offset bater.
-      setTimeout(() => openSlash(host.id, editableEl), 0);
+      // A posição do "/" é ONDE O CARET ESTÁ AGORA — ele ainda não entrou
+      // no DOM. Guardar aqui é o que faz o offset valer mesmo se o menu
+      // só abrir depois de mais teclas.
+      const inicio = caretOffset(editableEl);
+      // Abre depois que o "/" entra no DOM, para o caretRect existir.
+      setTimeout(() => openSlash(host.id, editableEl, inicio), 0);
       return;
     }
 

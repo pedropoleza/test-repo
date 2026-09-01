@@ -10,6 +10,9 @@
  *   POST action=update-opportunity → grava campos da oportunidade
  *   POST action=update-contact     → grava campos do contato
  *
+ *   POST action=link-contacts   → marca o parentesco entre dois contatos
+ *   POST action=unlink-contacts → desfaz o vínculo
+ *
  *   GET  ?action=lists         → abas salvas de pipeline/estágio
  *   POST action=list-create    → cria uma aba a partir de pipeline/estágio
  *   POST action=list-update    → renomeia ou troca o ícone
@@ -38,6 +41,7 @@ import {
   contactToRecord, opportunityToRecord, opportunityPatch, contactPatch,
 } from "../src/shared/crm.js";
 import { loadContactDetail } from "../lib/server/contact-detail.js";
+import { linkContacts, unlinkContacts } from "../lib/server/relations.js";
 import { log } from "../lib/server/log.js";
 
 export default async function handler(req, res) {
@@ -62,6 +66,20 @@ export default async function handler(req, res) {
 
     if (action === "lists") return res.status(200).json({ lists: await listCrmLists(ctx) });
 
+    if (action === "link-contacts") {
+      requireRole(ctx, "editor");
+      const vinculo = await linkContacts(ctx, body);
+      log.info("crm.contacts.linked", {
+        workspaceId: ctx.workspaceId, relation: body.relation,
+      });
+      return res.status(200).json({ relation: vinculo });
+    }
+    if (action === "unlink-contacts") {
+      requireRole(ctx, "editor");
+      await unlinkContacts(ctx, body);
+      return res.status(200).json({ ok: true });
+    }
+
     if (action === "list-create") {
       requireRole(ctx, "editor");
       const list = await createCrmList(ctx, body);
@@ -82,7 +100,7 @@ export default async function handler(req, res) {
 
     if (action === "contacts")      return res.status(200).json(await contacts(req));
     if (action === "opportunities") return res.status(200).json(await opportunities(req));
-    if (action === "contact")       return res.status(200).json(await contactDetail(req));
+    if (action === "contact")       return res.status(200).json(await contactDetail(req, ctx));
 
     if (action === "contact-opportunities") {
       const id = req.query?.id || body.contactId;
@@ -280,6 +298,6 @@ function parseBody(req) {
   return req.body;
 }
 
-async function contactDetail(req) {
-  return loadContactDetail(req.query?.id);
+async function contactDetail(req, ctx) {
+  return loadContactDetail(req.query?.id, ctx);
 }

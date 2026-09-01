@@ -13,9 +13,16 @@ import { api } from "../api.js";
 import { openModal } from "../ui/menu.js";
 import { renderAvatar } from "./photo.js";
 import { renderLoader } from "../ui/loader.js";
+import { RELATIONS } from "../shared/relations.js";
 
-/** Resolve com { id, nome } ou null se cancelado. */
-export function openContactPicker({ title = "Adicionar contato" } = {}) {
+/**
+ * Resolve com { id, nome, relation } ou null se cancelado.
+ *
+ * `pedirParentesco` liga o segundo passo: escolher a pessoa e dizer o que
+ * ela é da outra. Só faz sentido dentro da ficha de alguém — numa página
+ * comum não há "da outra".
+ */
+export function openContactPicker({ title = "Adicionar contato", pedirParentesco = false } = {}) {
   return openModal({
     title,
     width: 520,
@@ -90,7 +97,10 @@ export function openContactPicker({ title = "Adicionar contato" } = {}) {
           texto.append(nome, sub);
 
           linha.append(face, texto);
-          linha.addEventListener("click", () => close({ id: c.id, nome: c.nome }));
+          linha.addEventListener("click", () => {
+            if (!pedirParentesco) return close({ id: c.id, nome: c.nome });
+            escolherParentesco(c);
+          });
           lista.appendChild(linha);
         }
       }
@@ -105,6 +115,53 @@ export function openContactPicker({ title = "Adicionar contato" } = {}) {
         event.preventDefault();
         lista.querySelector(".ws-picker__row")?.click();   // Enter pega o primeiro
       });
+
+      /**
+       * Segundo passo: o vínculo. Perguntar ANTES de escolher a pessoa
+       * seria pedir a resposta antes da pergunta.
+       */
+      function escolherParentesco(contato) {
+        const passo = document.createElement("div");
+        passo.className = "ws-stack";
+
+        const quem = document.createElement("p");
+        quem.className = "ws-picker__step";
+        quem.textContent = `${contato.nome} é…`;
+
+        const grade = document.createElement("div");
+        grade.className = "ws-relation-grid";
+        for (const rel of RELATIONS) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "ws-relation-grid__item";
+          b.textContent = rel.nome;
+          b.addEventListener("click", () =>
+            close({ id: contato.id, nome: contato.nome, relation: rel.id }));
+          grade.appendChild(b);
+        }
+
+        const pular = document.createElement("button");
+        pular.type = "button";
+        pular.className = "ws-btn ws-btn--ghost";
+        pular.textContent = "Só adicionar, sem vínculo";
+        pular.addEventListener("click", () => close({ id: contato.id, nome: contato.nome }));
+
+        const voltar = document.createElement("button");
+        voltar.type = "button";
+        voltar.className = "ws-btn ws-btn--ghost";
+        voltar.textContent = "← Escolher outra pessoa";
+        voltar.addEventListener("click", () => {
+          passo.replaceWith(stack);
+          busca.focus();
+        });
+
+        const rodape = document.createElement("div");
+        rodape.className = "ws-modal__footer";
+        rodape.append(voltar, pular);
+
+        passo.append(quem, grade, rodape);
+        stack.replaceWith(passo);
+      }
 
       requestAnimationFrame(() => busca.focus());
     },

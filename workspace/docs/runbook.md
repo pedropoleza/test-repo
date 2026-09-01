@@ -421,3 +421,44 @@ para não haver duas listas divergindo.
 Antes cada diálogo abria um menu com oito, e **cada linha mostrava o mesmo
 emoji duas vezes** — o menu põe `icon` à esquerda e `label` no corpo, e os
 dois recebiam o emoji.
+
+## Editor: por que teclas se perdiam
+
+Dois defeitos independentes, com o mesmo sintoma — digitar rápido depois
+do Enter perdia caracteres.
+
+**1. O foco voltava um quadro depois.** Após reconstruir o DOM, o foco era
+restaurado num `requestAnimationFrame`. Nesse intervalo o elemento que
+tinha o foco já fora destruído e o cursor estava no `<body>`: tudo
+digitado ali se perdia. O nó já está no documento quando o render termina,
+e `focusBlock` só consulta e foca — o quadro extra não comprava nada.
+Agora é síncrono, com o rAF só como reserva para blocos de montagem
+assíncrona.
+
+**2. O menu "/" abria com o offset errado.** Ele abre num `setTimeout(0)`
+para o "/" já estar no DOM. Numa rajada ("/destaque" de uma vez) esse
+callback só rodava depois de TODAS as teclas, e capturava o offset com o
+caret no fim — a busca ficava vazia, o menu abria com os 22 comandos e o
+Enter escolhia "Texto". Agora o offset é capturado no keydown do "/", e
+ao abrir o menu já lê o que foi digatado no intervalo.
+
+## Associações entre contatos
+
+`/contato` dentro da ficha de alguém pergunta o parentesco e liga os dois.
+15 rótulos (cônjuge, filho, pai/mãe, irmão, avô, sobrinho, sócio,
+indicou…) em `src/shared/relations.js`.
+
+**A associação é gravada nos DOIS sentidos**, com o rótulo invertido:
+marcar "João é filho de Maria" faz a ficha de Maria mostrar João como
+filho e a de João mostrar Maria como pai/mãe. Ninguém repete o gesto do
+outro lado, e a consulta é uma leitura direta por contato, sem OR nem
+UNION.
+
+A simetria é do SERVIDOR: se dependesse de duas chamadas do browser, uma
+falha de rede no meio deixaria o vínculo existindo de um lado só — pior
+que a ausência dele, porque ninguém procura o erro no lado que não mostra
+nada. Desfazer também apaga os dois.
+
+O parentesco vive em `workspace_contact_relations` (migration 0007), não
+no bloco: o cartão numa página é apresentação, e guardar o vínculo nele
+faria a informação existir só naquela página.

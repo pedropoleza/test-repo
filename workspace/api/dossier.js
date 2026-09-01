@@ -49,10 +49,15 @@ export default async function handler(req, res) {
 
     if (action === "revoke") {
       requireRole(ctx, "editor");
+      if (!pageId) throw new WorkspaceError(400, "missing_id");
       await revokeShareToken(ctx, pageId);
       log.info("dossier.share.revoked", { workspaceId: ctx.workspaceId, pageId });
       return res.status(200).json({ ok: true });
     }
+
+    // Sem id não há o que buscar: sem esta guarda o valor "undefined"
+    // chegava ao Postgres e voltava como 500 com a mensagem do banco.
+    if (!pageId) throw new WorkspaceError(400, "missing_id");
 
     const page = await getPage(ctx, pageId);
     if (page.source !== "ghl_contact" || !page.source_external_id) {

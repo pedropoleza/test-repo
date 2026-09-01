@@ -204,6 +204,105 @@ Para semear outra lista pronta, acrescente uma entrada em `SEEDS` em
 unique index em `(workspace_id, seed_key)` garante isso no banco, não só
 no código.
 
+## Renovações de apólice
+
+A pipeline de apólices desta conta usa os **doze meses como estágios** —
+ela já é um calendário de renovação. A aba "Renovações" lê a pipeline
+assim e agrupa por prazo: renova este mês, próximo mês, próximos três
+meses, parada há muito tempo, mais adiante.
+
+Uma pipeline entra na aba quando **pelo menos 70% dos estágios são meses**
+e ela tem 6 ou mais estágios. Duas etapas chamadas "Maio" e "Junho" num
+funil de três não viram calendário por acaso. Se a conta tiver mais de uma
+pipeline-calendário, aparece um seletor na barra.
+
+Duas medições decidiram o desenho:
+
+- `Contact Next Policy Anniversary` está preenchido em **1 de 300**
+  contatos. Uma tela em cima dele mostraria uma apólice. Não é usado.
+- `lastStageChangeAt` está em **300 de 300** oportunidades. É daí que sai
+  o "parada há N dias", que ordena os cartões dentro de cada faixa.
+
+O calendário anda sempre para a **frente**: uma apólice de março vista em
+setembro renova em março do ano que vem — faltam 6 meses, não passaram 6.
+
+"Mais adiante" nasce fechada: num calendário de doze meses ela é sempre a
+maioria (46 de 67 hoje), e aberta enterra quem vence agora. Buscando,
+todas as faixas abrem — inclusive as que a pessoa fechou à mão.
+
+### O atraso da busca do CRM
+
+O CRM tem duas leituras que discordam. O `PUT` grava e o
+`GET /opportunities/:id` já devolve o estágio novo; a busca
+(`/opportunities/search`), que alimenta todas as listas, leva **mais de um
+minuto** para enxergar. Medido: 40s depois da gravação ainda devolvia o
+valor antigo.
+
+Sem tratar isso, mover uma oportunidade e clicar em "Atualizar" traz o
+estágio antigo de volta e a alteração parece perdida. Então o que
+gravamos fica guardado em `localStorage` por 15 minutos
+(`workspace:crmMovimentos`) e é reaplicado por cima da lista, inclusive
+depois de recarregar a página. Quando a busca alcança, o registro sai
+sozinho — é o que permite que uma alteração feita por outra pessoa no CRM
+volte a aparecer.
+
+Passados os 15 minutos, quem manda é o CRM: discordar da busca deixa de
+ser "ela está atrasada" e passa a ser "alguém alterou por fora".
+
+## Linha do tempo do contato
+
+Seção da ficha (fechada por padrão) que junta quatro fontes numa lista
+só, do mais recente para o mais antigo, agrupada por dia:
+
+| Fonte | O que entra |
+|---|---|
+| contato | entrou na base (com a origem), dados atualizados |
+| oportunidades | criada, mudou de estágio, mudou de status |
+| notas do CRM | o texto, sem HTML, resumido em 180 caracteres |
+| revisões da ficha | o que foi editado aqui dentro |
+
+Dois cuidados que vêm dos dados:
+
+- Notas existem em **2 de 40** contatos e tarefas do CRM em nenhum. Por
+  isso a espinha dorsal são as datas do contato e das oportunidades, que
+  estão em 100%.
+- Numa oportunidade recém-criada, `createdAt`, `lastStageChangeAt` e
+  `lastStatusChangeAt` são o **mesmo instante**. Emitir os três daria
+  "criada / mudou de estágio / mudou de status" no mesmo segundo. Só sai
+  o que aconteceu mais de um minuto depois da criação.
+
+O autor só aparece quando dá para traduzir o id em nome de gente. A chave
+interna da sessão (`fixed:<tenant>`) nunca vai para a tela.
+
+## Modelos de ficha
+
+Cinco roteiros por tipo de negócio, cobrindo as nove pipelines da conta:
+
+| Modelo | Pipelines |
+|---|---|
+| Apólice | `2- Policies` |
+| Recrutamento | `3- Recruiting`, `Carreira` |
+| Consultoria | `Aposentadoria`, `Benefício em Vida`, `Blindagem Patrimonial` |
+| Prospecção | as duas de `Prospects` |
+| Agência | `4- Agency` |
+
+A pipeline **sugere**, não decide: **237 dos 300** contatos não têm
+oportunidade nenhuma. Amarrar o modelo à pipeline deixaria 4 de cada 5
+fichas sem roteiro.
+
+- A ficha de quem tem oportunidade já nasce com o modelo da pipeline da
+  oportunidade **mais recente**.
+- Qualquer página recebe qualquer modelo pelo comando `/` → "Modelo de
+  ficha". O diálogo mostra o que cada um traz antes de aplicar.
+
+Aplicar **acrescenta** no fim da página; nada do que já está escrito é
+apagado. Um modelo destrutivo seria usado uma vez.
+
+Para acrescentar ou mudar um modelo: `src/shared/templates.js`. Os testes
+verificam que todo bloco é de um tipo que o editor conhece e que passa
+pela normalização da API — um tipo inventado viraria uma pilha de blocos
+`unsupported` na página.
+
 ## Nada de diálogo nativo do navegador
 
 `window.prompt/confirm/alert` não podem aparecer em nenhum campo. Eles

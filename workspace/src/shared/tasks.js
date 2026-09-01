@@ -11,11 +11,18 @@ export const TASK_STATUS = [
   { id: "done", name: "Concluída", color: "green" },
 ];
 
+/**
+ * `assignee` é select, não texto: o Spark Tasks manda o id do usuário
+ * quando a tarefa está atribuída, e sem as opções para traduzir a coluna
+ * mostraria a cadeia crua — o mesmo defeito que a tabela de
+ * oportunidades já tinha corrigido. Quem manda um nome escrito à mão
+ * continua aparecendo, porque a opção crua entra na lista.
+ */
 export const TASK_FIELDS = [
   { key: "title",     name: "Tarefa",      type: "text", primary: true },
   { key: "status",    name: "Status",      type: "select", options: TASK_STATUS },
   { key: "due_date",  name: "Vence em",    type: "date" },
-  { key: "assignee",  name: "Responsável", type: "text" },
+  { key: "assignee",  name: "Responsável", type: "select" },
   { key: "url",       name: "Abrir",       type: "url" },
   { key: "updated_at", name: "Atualizada", type: "date" },
 ];

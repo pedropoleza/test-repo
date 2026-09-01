@@ -12,6 +12,8 @@
 import { resolveContext, sendError } from "../lib/server/context.js";
 import { db } from "../lib/server/db.js";
 import { TASK_FIELDS, taskToRecord } from "../src/shared/tasks.js";
+import { usersToOptions } from "../src/shared/crm.js";
+import { listUsers } from "../lib/server/ghl.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -37,9 +39,16 @@ export default async function handler(req, res) {
   if (error) return res.status(500).json({ error: "db_error" });
 
   const rows = data || [];
+
+  // Traduz o id do responsável para o nome. Falha aqui não derruba a
+  // aba: sem a lista, a coluna mostra o valor cru em vez de nada.
+  const users = await listUsers().catch(() => []);
+  const donos = usersToOptions(users, rows.map((t) => t.assignee).filter(Boolean));
+  const columns = TASK_FIELDS.map((c) => (c.key === "assignee" ? { ...c, options: donos } : c));
+
   return res.status(200).json({
     source: "spark_tasks",
-    columns: TASK_FIELDS,
+    columns,
     records: rows.map(taskToRecord),
     total: rows.length,
     truncated: rows.length >= limit,

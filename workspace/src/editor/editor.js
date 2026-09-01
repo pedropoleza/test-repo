@@ -28,6 +28,7 @@ import { openModal, openMenu, closeMenu } from "../ui/menu.js";
 import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
 import { createTableView } from "../database/table-view.js";
 import { createContactPanel } from "../crm/contact-panel.js";
+import { openContactPicker } from "../crm/contact-picker.js";
 import { openCopyLink } from "../ui/prompt.js";
 import { openIconPicker } from "../icon-picker.js";
 
@@ -442,6 +443,7 @@ export function createEditor(root) {
         return;
       }
       if (cmd.id === "subpage") return insertSubpage(block);
+      if (cmd.id === "crm_contact") return insertContact(block);
       if (cmd.id === "database" || cmd.id === "database_board") {
         return insertDatabase(block, cmd.id === "database_board");
       }
@@ -454,12 +456,39 @@ export function createEditor(root) {
     markDirty(block.id, { content: normalizeBlockContent(block.type, content).content });
 
     if (cmd.id === "subpage") return insertSubpage(block);
+    if (cmd.id === "crm_contact") return insertContact(block);
     if (cmd.id === "database" || cmd.id === "database_board") {
       return insertDatabase(block, cmd.id === "database_board");
     }
     const created = await createBlockAfter(block, { type: cmd.id, focus: false });
     if (MEDIA_TYPES.has(cmd.id)) await promptMedia(created);
     if (cmd.id === "divider") await createBlockAfter(created, { type: "paragraph" });
+  }
+
+  /**
+   * Insere o cartão de dados de um contato.
+   *
+   * O bloco é o mesmo da ficha, então tudo o que vale lá vale aqui:
+   * campos editáveis, oportunidades, mover de estágio. Numa página comum
+   * ele vira peça de comparação ou de uma capa de família.
+   */
+  async function insertContact(afterBlock) {
+    const escolhido = await openContactPicker({ title: "Dados de contato" });
+    if (!escolhido) return;
+    try {
+      const bloco = await createBlockAfter(afterBlock, {
+        type: "crm_contact",
+        content: { contactId: escolhido.id },
+        focus: false,
+      });
+      // Um parágrafo depois: sem ele não há onde escrever abaixo do
+      // cartão, porque o bloco é void.
+      await createBlockAfter(bloco, { type: "paragraph" });
+      render();
+      toast(`Dados de ${escolhido.nome} adicionados.`, { tone: "success" });
+    } catch {
+      toast("Não foi possível adicionar o contato.", { tone: "danger" });
+    }
   }
 
   /** Cria uma subpágina real e referencia no conteúdo (§5). */
@@ -523,15 +552,7 @@ export function createEditor(root) {
     for (const mount of root.querySelectorAll(".ws-crm-mount[data-contact-id]")) {
       if (mount.dataset.mounted === "1" || !mount.dataset.contactId) continue;
       mount.dataset.mounted = "1";
-      createContactPanel(mount, {
-        contactId: mount.dataset.contactId,
-        pageId: getState().currentPageId,
-        // A foto vira o ícone da página; quem grava é o app, que já tem a
-        // gravação otimista com reversão.
-        onPatchPage: (patch) => mount.dispatchEvent(
-          new CustomEvent("workspace:patch-page", { bubbles: true, detail: { patch } })),
-        getPage: () => getState().page,
-      });
+      createContactPanel(mount, { contactId: mount.dataset.contactId });
     }
   }
 

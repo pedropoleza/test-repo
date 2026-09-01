@@ -107,6 +107,9 @@ export async function openContactDossier(ctx, contactId) {
       // Sem ícone de propósito: numa ficha de contato o lugar do ícone é
       // o rosto, e o avatar mostra as iniciais até haver foto. Um 👤 em
       // todas as fichas ocupava o espaço sem dizer de quem era qual.
+      // Ficha é tabela de dados, não texto corrido: a coluna de leitura
+      // de 780px espremia 15 campos numa faixa estreita.
+      layout_width: "full",
       cover_type: "gradient",
       cover_value: "spark-blue",
       properties: snapshot.record.properties,

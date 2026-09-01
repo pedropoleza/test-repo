@@ -18,6 +18,7 @@ import {
 } from "../shared/fields.js";
 import { loadWidths, applyTemplate, attachResizer } from "../database/columns.js";
 import { isWritable, isMoveField, openStageMenu, commitField, commitMove } from "./editing.js";
+import { attachDragScroll } from "../database/drag-scroll.js";
 
 const PREFS_KEY = "workspace:crmPrefs";
 
@@ -188,6 +189,7 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
 
     const scroll = document.createElement("div");
     scroll.className = "ws-db__scroll";
+    attachDragScroll(scroll);
     if (groupField) {
       for (const group of groupRecords(rows, groupField)) {
         const head = document.createElement("div");

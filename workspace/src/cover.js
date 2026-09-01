@@ -10,21 +10,12 @@ import { openModal } from "./ui/menu.js";
 import { api } from "./api.js";
 import { toast } from "./ui/toast.js";
 
-export const GRADIENTS = {
-  "spark-blue": "linear-gradient(120deg, #155eef 0%, #4d89ff 55%, #b3cdff 100%)",
-  "midnight":   "linear-gradient(120deg, #0f1e3d 0%, #1a2a4a 50%, #2563eb 100%)",
-  "sunset":     "linear-gradient(120deg, #d97706 0%, #f59e0b 45%, #fbbf24 100%)",
-  "mint":       "linear-gradient(120deg, #047857 0%, #16a34a 55%, #86efac 100%)",
-  "plum":       "linear-gradient(120deg, #6d28d9 0%, #a855f7 55%, #f0abfc 100%)",
-  "slate":      "linear-gradient(120deg, #334155 0%, #64748b 55%, #cbd5e1 100%)",
-  "ember":      "linear-gradient(120deg, #9f1239 0%, #dc2626 55%, #fca5a5 100%)",
-  "sand":       "linear-gradient(120deg, #78716c 0%, #a8a29e 55%, #e7e5e4 100%)",
-};
+// A paleta mora em shared/: o PDF da ficha reproduz a capa e precisa das
+// mesmas cores, e este módulo não roda no servidor. Reexportamos para
+// quem já importava daqui.
+import { GRADIENTS, COLORS } from "./shared/cover.js";
 
-export const COLORS = {
-  blue: "#155eef", navy: "#0f1e3d", green: "#16a34a", amber: "#d97706",
-  red: "#dc2626", purple: "#7c3aed", slate: "#475569", gray: "#94a3b8",
-};
+export { GRADIENTS, COLORS };
 
 const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 

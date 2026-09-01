@@ -8,6 +8,7 @@
 import { paintCover, openCoverPicker } from "./cover.js";
 import { openIconPicker, renderIcon } from "./icon-picker.js";
 import { ehFichaDeContato, renderPhotoControl, patchDaFoto } from "./crm/photo.js";
+import { renderShareBlock } from "./crm/share-ui.js";
 import { openMenu } from "./ui/menu.js";
 import { toast } from "./ui/toast.js";
 
@@ -29,7 +30,17 @@ export function createPageHeader(root, handlers) {
     head.className = `ws-page__head ws-page__head--${page.layout_width}`;
     if (page.cover_type) head.classList.add("has-cover");
 
-    head.appendChild(renderIconSlot(page));
+    if (ehFichaDeContato(page)) {
+      // Rosto à esquerda, QR e download à direita, na mesma linha: o
+      // código ficava no fim do painel e exigia rolar a ficha inteira
+      // para mostrá-lo a alguém.
+      const linha = document.createElement("div");
+      linha.className = "ws-page__identity";
+      linha.append(renderIconSlot(page), renderShareBlock(page.id));
+      head.appendChild(linha);
+    } else {
+      head.appendChild(renderIconSlot(page));
+    }
     head.appendChild(renderControls(page));
     head.appendChild(renderTitle(page));
     root.appendChild(head);

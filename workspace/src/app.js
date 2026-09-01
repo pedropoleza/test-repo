@@ -177,8 +177,6 @@ async function openPage(pageId, { push = true, trilha: registrar = true } = {}) 
   editor?.flush();
 
   setState({ currentPageId: pageId, crmView: null }, "page-loading");
-  els.editor.classList.remove("is-wide");
-  els.main.classList.remove("is-wide");
   renderSkeleton();
 
   try {
@@ -194,6 +192,7 @@ async function openPage(pageId, { push = true, trilha: registrar = true } = {}) 
     header.render(page, breadcrumbs);
     editor.render();
     applyTypography(page);
+    applyLayoutWidth(page);
     sidebar.render();
     updatePageChrome();
     document.title = `${page.title || "Sem título"} · Spark`;
@@ -382,6 +381,7 @@ async function patchPage(patch) {
   setState({ page: optimistic }, "page");
   upsertPageInTree(optimistic);
   header.render(optimistic, state.breadcrumbs);
+  applyLayoutWidth(optimistic);
   sidebar.render();
 
   try {
@@ -392,6 +392,7 @@ async function patchPage(patch) {
     setState({ page: previous }, "page");
     upsertPageInTree(previous);
     header.render(previous, state.breadcrumbs);
+    applyLayoutWidth(previous);
     sidebar.render();
     toast("Não foi possível salvar a alteração da página.", { tone: "danger" });
   }
@@ -718,7 +719,20 @@ async function setTypography(page, patch) {
   applyTypography(getState().page);
 }
 
-export function applyTypography(page) {
+export /**
+ * "Largura total" vale para o conteúdo, não só para o cabeçalho.
+ *
+ * O controle já existia, mas mexia só no cabeçalho: a ficha continuava
+ * espremida na coluna de leitura de 780px, que é boa para texto e ruim
+ * para uma tabela de dados com 15 campos.
+ */
+function applyLayoutWidth(page) {
+  const cheia = page?.layout_width === "full";
+  els.editor.classList.toggle("is-wide", cheia);
+  els.main.classList.toggle("is-wide", cheia);
+}
+
+function applyTypography(page) {
   const t = page?.properties?.typography || {};
   const alvo = document.querySelector(".ws-page");
   if (!alvo) return;
@@ -727,6 +741,9 @@ export function applyTypography(page) {
 }
 
 async function pageAction(action, page) {
+  if (action === "width") {
+    return patchPage({ layout_width: page.layout_width === "full" ? "normal" : "full" });
+  }
   switch (action) {
     case "font":
     case "size": {
@@ -1160,6 +1177,13 @@ function openPageMenuFor(page) {
       items: [
         { id: "font", label: "Fonte da página…", icon: "Aa" },
         { id: "size", label: "Tamanho do texto…", icon: "↕" },
+        // Também na barra de controles, que só aparece no hover — numa
+        // ficha de contato é aqui que se procura.
+        {
+          id: "width",
+          label: page.layout_width === "full" ? "Largura normal" : "Largura total",
+          icon: "↔",
+        },
         { separator: true },
         { id: "favorite", label: favorited ? "Remover dos favoritos" : "Adicionar aos favoritos", icon: "★" },
         { id: "duplicate", label: "Duplicar", icon: "⧉" },

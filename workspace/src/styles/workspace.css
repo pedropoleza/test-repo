@@ -1294,7 +1294,11 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   border: 1px solid var(--gray-200);
   border-radius: var(--r-md);
   background: var(--white);
-  overflow: hidden;
+  /* `clip` e não `hidden`: os dois recortam nos cantos arredondados, mas
+     `hidden` cria um contêiner de rolagem e ANULA o position:sticky dos
+     descendentes — era o que deixava a barra de rolagem da tabela lá no
+     fim do conteúdo, fora da tela. */
+  overflow: clip;
 }
 .ws-db-mount.is-broken {
   padding: 14px;
@@ -1966,13 +1970,6 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 /* Identidade no topo do painel: foto, nome e contato. É o "campo" onde
    se põe a foto — a exibição acontece na capa e na navegação, porque a
    foto é o ícone da página. */
-.ws-crm-panel__identity {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-.ws-crm-panel__identity-text { min-width: 0; }
 .ws-crm-panel__name {
   margin: 0;
   font-size: var(--fs-md);
@@ -1992,7 +1989,18 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
  * redonda. Por isso o distintivo de editar mora no wrapper, e não no
  * botão: dentro, ele aparecia cortado pela borda arredondada.
  */
-.ws-avatar-wrap { position: relative; flex: none; line-height: 0; }
+/*
+ * inline-block, e não block: o distintivo é posicionado pela borda deste
+ * wrapper, e como div ele esticava na largura toda da página — o ＋ ia
+ * parar na ponta direita da tela, longe do círculo.
+ */
+.ws-avatar-wrap {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: max-content;
+  line-height: 0;
+}
 
 /* O círculo em si. O tamanho vem do JS: o mesmo componente serve à capa
    (88px), ao painel (72px) e à navegação (16-18px). */
@@ -2017,7 +2025,7 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   line-height: 0;
   transition: box-shadow 120ms ease;
 }
-.ws-avatar-btn:hover { box-shadow: 0 0 0 2px var(--ghl-400); }
+.ws-avatar-btn:hover .ws-avatar { box-shadow: inset 0 0 0 1px var(--ghl-400); }
 .ws-avatar-btn:disabled { cursor: default; }
 .ws-avatar-btn:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: 2px; }
 
@@ -2029,14 +2037,18 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   line-height: 1;
 }
 
-/* Encostado na borda de fora, como um distintivo — e não em cima do
-   rosto. `pointer-events: none` para o clique cair no botão de baixo. */
+/*
+ * O distintivo encaixa na borda do círculo, na diagonal de baixo — a
+ * posição que não cobre o rosto e ainda parece parte do botão. Fica no
+ * wrapper porque o círculo recorta o que está dentro dele; `right`/
+ * `bottom` em zero o alinham à borda, e não a sobra do wrapper.
+ */
 .ws-avatar__edit {
   position: absolute;
-  right: -4px;
-  bottom: -2px;
-  width: 26px;
-  height: 26px;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
   border: 2px solid var(--white);
@@ -2046,16 +2058,36 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   font-size: 13px;
   line-height: 1;
   pointer-events: none;
-  box-shadow: var(--shadow-xs);
-  transition: transform 120ms ease, background 120ms ease;
+  box-shadow: var(--shadow-sm);
+  transition: transform 140ms var(--bezier), background 140ms ease;
 }
-.ws-avatar-wrap:hover .ws-avatar__edit { transform: scale(1.08); }
+.ws-avatar-wrap:hover .ws-avatar__edit {
+  transform: scale(1.1);
+  background: var(--ghl-700);
+}
 
-/* Sobre a capa: o rosto da ficha, com anel branco para destacar de
-   qualquer fundo — inclusive de uma capa escura. */
+/*
+ * Sobre a capa: o rosto da ficha, com anel branco grosso para se
+ * destacar de qualquer fundo — inclusive de uma capa escura ou de uma
+ * foto movimentada.
+ */
+.ws-page__icon-slot--photo { margin-bottom: 4px; }
 .ws-page__icon-slot--photo .ws-avatar {
-  border: 3px solid var(--white);
-  box-shadow: 0 0 0 1px var(--gray-200), var(--shadow-sm);
+  border: 4px solid var(--white);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, .14), 0 0 0 1px rgba(15, 23, 42, .05);
+}
+.ws-page__icon-slot--photo .ws-avatar-btn {
+  border-radius: 50%;
+  transition: transform 160ms var(--bezier);
+}
+.ws-page__icon-slot--photo .ws-avatar-btn:hover {
+  box-shadow: none;
+  transform: translateY(-1px);
+}
+/* O anel de destaque vai no círculo, não no botão: no botão ele passava
+   por fora do anel branco e ficava um halo solto. */
+.ws-page__icon-slot--photo .ws-avatar-btn:hover .ws-avatar {
+  box-shadow: 0 4px 16px rgba(15, 23, 42, .2), 0 0 0 1px var(--ghl-300);
 }
 
 /* Na navegação a mesma foto vira bolinha, do tamanho da linha. */
@@ -2083,17 +2115,32 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 .ws-tree__row--mini .ws-tree__icon { line-height: 0; }
 
 /* ------------------------------------------------------------------ */
-/* Levar a ficha: QR + download do PDF                                */
+/* Cabeçalho da ficha: rosto à esquerda, QR e download à direita       */
 /* ------------------------------------------------------------------ */
 
-.ws-share { display: flex; gap: 16px; align-items: flex-start; }
+.ws-page__identity {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Compacto de propósito: aqui o QR é um atalho ao lado do rosto, não a
+   atração da tela. Legível pela câmera a partir de ~64px. */
+.ws-share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 4px;
+}
 .ws-share__qr {
+  width: 68px;
+  height: 68px;
   flex: none;
-  width: 132px;
-  height: 132px;
   display: grid;
   place-items: center;
-  padding: 8px;
+  padding: 5px;
   border: 1px solid var(--gray-200);
   border-radius: 8px;
   background: var(--white);
@@ -2101,11 +2148,86 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 /* Fundo branco e sem escala fracionária: um QR sobre cor ou meio pixel
    deixa de ser lido por alguns celulares. */
 .ws-share__qr svg { width: 100%; height: 100%; display: block; shape-rendering: crispEdges; }
-.ws-share__side { display: flex; flex-direction: column; align-items: flex-start; gap: 9px; min-width: 0; }
-.ws-share__hint { margin: 0; font-size: var(--fs-sm); color: var(--gray-600); }
-.ws-share__warn { margin: 0; font-size: var(--fs-xs); color: var(--gray-500); }
-.ws-share__download { text-decoration: none; }
-@media (max-width: 640px) {
-  .ws-share { flex-direction: column; }
+.ws-share__qr.is-broken { border-style: dashed; }
+.ws-share__download { text-decoration: none; white-space: nowrap; }
+.ws-share__download[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+
+@media (max-width: 720px) {
+  .ws-page__identity { align-items: flex-start; }
+  .ws-share { padding-bottom: 0; }
 }
-.ws-share__download[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+
+/* Seletor de contato do comando "/": lista com busca. */
+.ws-picker__list {
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 -6px;
+}
+.ws-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ws-picker__row:hover { background: var(--ghl-50); }
+.ws-picker__row:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: -2px; }
+.ws-picker__text { display: flex; flex-direction: column; min-width: 0; }
+.ws-picker__name {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--gray-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-picker__sub {
+  font-size: var(--fs-xs);
+  color: var(--gray-500);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Cartão de contato fora da ficha: ganha moldura própria, porque ali ele
+   é um bloco entre outros e não o corpo da página. */
+.ws-crm-mount { display: block; }
+
+/* Arrastar a tabela para o lado: a área toda vira alça quando há o que
+   rolar. `grab` só aparece quando o conteúdo passa da largura — o cursor
+   não pode prometer um gesto que não faz nada. */
+.ws-db__scroll { scroll-behavior: auto; }
+.ws-db__scroll.is-dragging { cursor: grabbing; user-select: none; }
+.ws-db__scroll.is-dragging * { cursor: grabbing !important; }
+
+/* Barra de rolagem horizontal colada na base da área visível: a nativa
+   fica no fim do conteúdo e, numa tabela alta, some da tela. */
+.ws-db__railbar {
+  position: sticky;
+  bottom: 8px;
+  z-index: 5;
+  height: 10px;
+  margin: 6px 0 2px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  cursor: pointer;
+}
+.ws-db__railbar-thumb {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gray-300);
+  cursor: grab;
+  transition: background 120ms ease;
+}
+.ws-db__railbar-thumb:hover { background: var(--gray-400); }
+.ws-db__railbar-thumb:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: 2px; }
+.ws-db__railbar.is-dragging .ws-db__railbar-thumb { background: var(--ghl-600); cursor: grabbing; }

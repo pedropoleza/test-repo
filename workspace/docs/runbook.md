@@ -308,3 +308,35 @@ O endereço do QR é montado a partir do host da requisição
 (`x-forwarded-proto`/`x-forwarded-host`). Defina `WORKSPACE_PUBLIC_URL`
 se o domínio público for diferente do que chega ao servidor — um QR
 impresso apontando para o domínio errado não tem conserto.
+
+## Cartão de contato em qualquer página (`/contato`)
+
+O bloco `crm_contact` deixou de ser exclusivo da ficha: o comando
+**"/" → "Dados de contato"** insere o cartão de qualquer contato em
+qualquer página, com um seletor com busca.
+
+É o que viabiliza dois casos que antes não existiam:
+
+- **comparar** dois contatos lado a lado numa página só;
+- uma **capa de família/grupo**: uma página com o cartão de cada pessoa,
+  todos ao vivo e editáveis.
+
+O cartão é o mesmo da ficha, então tudo o que vale lá vale aqui — campos
+editáveis, oportunidades, mover de estágio.
+
+## Rolagem horizontal das tabelas
+
+Duas formas, porque a barra nativa fica no fim do conteúdo e some da tela
+numa tabela de 300 linhas:
+
+- **arrastar a própria tabela** com o mouse, como um mapa. Só vira
+  arrasto depois de 5px, para não roubar o clique da célula; e o clique
+  que fecha o gesto é engolido, senão soltar em cima de um nome abriria a
+  pasta.
+- **barra própria colada na base da área visível**, com polegar
+  arrastável, clique no trilho para saltar, e setas/Home/End no teclado.
+
+`.ws-db` usa `overflow: clip` e não `hidden`: os dois recortam nos cantos
+arredondados, mas `hidden` cria um contêiner de rolagem e **anula o
+`position: sticky`** dos descendentes — era o que deixava a barra lá no
+fim do conteúdo em vez de na tela.

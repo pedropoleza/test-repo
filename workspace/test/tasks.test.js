@@ -105,6 +105,12 @@ test("a tarefa vira registro no formato das outras tabelas", () => {
   assert.equal(record.properties.updated_at, "2026-09-01");
 });
 
+test("o responsável é coluna de escolha, para o id virar nome", () => {
+  const dono = TASK_FIELDS.find((f) => f.key === "assignee");
+  assert.equal(dono.type, "select",
+    "como texto, a coluna mostraria o id que o Spark Tasks manda");
+});
+
 test("a coluna de status conhece os dois estados", () => {
   const status = TASK_FIELDS.find((f) => f.key === "status");
   assert.deepEqual(status.options.map((o) => o.id), ["open", "done"]);

@@ -13,6 +13,7 @@ import { openFieldEditor, openNewFieldMenu } from "./field-editor.js";
 import { renderViewToolbar } from "./view-toolbar.js";
 import { fieldSpec, groupRecords } from "../shared/fields.js";
 import { loadWidths, applyTemplate, attachResizer } from "./columns.js";
+import { attachDragScroll } from "./drag-scroll.js";
 
 /**
  * Monta a tabela dentro de `host`.
@@ -110,6 +111,7 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
 
     const scroller = document.createElement("div");
     scroller.className = "ws-db__scroll";
+    attachDragScroll(scroller);
 
     if (groupField) {
       for (const group of groupRecords(bundle.records, groupField)) {

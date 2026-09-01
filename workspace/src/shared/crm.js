@@ -298,6 +298,10 @@ export const OPPORTUNITY_WRITABLE = {
 
 export const CONTACT_WRITABLE = {
   name:    { field: "name",        type: "text" },
+  // O CRM aceita gravar a origem, e quem trabalha a lista precisa
+  // corrigi-la. Ficava de fora por eu supor que era só do momento da
+  // criação — não é.
+  source:  { field: "source",      type: "text" },
   email:   { field: "email",       type: "email" },
   phone:   { field: "phone",       type: "phone" },
   tags:    { field: "tags",        type: "multi_select" },

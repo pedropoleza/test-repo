@@ -198,14 +198,21 @@ test("só as colunas graváveis são editáveis", () => {
 
   assert.equal(isWritable("contacts", "phone"), true);
   assert.equal(isWritable("contacts", "cf_abc"), true);
-  assert.equal(isWritable("contacts", "source"), false, "origem é do momento da criação");
+  assert.equal(isWritable("contacts", "source"), true, "o CRM aceita gravar a origem");
+  // Datas são derivadas: não há o que gravar.
   assert.equal(isWritable("contacts", "created_at"), false);
+  assert.equal(isWritable("contacts", "updated_at"), false);
 });
 
 test("custom field que não volta como texto não é editável", () => {
   const [anexo] = customFieldsToColumns([{ id: "cf9", name: "Contrato", dataType: "FILE_UPLOAD" }]);
   assert.equal(anexo.readOnly, true);
   assert.equal(isWritable("contacts", anexo), false);
+});
+
+test("a origem do contato é gravada como veio", () => {
+  assert.deepEqual(contactPatch({ source: "Indicação" }), { source: "Indicação" });
+  assert.deepEqual(contactPatch({ source: "" }), { source: null }, "apagar manda null");
 });
 
 test("patch da oportunidade traduz só o que é gravável", () => {
@@ -245,7 +252,8 @@ test("tags e não-perturbe mantêm o tipo que o CRM espera", () => {
 
 test("patch vazio não vira PUT", () => {
   assert.deepEqual(opportunityPatch({ contact: "x", created_at: "2026-01-01" }), {});
-  assert.deepEqual(contactPatch({ source: "site" }), {});
+  assert.deepEqual(contactPatch({ created_at: "2026-01-01", updated_at: "2026-01-02" }), {});
+  assert.deepEqual(contactPatch({ inventado: "x" }), {});
 });
 
 /* ------------------------------------------------------------------ */

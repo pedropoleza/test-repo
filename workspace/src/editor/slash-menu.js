@@ -34,6 +34,9 @@ export const SLASH_COMMANDS = [
 
   { id: "database",      group: "Dados", label: "Tabela",           icon: "▦",  keywords: "tabela database base dados grade planilha table" },
   { id: "database_board",group: "Dados", label: "Quadro (kanban)",  icon: "▤",  keywords: "quadro kanban board colunas status" },
+  // Dados de um contato em QUALQUER página: é o que permite dois lado a
+  // lado para comparar, ou a família inteira numa capa só.
+  { id: "crm_contact",   group: "Dados", label: "Dados de contato",  icon: "👤", keywords: "contato lead cliente crm ficha dados pessoa familia comparar" },
 ];
 
 const norm = (s) =>

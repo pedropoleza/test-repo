@@ -21,6 +21,10 @@ import { locationRequiresOwner } from "~/server/config";
 import { pushTaskCompletion, pushTaskFields } from "~/server/ghl/task-sync";
 import { sendPushToUser } from "~/server/push";
 import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
+import {
+  mirrorTaskToWorkspace,
+  shouldMirror,
+} from "~/server/ghl/workspace-mirror";
 
 const statusId = z.string().trim().min(1).max(40);
 const colorEnum = z.enum(TASK_COLORS);
@@ -295,6 +299,12 @@ export const taskRouter = createTRPCRouter({
           contactId: created.contactId,
         });
       }
+      // Mirror to the Spark Workspace project (configured locations only).
+      if (shouldMirror(ctx.locationId)) {
+        const { id } = created;
+        const locationId = ctx.locationId;
+        after(() => mirrorTaskToWorkspace(locationId, id));
+      }
       return created;
     }),
 
@@ -345,6 +355,11 @@ export const taskRouter = createTRPCRouter({
         const uid = updated.id;
         const locationId = ctx.locationId;
         after(() => pushTaskFields(uid, locationId));
+      }
+      if (shouldMirror(ctx.locationId)) {
+        const { id } = updated;
+        const locationId = ctx.locationId;
+        after(() => mirrorTaskToWorkspace(locationId, id));
       }
       return updated;
     }),
@@ -445,6 +460,11 @@ export const taskRouter = createTRPCRouter({
         }
       }
 
+      if (shouldMirror(ctx.locationId)) {
+        const id = task.id;
+        const locationId = ctx.locationId;
+        after(() => mirrorTaskToWorkspace(locationId, id));
+      }
       return { id: task.id, status: toStatus, index: idx };
     }),
 
@@ -521,6 +541,11 @@ export const taskRouter = createTRPCRouter({
         .orderBy(asc(tasks.position), asc(tasks.createdAt));
       await renumber(ctx.db, source);
 
+      if (shouldMirror(ctx.locationId)) {
+        const id = task.id;
+        const locationId = ctx.locationId;
+        after(() => mirrorTaskToWorkspace(locationId, id));
+      }
       return { id: task.id, boardId: board.id, status };
     }),
 

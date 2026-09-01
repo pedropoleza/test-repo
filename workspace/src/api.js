@@ -139,6 +139,10 @@ export const api = {
       request("POST", "/api/crm", { query: { action: "dossier" }, body: { contactId } }),
   },
 
+  tasks: {
+    list: (limit) => request("GET", "/api/tasks", { query: { limit } }),
+  },
+
   databases: {
     get: (id, viewId) => request("GET", "/api/databases", { query: { id, viewId } }),
     create: (input) => request("POST", "/api/databases", { body: input }),

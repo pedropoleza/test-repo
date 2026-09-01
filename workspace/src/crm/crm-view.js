@@ -74,18 +74,24 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
     host.replaceChildren(skeleton());
     try {
       const [data, fichas] = await Promise.all([
-        kind === "contacts" ? api.crm.contacts(300) : api.crm.opportunities(300),
+        carregarDados(),
         kind === "contacts" ? api.crm.dossiers().catch(() => ({ dossiers: [] })) : null,
       ]);
       columns = (data.columns || []).map(toField);
       records = data.records || [];
       pipelines = data.pipelines || [];
-      meta = { total: data.total, truncated: data.truncated };
+      meta = { total: data.total, truncated: data.truncated, connected: data.connected !== false };
       dossiers = new Map((fichas?.dossiers || []).map((d) => [d.contactId, d.pageId]));
       render();
     } catch (err) {
       host.replaceChildren(errorState(err));
     }
+  }
+
+  function carregarDados() {
+    if (kind === "contacts") return api.crm.contacts(300);
+    if (kind === "tasks") return api.tasks.list(300);
+    return api.crm.opportunities(300);
   }
 
   function skeleton() {
@@ -634,14 +640,14 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
           });
           td.title = kind === "contacts"
             ? "Abrir a pasta deste contato"
-            : "Abrir a pasta do contato desta oportunidade";
+            : "Abrir a pasta do contato ligado a esta linha";
         }
 
         // Campo gravável vira ação: clicar edita no lugar, sem sair da
         // lista. A coluna primária já tem o clique de abrir a pasta, e
         // roubá-lo para editar quebraria o gesto principal — o nome se
         // edita pela pasta.
-        if (record.externalId && !col.is_primary && isWritable(kind, col)) {
+        if (kind !== "tasks" && record.externalId && !col.is_primary && isWritable(kind, col)) {
           td.classList.remove("ws-db__td--readonly");
           td.classList.add("ws-db__td--action");
           td.setAttribute("role", "button");
@@ -716,9 +722,14 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
     if (!rows.length) {
       const empty = document.createElement("div");
       empty.className = "ws-db__empty";
-      empty.textContent = prefs.search
-        ? "Nenhum resultado para essa busca."
-        : "Nada por aqui ainda.";
+      if (prefs.search) {
+        empty.textContent = "Nenhum resultado para essa busca.";
+      } else if (kind === "tasks" && !meta.connected) {
+        empty.textContent = "Nenhuma tarefa recebida ainda. Configure o Spark Tasks "
+          + "para enviar as tarefas para esta conta.";
+      } else {
+        empty.textContent = "Nada por aqui ainda.";
+      }
       grid.appendChild(empty);
     }
     return grid;

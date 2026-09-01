@@ -362,10 +362,15 @@ function openCrm(kind) {
   head.className = "ws-crm__head";
   const h = document.createElement("h1");
   h.className = "ws-page__title ws-crm__title";
-  h.textContent = kind === "contacts" ? "Leads" : "Oportunidades";
+  const TITULOS = { contacts: "Leads", opportunities: "Oportunidades", tasks: "Tarefas" };
+  h.textContent = TITULOS[kind] || "CRM";
   const sub = document.createElement("p");
   sub.className = "ws-muted";
-  sub.textContent = "Dados ao vivo da sua conta Spark. Clique num campo para alterar.";
+  sub.textContent = kind === "tasks"
+    // Tarefas vêm do Spark Tasks e são editadas lá: aqui é a réplica que
+    // permite filtrar e agrupar junto do resto.
+    ? "Tarefas recebidas do Spark Tasks. Para alterar, use o Spark Tasks."
+    : "Dados ao vivo da sua conta Spark. Clique num campo para alterar.";
   head.append(h, sub);
   els.header.appendChild(head);
 

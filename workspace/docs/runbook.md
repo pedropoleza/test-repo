@@ -115,3 +115,65 @@ npm test    # node --test: fracdex, schema de blocos, rich text, fluxos
 
 Os fluxos rodam contra um fake in-memory do Supabase
 (`test/helpers/fake-db.js`), sem rede e sem banco.
+
+## Spark Tasks → aba de Tarefas
+
+As tarefas vivem no Spark Tasks. O workspace guarda uma réplica só para
+poder listar, filtrar e agrupar junto do resto — alterar tarefa continua
+sendo no Spark Tasks.
+
+### Contrato
+
+```
+POST https://workspace-engine.vercel.app/api/tasks/inbound
+Content-Type: application/json
+X-Spark-Signature: sha256=<HMAC-SHA256 hex do corpo, com o segredo combinado>
+
+{
+  "id": "...",            // obrigatório: é a chave de idempotência
+  "title": "...",
+  "status": "open|done",  // outro valor cai para "open"
+  "dueDate": "2026-09-10",
+  "assignee": "...",
+  "contactId": "...",     // id do contato no CRM, se houver
+  "url": "https://...",   // só http(s); outros esquemas são descartados
+  "updatedAt": "2026-09-01T12:00:00Z"
+}
+```
+
+Um POST por criação e por mudança de status.
+
+`updatedAt` não é decoração: é o que ordena as entregas. Webhook entrega
+fora de ordem, e sem ele um "criada" atrasado apagaria o "concluída" que
+chegou antes. Se vier ausente, usamos o instante da chegada — o que
+funciona enquanto as entregas vierem em ordem.
+
+### Respostas
+
+| Código | Significado |
+|---|---|
+| 200 `{outcome:"created"}` | tarefa nova |
+| 200 `{outcome:"updated"}` | tarefa existente atualizada |
+| 200 `{outcome:"ignored_older"}` | evento mais antigo que o guardado; descartado de propósito |
+| 400 `missing_id` / `invalid_json` | corpo sem `id` ou ilegível |
+| 401 `invalid_signature` | assinatura ausente ou errada |
+| 503 `webhook_not_configured` | falta `SPARK_TASKS_WEBHOOK_SECRET` |
+
+Reentregar o mesmo evento é seguro: a gravação é upsert por `id`.
+
+### Segredo
+
+Gere um segredo forte e guarde o MESMO valor nos dois lados:
+
+```
+openssl rand -hex 32
+```
+
+- **No workspace**: Vercel → projeto `workspace-engine` → Settings →
+  Environment Variables → `SPARK_TASKS_WEBHOOK_SECRET` (Production, e
+  Preview se for testar por lá). Marque como sensitive.
+- **No Spark Tasks**: na configuração do webhook, como segredo de
+  assinatura.
+
+Nunca colar o segredo em chat, commit ou log. Trocar o segredo é trocar
+os dois lados: enquanto estiverem diferentes, toda entrega volta 401.

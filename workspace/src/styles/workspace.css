@@ -2545,3 +2545,28 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   overflow-wrap: anywhere;
 }
 .ws-timeline__when { margin: 2px 0 0; font-size: var(--fs-xs); color: var(--gray-400); }
+
+/* ---- escolha de modelo de ficha ---- */
+
+.ws-modal__intro { margin: 0 0 12px; }
+.ws-template-list { display: flex; flex-direction: column; gap: 6px; }
+.ws-template {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 10px 12px; width: 100%;
+  border: 1px solid var(--gray-200); border-radius: var(--r-sm);
+  background: var(--white); cursor: pointer; text-align: left; font: inherit;
+}
+.ws-template:hover { border-color: var(--ghl-300); background: var(--ghl-50); }
+.ws-template:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: 1px; }
+.ws-template__icon { font-size: 20px; line-height: 1.2; flex: none; }
+.ws-template__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ws-template__name {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; font-weight: 600; color: var(--gray-900);
+}
+.ws-template__hint {
+  padding: 1px 7px; border-radius: var(--r-pill);
+  background: var(--ghl-100); color: var(--ghl-800);
+  font-size: var(--fs-xs); font-weight: 500;
+}
+.ws-template__desc { font-size: var(--fs-sm); color: var(--gray-600); }

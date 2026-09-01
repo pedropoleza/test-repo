@@ -22,6 +22,7 @@ import { db } from "./db.js";
 import { keysBetween, keyBetween } from "../../src/shared/fracdex.js";
 import { WorkspaceError } from "./context.js";
 import { textoDaNota } from "../../src/shared/timeline.js";
+import { templateParaContato, blocosDoModelo } from "../../src/shared/templates.js";
 import { ensureSectionByName } from "./sections.js";
 import { recordRevision } from "./revisions.js";
 import {
@@ -217,6 +218,12 @@ function buildBlocks(snapshot) {
   } else {
     blocks.push({ type: "paragraph", content: text("Nenhuma tarefa aberta.") });
   }
+
+  // O roteiro do tipo de negócio, quando a pipeline diz qual é. Vem por
+  // último de propósito: o que veio do CRM é retrato, o modelo é onde a
+  // pessoa vai escrever, e o que se escreve fica embaixo do que se lê.
+  const modelo = templateParaContato(snapshot.opportunities);
+  if (modelo) blocks.push(...blocosDoModelo(modelo.id));
 
   blocks.push({ type: "heading2", content: text("Anotações") });
   blocks.push({ type: "paragraph", content: { rich: [] } });

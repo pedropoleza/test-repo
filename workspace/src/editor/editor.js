@@ -29,6 +29,8 @@ import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
 import { createTableView } from "../database/table-view.js";
 import { createContactPanel } from "../crm/contact-panel.js";
 import { openContactPicker } from "../crm/contact-picker.js";
+import { openTemplatePicker } from "../crm/template-picker.js";
+import { blocosDoModelo, getTemplate, templateParaContato } from "../shared/templates.js";
 import { openCopyLink } from "../ui/prompt.js";
 import { openIconPicker } from "../icon-picker.js";
 
@@ -480,6 +482,7 @@ export function createEditor(root) {
       }
       if (cmd.id === "subpage") return insertSubpage(block);
       if (cmd.id === "crm_contact") return insertContact(block);
+      if (cmd.id === "template") return insertTemplate(block);
       if (cmd.id === "database" || cmd.id === "database_board") {
         return insertDatabase(block, cmd.id === "database_board");
       }
@@ -493,12 +496,58 @@ export function createEditor(root) {
 
     if (cmd.id === "subpage") return insertSubpage(block);
     if (cmd.id === "crm_contact") return insertContact(block);
+    if (cmd.id === "template") return insertTemplate(block);
     if (cmd.id === "database" || cmd.id === "database_board") {
       return insertDatabase(block, cmd.id === "database_board");
     }
     const created = await createBlockAfter(block, { type: cmd.id, focus: false });
     if (MEDIA_TYPES.has(cmd.id)) await promptMedia(created);
     if (cmd.id === "divider") await createBlockAfter(created, { type: "paragraph" });
+  }
+
+  /**
+   * Aplica um modelo de ficha: acrescenta as seções do roteiro do tipo
+   * de negócio depois do bloco atual.
+   *
+   * Acrescenta, nunca substitui — um modelo que apagasse o que já está
+   * escrito seria usado uma vez só. Os blocos entram em sequência, cada
+   * um depois do anterior, para manter a ordem do roteiro.
+   */
+  async function insertTemplate(afterBlock) {
+    const paginaDaFicha = getState().page?.source === "ghl_contact";
+    const escolhido = await openTemplatePicker({
+      sugerido: paginaDaFicha ? sugestaoDaFicha() : null,
+    });
+    if (!escolhido) return;
+
+    const blocos = blocosDoModelo(escolhido);
+    if (!blocos.length) return;
+
+    let anterior = afterBlock;
+    try {
+      for (const bloco of blocos) {
+        anterior = await createBlockAfter(anterior, {
+          type: bloco.type,
+          content: bloco.content,
+          focus: false,
+        });
+      }
+      render();
+      toast(`Modelo "${getTemplate(escolhido).nome}" aplicado.`, { tone: "success" });
+    } catch {
+      // Parcial: o que entrou fica. Refazer do zero apagaria blocos que
+      // gravaram, e o modelo é acumulativo por natureza — reaplicar
+      // completa o resto.
+      render();
+      toast("O modelo entrou só em parte. Aplique de novo para completar.",
+        { tone: "warn" });
+    }
+  }
+
+  /** O modelo que a pipeline do contato desta ficha sugere, se houver. */
+  function sugestaoDaFicha() {
+    const oportunidades = getState().page?.properties?.opportunities;
+    return templateParaContato(Array.isArray(oportunidades) ? oportunidades : [])?.id || null;
   }
 
   /**

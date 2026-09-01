@@ -37,6 +37,10 @@ export const SLASH_COMMANDS = [
   // Dados de um contato em QUALQUER página: é o que permite dois lado a
   // lado para comparar, ou a família inteira numa capa só.
   { id: "crm_contact",   group: "Dados", label: "Dados de contato",  icon: "👤", keywords: "contato lead cliente crm ficha dados pessoa familia comparar" },
+  // O roteiro do tipo de negócio. Fica aqui, e não só na criação da
+  // ficha, porque 237 dos 300 contatos não têm pipeline nenhuma para
+  // sugerir um — e mesmo os que têm mudam de assunto.
+  { id: "template",      group: "Dados", label: "Modelo de ficha",   icon: "📋", keywords: "modelo template roteiro apolice recrutamento consultoria prospeccao agencia secoes" },
 ];
 
 const norm = (s) =>

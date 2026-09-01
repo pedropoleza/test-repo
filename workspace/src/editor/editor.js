@@ -24,10 +24,15 @@ import { openSlashMenu } from "./slash-menu.js";
 import { openBlockMenu } from "./block-menu.js";
 import { syncFormattingBar, hideFormattingBar, handleFormattingShortcut } from "./formatting.js";
 import { initDnd } from "./dnd.js";
-import { openModal, closeMenu } from "../ui/menu.js";
+import { openModal, openMenu, closeMenu } from "../ui/menu.js";
 import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
 import { createTableView } from "../database/table-view.js";
 import { createContactPanel } from "../crm/contact-panel.js";
+import { openCopyLink } from "../ui/prompt.js";
+import { openIconPicker } from "../icon-picker.js";
+
+/** Emojis mais usados em destaque; o seletor completo fica a um clique. */
+const CALLOUT_EMOJIS = ["💡", "⚠️", "✅", "❌", "📌", "🔥", "ℹ️", "⭐", "🎯", "📝"];
 import { toast } from "../ui/toast.js";
 
 const AUTOSAVE_DELAY_MS = 700;
@@ -518,7 +523,15 @@ export function createEditor(root) {
     for (const mount of root.querySelectorAll(".ws-crm-mount[data-contact-id]")) {
       if (mount.dataset.mounted === "1" || !mount.dataset.contactId) continue;
       mount.dataset.mounted = "1";
-      createContactPanel(mount, { contactId: mount.dataset.contactId });
+      createContactPanel(mount, {
+        contactId: mount.dataset.contactId,
+        pageId: getState().currentPageId,
+        // A foto vira o ícone da página; quem grava é o app, que já tem a
+        // gravação otimista com reversão.
+        onPatchPage: (patch) => mount.dispatchEvent(
+          new CustomEvent("workspace:patch-page", { bubbles: true, detail: { patch } })),
+        getPage: () => getState().page,
+      });
     }
   }
 
@@ -892,12 +905,33 @@ export function createEditor(root) {
         return;
       }
       case "callout-emoji": {
-        const next = window.prompt("Emoji do destaque:", block.content?.emoji || "💡");
-        if (next === null) return;
-        const content = { ...(block.content || {}), emoji: next.slice(0, 4) || "💡" };
-        upsertBlock({ ...block, content });
-        render();
-        markDirty(block.id, { content });
+        // Menu de emojis em vez de caixa de texto: ninguém tem o emoji
+        // decorado para digitar, e o seletor completo fica a um clique.
+        openMenu({
+          anchor: event.target,
+          width: 220,
+          items: [
+            ...CALLOUT_EMOJIS.map((e) => ({ id: `emoji:${e}`, label: e, icon: e,
+                                            section: "Sugestões" })),
+            { separator: true },
+            { id: "__more__", label: "Escolher outro…", icon: "🔎" },
+          ],
+          onSelect: async (id) => {
+            let emoji = null;
+            if (id === "__more__") {
+              const picked = await openIconPicker({ hasIcon: true });
+              if (!picked || picked.type !== "emoji") return;
+              emoji = picked.value;
+            } else {
+              emoji = id.slice(6);
+            }
+            if (!emoji) return;
+            const content = { ...(block.content || {}), emoji: emoji.slice(0, 4) };
+            upsertBlock({ ...block, content });
+            render();
+            markDirty(block.id, { content });
+          },
+        });
         return;
       }
       case "pick-media":
@@ -936,7 +970,9 @@ export function createEditor(root) {
       await navigator.clipboard.writeText(url);
       toast("Link do bloco copiado.", { tone: "success" });
     } catch {
-      window.prompt("Copie o link do bloco:", url);
+      // Área de transferência negada pelo navegador: entregamos o link
+      // num diálogo nosso, já selecionado.
+      await openCopyLink({ title: "Link do bloco", url });
     }
   }
 

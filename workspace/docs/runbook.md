@@ -203,3 +203,41 @@ Para semear outra lista pronta, acrescente uma entrada em `SEEDS` em
 `lib/server/crm-lists.js`. O `seed_key` é o que impede duplicata — o
 unique index em `(workspace_id, seed_key)` garante isso no banco, não só
 no código.
+
+## Nada de diálogo nativo do navegador
+
+`window.prompt/confirm/alert` não podem aparecer em nenhum campo. Eles
+usam a fonte e o tema do sistema, estampam o domínio no título
+("workspace-engine.vercel.app says"), não validam, não explicam o que um
+valor vazio faz e travam a página — nem dá para consultar o que estava na
+tela antes de responder.
+
+Use no lugar:
+
+| Precisa | Use |
+|---|---|
+| pedir um texto | `openPrompt()` — `src/ui/prompt.js` |
+| entregar um link para copiar | `openCopyLink()` — `src/ui/prompt.js` |
+| confirmar uma ação | `confirmDialog()` — `src/app.js` |
+| escolher entre opções | `openMenu()` — `src/ui/menu.js` |
+| formulário com mais de um campo | `openModal()` — `src/ui/menu.js` |
+
+`openPrompt` cobre o que o prompt não cobria: rótulo, dica, validação com
+mensagem, e `removeLabel` para quando apagar É a ação — em vez de pedir
+que a pessoa adivinhe que "vazio remove o link".
+
+O teste `test/no-native-dialogs.test.js` varre `src`, `api` e `lib` e
+falha se algum voltar. Já vazou uma vez depois de terem sido removidos
+das seções, por isso a regra é verificada e não só combinada.
+
+## Foto do contato
+
+A foto é o **ícone da página** da ficha (`icon_type: 'url'`), não um campo
+separado. Guardar em outro lugar daria duas imagens para a mesma pessoa e
+a obrigação de mantê-las em sincronia.
+
+Como ícone, ela aparece sozinha nos três lugares: redonda e grande sobre
+a capa, em bolinha na navegação e no breadcrumb. O campo onde se põe fica
+no painel do CRM dentro da ficha — enviar um arquivo (até 4 MB, no nosso
+storage) ou colar um endereço `https://`. Sem foto, mostramos as iniciais
+do nome.

@@ -1940,3 +1940,114 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 .ws-select__value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-select__value.is-empty { color: var(--gray-400); }
 .ws-select__caret { color: var(--gray-400); font-size: 10px; flex: none; }
+
+/* Diálogos de texto e de cópia — os nossos, no lugar do prompt do
+   navegador. */
+.ws-field__error {
+  margin: -4px 0 0;
+  color: var(--danger);
+  font-size: var(--fs-sm);
+}
+.ws-input.is-invalid { border-color: var(--danger); }
+
+.ws-copy__row { display: flex; gap: 8px; align-items: center; }
+.ws-copy__row .ws-input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--fs-sm);
+}
+.ws-copy__row .ws-btn { flex: none; }
+
+/* ------------------------------------------------------------------ */
+/* Foto do contato                                                    */
+/* ------------------------------------------------------------------ */
+
+/* Identidade no topo do painel: foto, nome e contato. É o "campo" onde
+   se põe a foto — a exibição acontece na capa e na navegação, porque a
+   foto é o ícone da página. */
+.ws-crm-panel__identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.ws-crm-panel__identity-text { min-width: 0; }
+.ws-crm-panel__name {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+.ws-crm-panel__sub {
+  margin: 2px 0 0;
+  font-size: var(--fs-sm);
+  color: var(--gray-500);
+  overflow-wrap: anywhere;
+}
+
+.ws-avatar {
+  position: relative;
+  flex: none;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: 2px solid var(--white);
+  border-radius: 50%;
+  background: var(--ghl-100);
+  box-shadow: 0 0 0 1px var(--gray-200), var(--shadow-xs);
+  cursor: pointer;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  transition: box-shadow 120ms ease;
+}
+.ws-avatar:hover { box-shadow: 0 0 0 2px var(--ghl-400), var(--shadow-sm); }
+.ws-avatar:disabled { cursor: default; }
+.ws-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.ws-avatar__initials {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ghl-700);
+  letter-spacing: .02em;
+  user-select: none;
+}
+
+/* O lápis/mais só aparece no hover: sem foto o círculo já convida, e com
+   foto uma marca fixa sujaria o rosto. */
+.ws-avatar__edit {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ghl-600);
+  color: var(--white);
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.ws-avatar:hover .ws-avatar__edit,
+.ws-avatar:focus-visible .ws-avatar__edit { opacity: 1; }
+.ws-avatar:not(.has-photo) .ws-avatar__edit { opacity: 1; }
+
+/* Sobre a capa: a foto vira o rosto da ficha, com anel branco para
+   destacar de qualquer fundo. */
+.ws-page__icon--photo { padding: 0; border-radius: 50%; }
+.ws-page__icon--photo:hover { background: none; }
+.ws-page__icon--photo .ws-icon-img {
+  border-radius: 50%;
+  border: 3px solid var(--white);
+  box-shadow: 0 0 0 1px var(--gray-200), var(--shadow-sm);
+  object-fit: cover;
+}
+
+/* Na navegação a mesma foto vira bolinha, do tamanho da linha. */
+.ws-tree__icon .ws-icon-img,
+.ws-breadcrumbs .ws-icon-img { border-radius: 50%; }

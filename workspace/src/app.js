@@ -21,6 +21,7 @@ import { renderIcon } from "./icon-picker.js";
 import { openSectionDialog } from "./section-dialog.js";
 import { createCrmView } from "./crm/crm-view.js";
 import { openListDialog } from "./crm/list-dialog.js";
+import { openCopyLink } from "./ui/prompt.js";
 
 const els = {
   shell: document.getElementById("ws-shell"),
@@ -680,7 +681,8 @@ async function pageAction(action, page) {
         await navigator.clipboard.writeText(url);
         toast("Link copiado.", { tone: "success" });
       } catch {
-        window.prompt("Copie o link:", url);
+        // Área de transferência negada: o link vai num diálogo nosso.
+        await openCopyLink({ title: "Link da página", url });
       }
       return;
     }
@@ -1002,6 +1004,13 @@ function wireShell() {
   els.editor.addEventListener("workspace:navigate", (event) => {
     openPage(event.detail.pageId);
   });
+  // A foto do contato é o ícone da página: assim ela já aparece na
+  // bolinha da navegação e sobre a capa, sem um segundo lugar para
+  // guardar a mesma imagem.
+  els.editor.addEventListener("workspace:patch-page", (event) => {
+    patchPage(event.detail.patch);
+  });
+
   els.editor.addEventListener("workspace:page-created", (event) => {
     upsertPageInTree(event.detail.page);
     sidebar.render();

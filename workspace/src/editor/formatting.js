@@ -3,6 +3,7 @@
  * texto dentro do editor — contextual, não permanente (§71).
  */
 import { toggleMark, applyLink, activeMarks, closestTag } from "./richtext.js";
+import { openPrompt } from "../ui/prompt.js";
 
 let bar = null;
 let onCommit = null;
@@ -32,8 +33,12 @@ function build() {
     button.textContent = item.glyph;
     button.addEventListener("mousedown", (event) => {
       event.preventDefault(); // preserva a seleção
-      if (item.mark === "link") promptLink();
-      else toggleMark(item.mark);
+      if (item.mark === "link") {
+        // O diálogo é assíncrono: commitar aqui gravaria antes da escolha.
+        promptLink();
+        return;
+      }
+      toggleMark(item.mark);
       onCommit?.();
       refresh();
     });
@@ -43,17 +48,49 @@ function build() {
   return el;
 }
 
-function promptLink() {
+/**
+ * A seleção se perde quando o foco vai para o diálogo, então guardamos o
+ * intervalo antes de abrir e o restauramos na volta — sem isso o link
+ * seria aplicado no lugar errado, ou em lugar nenhum.
+ */
+async function promptLink() {
   const existing = closestTag(window.getSelection()?.anchorNode, "A");
   const current = existing?.getAttribute("href") || "";
-  const url = window.prompt("URL do link (vazio remove o link):", current);
-  if (url === null) return;
+  const selection = window.getSelection();
+  const range = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+
+  const url = await openPrompt({
+    title: current ? "Editar link" : "Adicionar link",
+    label: "URL",
+    value: current,
+    placeholder: "exemplo.com ou https://exemplo.com",
+    confirmLabel: current ? "Salvar link" : "Adicionar link",
+    removeLabel: "Remover link",
+    allowEmpty: true,
+    hint: "Sem http, completamos com https://. Também aceita mailto:.",
+    validate: (texto) => (SAFE_LINK.test(texto) || !/^[a-z][a-z0-9+.-]*:/i.test(texto)
+      ? null
+      : "Só links http, https ou mailto."),
+  });
+  if (url === null) return;                      // cancelou: nada muda
+
+  restaurarSelecao(range);
   const trimmed = url.trim();
   if (trimmed && !/^(https?:\/\/|mailto:)/i.test(trimmed)) {
     applyLink(`https://${trimmed}`);
     return;
   }
   applyLink(trimmed);
+  onCommit?.();
+}
+
+const SAFE_LINK = /^(https?:\/\/|mailto:)/i;
+
+function restaurarSelecao(range) {
+  if (!range) return;
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
 }
 
 function refresh() {

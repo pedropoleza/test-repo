@@ -11,6 +11,10 @@
  * ficam só os campos que pertencem ao CRM.
  */
 import { api } from "../api.js";
+import { openMenu } from "../ui/menu.js";
+import { openPrompt } from "../ui/prompt.js";
+import { toast } from "../ui/toast.js";
+import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
 import { renderCellValue, editCell } from "../database/cells.js";
 import { isEmptyValue, optionColor } from "../shared/fields.js";
 import { isWritable, isMoveField, openStageMenu, commitField, commitMove } from "./editing.js";
@@ -29,7 +33,9 @@ function toField(col) {
   };
 }
 
-export function createContactPanel(host, { contactId }) {
+export function createContactPanel(host, {
+  contactId, pageId = null, onPatchPage = null, getPage = () => null,
+} = {}) {
   let dados = null;
   let erro = null;
 
@@ -72,6 +78,12 @@ export function createContactPanel(host, { contactId }) {
 
   function secaoContato() {
     const box = bloco("Dados do contato");
+
+    const topo = document.createElement("div");
+    topo.className = "ws-crm-panel__identity";
+    topo.append(avatar(), identidade());
+    box.appendChild(topo);
+
     const lista = document.createElement("div");
     lista.className = "ws-crm-panel__props";
 
@@ -128,6 +140,144 @@ export function createContactPanel(host, { contactId }) {
       box.appendChild(card);
     }
     return box;
+  }
+
+  /* ---------------- foto ---------------- */
+
+  /**
+   * A foto do contato é o ÍCONE da página, não um campo à parte.
+   *
+   * Guardar em outro lugar daria duas imagens para a mesma pessoa e a
+   * obrigação de mantê-las em sincronia. Como ícone, ela já aparece
+   * redonda na navegação e sobre a capa — que é onde a pessoa espera ver
+   * o rosto — sem nenhum código de exibição novo.
+   */
+  function avatar() {
+    const page = getPage?.();
+    const foto = page?.icon_type === "url" ? page.icon_value : null;
+
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = `ws-avatar${foto ? " has-photo" : ""}`;
+    botao.title = foto ? "Trocar a foto" : "Adicionar uma foto";
+    botao.setAttribute("aria-label", botao.title);
+
+    if (foto) {
+      const img = document.createElement("img");
+      img.src = foto;
+      img.alt = "";
+      img.loading = "lazy";
+      botao.appendChild(img);
+    } else {
+      const iniciais = document.createElement("span");
+      iniciais.className = "ws-avatar__initials";
+      iniciais.textContent = iniciaisDe(dados.record.title);
+      botao.appendChild(iniciais);
+    }
+
+    const marca = document.createElement("span");
+    marca.className = "ws-avatar__edit";
+    marca.textContent = foto ? "✎" : "＋";
+    marca.setAttribute("aria-hidden", "true");
+    botao.appendChild(marca);
+
+    if (!pageId || !onPatchPage) {
+      // Painel aberto fora de uma página (não deve acontecer hoje): sem
+      // onde gravar, a foto vira só exibição em vez de um botão morto.
+      botao.disabled = true;
+      botao.title = "";
+      return botao;
+    }
+
+    botao.addEventListener("click", () => {
+      openMenu({
+        anchor: botao,
+        width: 240,
+        items: [
+          { id: "upload", label: "Enviar uma foto", icon: "🖼" },
+          { id: "url", label: "Usar um endereço de imagem", icon: "🔗" },
+          ...(foto ? [{ id: "remove", label: "Remover a foto", icon: "×", danger: true }] : []),
+        ],
+        onSelect: (id) => {
+          if (id === "remove") return gravarFoto(null);
+          if (id === "url") return pedirUrl();
+          return escolherArquivo();
+        },
+      });
+    });
+    return botao;
+  }
+
+  function identidade() {
+    const box = document.createElement("div");
+    box.className = "ws-crm-panel__identity-text";
+
+    const nome = document.createElement("h4");
+    nome.className = "ws-crm-panel__name";
+    nome.textContent = dados.record.title;
+
+    const sub = document.createElement("p");
+    sub.className = "ws-crm-panel__sub";
+    const p = dados.record.properties || {};
+    sub.textContent = [p.email, p.phone].filter(Boolean).join(" · ")
+      || "Sem e-mail ou telefone cadastrado";
+
+    box.append(nome, sub);
+    return box;
+  }
+
+  function escolherArquivo() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/webp,image/gif";
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size > MAX_UPLOAD_BYTES) {
+        toast(`A imagem passa de ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB.`,
+              { tone: "warn" });
+        return;
+      }
+      try {
+        const { url } = await uploadFile(file);
+        gravarFoto(url);
+      } catch {
+        toast("Não foi possível enviar a foto.", { tone: "danger" });
+      }
+    });
+    input.click();
+  }
+
+  async function pedirUrl() {
+    const url = await openPrompt({
+      title: "Foto do contato",
+      label: "Endereço da imagem",
+      placeholder: "https://…",
+      confirmLabel: "Usar esta imagem",
+      validate: (texto) => (/^https?:\/\//i.test(texto)
+        ? null
+        : "O endereço precisa começar com http:// ou https://"),
+    });
+    if (url) gravarFoto(url);
+  }
+
+  function gravarFoto(url) {
+    onPatchPage({ icon_type: url ? "url" : null, icon_value: url });
+    // Repinta com o que acabou de ser gravado: getPage() só reflete a
+    // mudança depois que o app atualiza o estado, e o painel repinta
+    // antes disso.
+    const page = getPage?.();
+    if (page) { page.icon_type = url ? "url" : null; page.icon_value = url; }
+    render();
+    toast(url ? "Foto atualizada." : "Foto removida.", { tone: "success" });
+  }
+
+  function iniciaisDe(nome) {
+    const partes = String(nome || "").trim().split(/\s+/).filter(Boolean);
+    if (!partes.length) return "?";
+    const primeira = partes[0][0] || "";
+    const ultima = partes.length > 1 ? partes[partes.length - 1][0] : "";
+    return (primeira + ultima).toUpperCase();
   }
 
   /* ---------------- linha editável ---------------- */

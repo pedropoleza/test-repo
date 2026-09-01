@@ -3,6 +3,7 @@
  * colunas visíveis (§19–22).
  */
 import { openMenu, openModal } from "../ui/menu.js";
+import { openPrompt } from "../ui/prompt.js";
 import {
   VIEW_TYPES, operatorsFor, OPERATOR_LABEL, fieldSpec, isFieldType,
 } from "../shared/fields.js";
@@ -101,8 +102,12 @@ export function renderViewToolbar({
       ],
       onSelect: (id) => {
         if (id === "rename") {
-          const name = window.prompt("Nome da vista:", v.name);
-          if (name) onChangeView({ name });
+          openPrompt({
+            title: "Renomear vista",
+            label: "Nome",
+            value: v.name,
+            confirmLabel: "Salvar",
+          }).then((name) => { if (name) onChangeView({ name }); });
         } else if (id.startsWith("type:")) {
           onChangeView({ type: id.slice(5) });
         } else if (id === "delete") {

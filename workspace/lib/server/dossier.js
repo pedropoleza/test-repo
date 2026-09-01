@@ -182,18 +182,7 @@ const text = (s) => ({ rich: [{ s: String(s) }] });
  */
 function buildBlocks(snapshot) {
   const { record, notes, tasks } = snapshot;
-  const p = record.properties || {};
   const blocks = [];
-
-  const contato = [p.email, p.phone].filter(Boolean).join(" · ");
-  blocks.push({
-    type: "callout",
-    content: {
-      emoji: "👤",
-      tone: "info",
-      rich: [{ s: contato || "Sem e-mail ou telefone cadastrado" }],
-    },
-  });
 
   // Dados do contato, campos personalizados e oportunidades vêm do painel
   // ao vivo — um retrato deles aqui envelheceria em minutos e ainda daria

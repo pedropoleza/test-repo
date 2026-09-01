@@ -234,11 +234,14 @@ export function createPageHeader(root, handlers) {
     slot.className = "ws-page__icon-slot";
     if (!page.icon_type) return slot;
 
+    // Numa ficha de contato o ícone é o rosto da pessoa: redondo, maior e
+    // com anel, sobrepondo a capa. Em página comum continua um ícone.
+    const ehFoto = page.source === "ghl_contact" && page.icon_type === "url";
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "ws-page__icon";
-    button.setAttribute("aria-label", "Trocar ícone da página");
-    button.appendChild(renderIcon(page.icon_type, page.icon_value, { size: 56 }));
+    button.className = `ws-page__icon${ehFoto ? " ws-page__icon--photo" : ""}`;
+    button.setAttribute("aria-label", ehFoto ? "Trocar a foto" : "Trocar ícone da página");
+    button.appendChild(renderIcon(page.icon_type, page.icon_value, { size: ehFoto ? 88 : 56 }));
     button.addEventListener("click", async () => {
       const picked = await openIconPicker({ hasIcon: true });
       if (picked) handlers.onPatch({ icon_type: picked.type, icon_value: picked.value || null });

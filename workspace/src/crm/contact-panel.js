@@ -14,6 +14,7 @@ import { api } from "../api.js";
 import { renderCellValue, editCell } from "../database/cells.js";
 import { isEmptyValue, optionColor } from "../shared/fields.js";
 import { isWritable, isMoveField, openStageMenu, commitField, commitMove } from "./editing.js";
+import { renderLoader } from "../ui/loader.js";
 
 /** Campos do contato sempre visíveis, mesmo vazios: são os que se preenche. */
 const SEMPRE_VISIVEIS = new Set(["email", "phone", "tags", "company", "city"]);
@@ -36,7 +37,7 @@ export function createContactPanel(host, { contactId } = {}) {
   host.classList.add("ws-crm-panel");
 
   async function load() {
-    host.replaceChildren(aviso("Carregando dados do CRM…"));
+    host.replaceChildren(renderLoader("Carregando os dados do CRM…", { compact: true }));
     try {
       const data = await api.crm.contact(contactId);
       dados = {

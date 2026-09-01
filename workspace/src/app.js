@@ -17,6 +17,7 @@ import { createPageHeader } from "./page-header.js";
 import { createEditor } from "./editor/editor.js";
 import { openModal } from "./ui/menu.js";
 import { toast } from "./ui/toast.js";
+import { renderLoader } from "./ui/loader.js";
 import { renderIcon } from "./icon-picker.js";
 import { openSectionDialog } from "./section-dialog.js";
 import { createCrmView } from "./crm/crm-view.js";
@@ -235,16 +236,7 @@ async function openPage(pageId, { push = true, trilha: registrar = true } = {}) 
 
 function renderSkeleton() {
   els.header.replaceChildren();
-  els.editor.replaceChildren();
-  const skeleton = document.createElement("div");
-  skeleton.className = "ws-skeleton";
-  for (const width of ["45%", "85%", "70%", "90%", "60%"]) {
-    const line = document.createElement("div");
-    line.className = "ws-skeleton__line";
-    line.style.width = width;
-    skeleton.appendChild(line);
-  }
-  els.editor.appendChild(skeleton);
+  els.editor.replaceChildren(renderLoader("Abrindo a página…"));
 }
 
 function errorState(title, detail, onRetry) {

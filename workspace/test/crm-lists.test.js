@@ -9,6 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { __setDbClient } from "../lib/server/db.js";
+import { __clearGhlCache } from "../lib/server/ghl.js";
 import { createFakeDb } from "./helpers/fake-db.js";
 import { ensureWorkspace, WorkspaceError } from "../lib/server/context.js";
 import {
@@ -25,6 +26,7 @@ const PIPELINES = [
 const realFetch = globalThis.fetch;
 
 function stubCrm({ pipelines = PIPELINES, fail = false } = {}) {
+  __clearGhlCache();
   process.env.GHL_LOCATION_TOKEN = "tok_teste";
   process.env.GHL_LOCATION_ID = "loc_teste";
   globalThis.fetch = async () => {

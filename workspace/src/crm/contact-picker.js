@@ -12,6 +12,7 @@
 import { api } from "../api.js";
 import { openModal } from "../ui/menu.js";
 import { renderAvatar } from "./photo.js";
+import { renderLoader } from "../ui/loader.js";
 
 /** Resolve com { id, nome } ou null se cancelado. */
 export function openContactPicker({ title = "Adicionar contato" } = {}) {
@@ -32,9 +33,7 @@ export function openContactPicker({ title = "Adicionar contato" } = {}) {
       lista.className = "ws-picker__list";
       lista.setAttribute("role", "listbox");
 
-      const estado = document.createElement("p");
-      estado.className = "ws-muted";
-      estado.textContent = "Carregando contatos…";
+      const estado = renderLoader("Carregando os contatos…", { compact: true });
 
       stack.append(busca, estado, lista);
       body.appendChild(stack);
@@ -51,7 +50,10 @@ export function openContactPicker({ title = "Adicionar contato" } = {}) {
         estado.remove();
         pintar("");
       }).catch(() => {
-        estado.textContent = "Não foi possível carregar os contatos da conta.";
+        const erro = document.createElement("p");
+        erro.className = "ws-muted";
+        erro.textContent = "Não foi possível carregar os contatos da conta.";
+        estado.replaceWith(erro);
       });
 
       function pintar(termo) {

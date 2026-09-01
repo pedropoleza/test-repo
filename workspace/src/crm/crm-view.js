@@ -19,6 +19,7 @@ import {
 import { loadWidths, applyTemplate, attachResizer } from "../database/columns.js";
 import { isWritable, isMoveField, openStageMenu, commitField, commitMove } from "./editing.js";
 import { attachDragScroll } from "../database/drag-scroll.js";
+import { renderLoader } from "../ui/loader.js";
 
 const PREFS_KEY = "workspace:crmPrefs";
 
@@ -98,16 +99,14 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
     return api.crm.opportunities(300);
   }
 
+  const CARREGANDO = {
+    contacts: "Buscando os leads da sua conta…",
+    opportunities: "Buscando as oportunidades…",
+    tasks: "Buscando as tarefas…",
+  };
+
   function skeleton() {
-    const box = document.createElement("div");
-    box.className = "ws-skeleton";
-    for (const w of ["30%", "90%", "80%", "85%", "70%"]) {
-      const line = document.createElement("div");
-      line.className = "ws-skeleton__line";
-      line.style.width = w;
-      box.appendChild(line);
-    }
-    return box;
+    return renderLoader(CARREGANDO[kind] || "Carregando…");
   }
 
   /** Erro que diz o que houve, o que foi preservado e como resolver (§78). */

@@ -340,3 +340,40 @@ numa tabela de 300 linhas:
 arredondados, mas `hidden` cria um contêiner de rolagem e **anula o
 `position: sticky`** dos descendentes — era o que deixava a barra lá no
 fim do conteúdo em vez de na tela.
+
+## Desempenho do carregamento do CRM
+
+Duas mudanças no cliente do CRM, ambas medidas contra a conta real:
+
+**Concorrência.** A fila era estritamente serial, o que anulava todo
+`Promise.all` do código — as consultas que montam uma tabela iam uma
+atrás da outra e o tempo somava. O limite do CRM é por SEGUNDO, não por
+conexão; três de cada vez fica bem abaixo dele e continua protegendo da
+rajada que gera 429.
+
+**Memoização das listas que quase não mudam** (campos personalizados,
+tags, pipelines, usuários), 5 minutos. Os campos personalizados custam
+~2s nesta conta (são 115) e eram pedidos em toda abertura de tabela e de
+toda ficha. O memo guarda a PROMESSA, não o resultado: duas chamadas
+simultâneas para a mesma lista viravam duas idas ao CRM.
+
+| | antes | depois |
+|---|---|---|
+| Leads (300) | 1400 ms | 641 ms |
+| Oportunidades (300) | 1851 ms | 831 ms |
+| Ficha do contato | — | 554 ms |
+
+Como a função serverless é efêmera, o memo é alívio e não fonte de
+verdade — por isso o TTL curto e nenhuma invalidação explícita. Os testes
+zeram com `__clearGhlCache()`, a mesma válvula do `__setDbClient`.
+
+## Carregando
+
+`renderLoader()` (`src/ui/loader.js`) é o estado de espera: a marca
+pulsando mais uma linha do que está acontecendo. As barras cinza serviam
+quando a espera era curta; puxar a carteira leva de meio a dois segundos,
+e nesse tempo um bloco cinza não diz se o app está trabalhando ou travado.
+
+A mensagem só aparece depois de 450ms — numa resposta rápida ela piscaria
+sem ser lida, o que é pior que não ter. Com `prefers-reduced-motion` a
+marca fica parada e o texto continua.

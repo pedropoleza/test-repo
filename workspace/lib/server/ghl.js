@@ -54,12 +54,64 @@ export function isConfigured() {
   return !!ghlToken() && !!ghlLocationId();
 }
 
-/** Fila serial: o GHL limita por segundo, e rajadas viram 429. */
-let chain = Promise.resolve();
+/**
+ * Fila com concorrência limitada.
+ *
+ * Era estritamente serial, o que anulava todo `Promise.all` do código: as
+ * quatro consultas que montam a tabela de contatos iam uma atrás da
+ * outra e o tempo delas somava. O limite do CRM é por SEGUNDO, não por
+ * conexão — três de cada vez fica bem abaixo dele e continua protegendo
+ * contra a rajada que gera 429.
+ */
+const CONCORRENCIA = 3;
+let emVoo = 0;
+const espera = [];
+
 function enqueue(task) {
-  const run = chain.then(task, task);
-  chain = run.then(() => {}, () => {});
-  return run;
+  return new Promise((resolve, reject) => {
+    espera.push(() => task().then(resolve, reject));
+    puxar();
+  });
+}
+
+function puxar() {
+  while (emVoo < CONCORRENCIA && espera.length) {
+    const proxima = espera.shift();
+    emVoo += 1;
+    proxima().finally(() => { emVoo -= 1; puxar(); });
+  }
+}
+
+/**
+ * Memoização por instância para as listas que quase não mudam.
+ *
+ * Campos personalizados custam ~2s nesta conta (são 115) e são pedidos em
+ * TODA abertura da tabela de contatos e de toda ficha. Como a função
+ * serverless é efêmera, isto é alívio e não fonte de verdade — por isso o
+ * TTL é de minutos e não há invalidação explícita.
+ */
+const MEMO_TTL_MS = 5 * 60 * 1000;
+const memo = new Map();
+
+/**
+ * Zera a memoização. Existe para os testes, que trocam o CRM por um
+ * duplo entre um caso e outro — sem isto um caso herdaria as pipelines
+ * do anterior. Mesma válvula do `__setDbClient`.
+ */
+export function __clearGhlCache() {
+  memo.clear();
+}
+
+function memoizar(chave, produzir, ttl = MEMO_TTL_MS) {
+  const agora = Date.now();
+  const guardado = memo.get(chave);
+  if (guardado && agora - guardado.at < ttl) return guardado.valor;
+
+  // Guarda a PROMESSA, não o resultado: duas chamadas simultâneas para a
+  // mesma lista viravam duas idas ao CRM.
+  const valor = produzir().catch((err) => { memo.delete(chave); throw err; });
+  memo.set(chave, { at: agora, valor });
+  return valor;
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -143,49 +195,43 @@ export async function getLocation(locationId = ghlLocationId()) {
   return data?.location || null;
 }
 
-export async function listCustomFields(locationId = ghlLocationId()) {
-  const data = await ghlFetch(`/locations/${locationId}/customFields`);
-  return data?.customFields || [];
+/** Os mais caros da conta: 115 campos, ~2s. Pedidos em toda abertura. */
+export function listCustomFields(locationId = ghlLocationId()) {
+  return memoizar(`customFields:${locationId}`, async () => {
+    const data = await ghlFetch(`/locations/${locationId}/customFields`);
+    return data?.customFields || [];
+  });
 }
 
-export async function listTags(locationId = ghlLocationId()) {
-  const data = await ghlFetch(`/locations/${locationId}/tags`);
-  return data?.tags || [];
+export function listTags(locationId = ghlLocationId()) {
+  return memoizar(`tags:${locationId}`, async () => {
+    const data = await ghlFetch(`/locations/${locationId}/tags`);
+    return data?.tags || [];
+  });
 }
 
 /**
  * Usuários da conta — é o que traduz `assignedTo` (um id opaco) para o
  * nome de quem responde pela oportunidade.
- *
- * Cache curto na instância: a lista muda raramente e é pedida em toda
- * abertura da tabela de oportunidades. Como a função serverless é
- * efêmera, o cache é um alívio, não uma fonte de verdade — por isso o TTL
- * é de minutos e não há invalidação explícita.
  */
-let usersCache = { at: 0, locationId: null, users: null };
-const USERS_TTL_MS = 5 * 60 * 1000;
-
-export async function listUsers(locationId = ghlLocationId()) {
-  const agora = Date.now();
-  if (usersCache.users && usersCache.locationId === locationId
-      && agora - usersCache.at < USERS_TTL_MS) {
-    return usersCache.users;
-  }
-  const data = await ghlFetch("/users/", { query: { locationId } });
-  const users = (data?.users || [])
-    .filter((u) => u && u.id)
-    .map((u) => ({
-      id: u.id,
-      name: u.name || [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email || u.id,
-      email: u.email || "",
-    }));
-  usersCache = { at: agora, locationId, users };
-  return users;
+export function listUsers(locationId = ghlLocationId()) {
+  return memoizar(`users:${locationId}`, async () => {
+    const data = await ghlFetch("/users/", { query: { locationId } });
+    return (data?.users || [])
+      .filter((u) => u && u.id)
+      .map((u) => ({
+        id: u.id,
+        name: u.name || [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email || u.id,
+        email: u.email || "",
+      }));
+  });
 }
 
-export async function listPipelines(locationId = ghlLocationId()) {
-  const data = await ghlFetch("/opportunities/pipelines", { query: { locationId } });
-  return data?.pipelines || [];
+export function listPipelines(locationId = ghlLocationId()) {
+  return memoizar(`pipelines:${locationId}`, async () => {
+    const data = await ghlFetch("/opportunities/pipelines", { query: { locationId } });
+    return data?.pipelines || [];
+  });
 }
 
 /**

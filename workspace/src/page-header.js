@@ -255,7 +255,9 @@ export function createPageHeader(root, handlers) {
     if (ehFichaDeContato(page)) {
       slot.classList.add("ws-page__icon-slot--photo");
       slot.appendChild(renderPhotoControl(page, {
-        size: 88,
+        // Mesmo tamanho do QR ao lado: os dois são os âncoras visuais do
+        // topo da ficha, e um menor que o outro desequilibrava a linha.
+        size: 112,
         onPick: (url) => handlers.onPatch(patchDaFoto(url)),
       }));
       return slot;

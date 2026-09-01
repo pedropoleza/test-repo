@@ -377,3 +377,16 @@ e nesse tempo um bloco cinza não diz se o app está trabalhando ou travado.
 A mensagem só aparece depois de 450ms — numa resposta rápida ela piscaria
 sem ser lida, o que é pior que não ter. Com `prefers-reduced-motion` a
 marca fica parada e o texto continua.
+
+## Mover uma pasta entre seções
+
+Arrastar a linha da pasta na navegação e soltar **na seção** (não em cima
+de outra página) leva a pasta para lá. É o caminho para uma seção VAZIA:
+o arrasto só aceitava soltar sobre um item vizinho, então mover algo para
+Privado ou Compartilhado — que começam vazios — era impossível, e a
+seção recusava o gesto sem dizer por quê.
+
+A linha compacta dos últimos contatos também arrasta: ela vive num
+`.ws-tree__item` com `data-page-id`, que é o que o arrasto reconhece.
+Sem isso era preciso expandir a lista inteira só para pegar a ficha que
+acabou de ser aberta.

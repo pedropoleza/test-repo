@@ -29,6 +29,16 @@ export function createSidebar(root, handlers) {
       }
       return false;
     },
+    // Soltar na seção: leva a página para o fim dela. É o caminho para
+    // uma seção VAZIA, onde não há vizinho para servir de alvo.
+    containerSelector: "[data-section-id]",
+    onDropContainer: ({ id, containerEl }) => {
+      const sectionId = containerEl?.dataset?.sectionId;
+      if (!sectionId) return;
+      const pagina = pageById(id);
+      if (!pagina || pagina.section_id === sectionId) return;
+      handlers.onMove(id, { parentPageId: null, sectionId });
+    },
     onDrop: ({ id, targetId, place, targetEl }) => {
       const target = pageById(targetId);
       if (!target) return;
@@ -334,10 +344,21 @@ export function createSidebar(root, handlers) {
     }
 
     for (const page of vistas) {
-      const row = document.createElement("button");
-      row.type = "button";
+      // Embrulhada em .ws-tree__item com data-page-id, como as linhas
+      // completas: é o que o arrasto reconhece. Sem isso daqui não dava
+      // para levar a ficha recém-aberta a outra seção sem antes expandir
+      // a lista inteira.
+      const item = document.createElement("div");
+      item.className = "ws-tree__item";
+      item.dataset.pageId = page.id;
+
+      const row = document.createElement("div");
       row.className = `ws-tree__row ws-tree__row--mini${
         state.currentPageId === page.id ? " is-current" : ""}`;
+      row.setAttribute("role", "button");
+      row.tabIndex = 0;
+      row.draggable = true;
+
       const ic = document.createElement("span");
       ic.className = "ws-tree__icon";
       ic.appendChild(renderAvatar(page, { size: 18 }));
@@ -347,7 +368,15 @@ export function createSidebar(root, handlers) {
       row.append(ic, lb);
       row.title = page.title || "Sem título";
       row.addEventListener("click", () => handlers.onOpen(page.id));
-      box.appendChild(row);
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          handlers.onOpen(page.id);
+        }
+      });
+
+      item.appendChild(row);
+      box.appendChild(item);
     }
 
     const todos = document.createElement("button");

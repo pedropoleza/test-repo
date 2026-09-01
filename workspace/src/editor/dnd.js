@@ -15,6 +15,11 @@ export function initDnd(root, {
   handleSelector,
   allowNest = () => false,
   isDescendant = () => false,
+  // Soltar num CONTÊINER, e não em cima de um item. Sem isto não havia
+  // como mover uma página para uma seção vazia: não existia vizinho para
+  // servir de alvo, e a seção recusava o arrasto sem dizer por quê.
+  containerSelector = null,
+  onDropContainer,
   onDrop,
 }) {
   let draggingId = null;
@@ -56,12 +61,13 @@ export function initDnd(root, {
     root.querySelectorAll(".is-dragging").forEach((el) => el.classList.remove("is-dragging"));
     draggingId = null;
     clearIndicator();
+    limparContainer();
   });
 
   root.addEventListener("dragover", (event) => {
     if (!draggingId) return;
     const item = event.target.closest?.(itemSelector);
-    if (!item) return;
+    if (!item) return marcarContainer(event);
 
     const targetId = idOf(item);
     if (!targetId || targetId === draggingId || isDescendant(targetId, draggingId)) {
@@ -76,6 +82,7 @@ export function initDnd(root, {
     const place = placementFor(event, rect, targetId);
     item.dataset.dropPlace = place;
 
+    limparContainer();
     lastTarget?.classList.remove("is-drop-inside");
     lastTarget = item;
 
@@ -105,7 +112,7 @@ export function initDnd(root, {
   root.addEventListener("drop", (event) => {
     if (!draggingId) return;
     const item = event.target.closest?.(itemSelector);
-    if (!item) return;
+    if (!item) return soltarNoContainer(event);
     event.preventDefault();
 
     const targetId = idOf(item);
@@ -122,8 +129,45 @@ export function initDnd(root, {
   });
 
   root.addEventListener("dragleave", (event) => {
-    if (event.target === root) clearIndicator();
+    if (event.target === root) { clearIndicator(); limparContainer(); }
   });
 
-  return { cancel: clearIndicator };
+  /* ---- soltar na seção ---- */
+
+  let ultimoContainer = null;
+
+  function marcarContainer(event) {
+    if (!containerSelector) return;
+    const container = event.target.closest?.(containerSelector);
+    if (!container) { limparContainer(); return; }
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    clearIndicator();
+    if (ultimoContainer !== container) {
+      limparContainer();
+      ultimoContainer = container;
+      container.classList.add("is-drop-target");
+    }
+  }
+
+  function limparContainer() {
+    ultimoContainer?.classList.remove("is-drop-target");
+    ultimoContainer = null;
+  }
+
+  function soltarNoContainer(event) {
+    if (!containerSelector) return;
+    const container = event.target.closest?.(containerSelector);
+    if (!container) return;
+    event.preventDefault();
+
+    const moved = draggingId;
+    draggingId = null;
+    clearIndicator();
+    limparContainer();
+    root.querySelectorAll(".is-dragging").forEach((el) => el.classList.remove("is-dragging"));
+    onDropContainer?.({ id: moved, containerEl: container });
+  }
+
+  return { cancel: () => { clearIndicator(); limparContainer(); } };
 }

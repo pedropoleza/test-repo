@@ -26,13 +26,14 @@
 
       <button
         type="button"
-        class="ws-sidebar-reveal"
-        id="ws-sidebar-reveal"
-        aria-label="Mostrar a navegação"
-        title="Mostrar a navegação"
-        hidden
+        class="ws-sidebar-handle"
+        id="ws-sidebar-handle"
+        aria-controls="ws-sidebar"
+        aria-expanded="true"
+        aria-label="Minimizar a navegação"
+        title="Minimizar a navegação"
       >
-        »
+        <span class="ws-sidebar-handle__chevron" aria-hidden="true"></span>
       </button>
 
       <aside class="ws-sidebar" id="ws-sidebar" aria-label="Navegação do workspace">
@@ -45,15 +46,6 @@
             height="28"
           />
           <span class="ws-sidebar__name">Spark</span>
-          <button
-            type="button"
-            class="ws-sidebar__collapse"
-            id="ws-sidebar-collapse"
-            aria-label="Minimizar a navegação"
-            title="Minimizar a navegação"
-          >
-            «
-          </button>
         </div>
 
         <button type="button" class="ws-sidebar__new" id="ws-new-page">

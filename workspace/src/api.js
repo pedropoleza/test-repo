@@ -125,6 +125,16 @@ export const api = {
         query: { action: "move-stage" },
         body: { opportunityId, pipelineId, stageId },
       }),
+    updateOpportunity: (opportunityId, changes) =>
+      request("POST", "/api/crm", {
+        query: { action: "update-opportunity" },
+        body: { opportunityId, changes },
+      }),
+    updateContact: (contactId, changes) =>
+      request("POST", "/api/crm", {
+        query: { action: "update-contact" },
+        body: { contactId, changes },
+      }),
     openDossier: (contactId) =>
       request("POST", "/api/crm", { query: { action: "dossier" }, body: { contactId } }),
   },

@@ -13,8 +13,8 @@ export function closeMenu() {
   activeMenu.el.remove();
   document.removeEventListener("mousedown", activeMenu.onOutside, true);
   document.removeEventListener("keydown", activeMenu.onKey, true);
-  window.removeEventListener("resize", activeMenu.close, true);
-  window.removeEventListener("scroll", activeMenu.close, true);
+  window.removeEventListener("resize", activeMenu.onResize, true);
+  window.removeEventListener("scroll", activeMenu.onScroll, true);
   const returnTo = activeMenu.returnFocusTo;
   activeMenu = null;
   if (returnTo && document.contains(returnTo)) returnTo.focus({ preventScroll: true });
@@ -82,10 +82,32 @@ export function openMenu({ anchor, items, onSelect, placement = "bottom-start", 
   document.body.appendChild(el);
   position(el, anchor, placement);
 
-  const close = () => closeMenu();
   const onOutside = (event) => {
     if (!el.contains(event.target)) closeMenu();
   };
+
+  /**
+   * Rolar a página não fecha o menu: ele acompanha a âncora.
+   *
+   * Fechar era o comportamento antigo e atrapalhava justamente onde o
+   * menu é mais longo — a lista de estágios e os filtros de coluna, em
+   * que a pessoa rola para achar a opção e perdia o menu no caminho. O
+   * motivo original de fechar era o menu ficar "solto" longe da célula;
+   * reposicionar resolve isso sem tirar nada da pessoa.
+   *
+   * Só fecha quando a âncora sai de vista: aí não há mais a que se
+   * ancorar, e um menu flutuando sozinho não diz de onde veio.
+   */
+  const onScroll = (event) => {
+    if (event.target === el || el.contains(event.target)) return;   // rolagem do próprio menu
+    if (!document.contains(anchor)) { closeMenu(); return; }
+    const rect = anchor.getBoundingClientRect();
+    const foraDeVista = rect.bottom < 0 || rect.top > window.innerHeight
+      || rect.right < 0 || rect.left > window.innerWidth;
+    if (foraDeVista) closeMenu();
+    else position(el, anchor, placement);
+  };
+
   const onKey = (event) => {
     if (event.key === "Escape") {
       event.stopPropagation();
@@ -104,11 +126,16 @@ export function openMenu({ anchor, items, onSelect, placement = "bottom-start", 
     options[next].focus();
   };
 
-  activeMenu = { el, onOutside, onKey, close, returnFocusTo: document.activeElement };
+  const onResize = () => {
+    if (document.contains(anchor)) position(el, anchor, placement);
+    else closeMenu();
+  };
+
+  activeMenu = { el, onOutside, onKey, onScroll, onResize, returnFocusTo: document.activeElement };
   document.addEventListener("mousedown", onOutside, true);
   document.addEventListener("keydown", onKey, true);
-  window.addEventListener("resize", close, true);
-  window.addEventListener("scroll", close, true);
+  window.addEventListener("resize", onResize, true);
+  window.addEventListener("scroll", onScroll, true);
 
   el.querySelector(".ws-menu__item:not([disabled])")?.focus({ preventScroll: true });
   return el;

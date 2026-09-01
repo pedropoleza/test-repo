@@ -203,6 +203,9 @@ function renderBody(block, spec, ordinal) {
     case "database":
       return renderDatabaseMount(block);
 
+    case "crm_contact":
+      return renderCrmMount(block);
+
     case "unsupported":
       return renderUnsupported(block);
 
@@ -351,6 +354,17 @@ function renderDatabaseMount(block) {
   mount.dataset.viewId = block.content?.viewId || "";
   if (!block.content?.databaseId) {
     mount.textContent = "Tabela não encontrada.";
+    mount.classList.add("is-broken");
+  }
+  return mount;
+}
+
+function renderCrmMount(block) {
+  const mount = document.createElement("div");
+  mount.className = "ws-crm-mount";
+  mount.dataset.contactId = block.content?.contactId || "";
+  if (!block.content?.contactId) {
+    mount.textContent = "Painel do CRM sem contato associado.";
     mount.classList.add("is-broken");
   }
   return mount;

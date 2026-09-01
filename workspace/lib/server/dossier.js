@@ -7,9 +7,16 @@
  * migration 0001. Abrir a ficha do mesmo contato duas vezes devolve a
  * MESMA página — nunca duplica.
  *
- * A ficha nasce com um retrato dos dados do CRM em blocos. Depois disso
- * ela é conteúdo local: continua legível e editável mesmo com o GHL fora
- * do ar, que é a doutrina do produto (D3 e §3).
+ * A ficha mistura duas naturezas de propósito:
+ *
+ * - Um bloco `crm_contact` ao vivo, que lê os dados e as oportunidades do
+ *   CRM a cada abertura e grava de volta. É o que se trabalha.
+ * - Blocos normais com o histórico do momento da criação (notas, tarefas)
+ *   e espaço livre para escrever. É conteúdo local: continua legível e
+ *   editável mesmo com o CRM fora do ar (D3 e §3).
+ *
+ * O primeiro nasceu depois: a ficha só com o retrato servia para ler, e
+ * obrigava a voltar para a tabela só para mudar um estágio.
  */
 import { db } from "./db.js";
 import { keysBetween, keyBetween } from "../../src/shared/fracdex.js";
@@ -73,9 +80,16 @@ export async function openContactDossier(ctx, contactId) {
       await db().from("workspace_pages")
         .update({ is_archived: false, archived_at: null })
         .eq("workspace_id", ctx.workspaceId).eq("id", existing.id);
-      return { page: { ...existing, is_archived: false }, created: false, restored: true };
     }
-    return { page: existing, created: false };
+    // Fichas criadas antes do painel ao vivo continuam abrindo; ganham o
+    // painel aqui, sem perder nada do que já foi escrito nelas.
+    const added = await ensurePanel(ctx, existing, contactId);
+    return {
+      page: { ...existing, is_archived: false },
+      created: false,
+      ...(existing.is_archived ? { restored: true } : {}),
+      ...(added ? { panelAdded: true } : {}),
+    };
   }
 
   const snapshot = await fetchSnapshot(contactId);
@@ -167,7 +181,7 @@ const text = (s) => ({ rich: [{ s: String(s) }] });
  * tarefas e um espaço livre para escrever. É o "já vem separado".
  */
 function buildBlocks(snapshot) {
-  const { record, notes, tasks, opportunities } = snapshot;
+  const { record, notes, tasks } = snapshot;
   const p = record.properties || {};
   const blocks = [];
 
@@ -181,54 +195,10 @@ function buildBlocks(snapshot) {
     },
   });
 
-  blocks.push({ type: "heading2", content: text("Dados do contato") });
-  const dados = [
-    ["E-mail", p.email], ["Telefone", p.phone], ["Empresa", p.company],
-    ["Origem", p.source],
-    ["Local", [p.city, p.state, p.country].filter(Boolean).join(", ")],
-    ["Tags", (p.tags || []).join(", ")],
-    ["Criado em", p.created_at],
-  ].filter(([, v]) => v);
-  if (dados.length) {
-    for (const [k, v] of dados) {
-      blocks.push({ type: "bulleted_list", content: { rich: [{ s: `${k}: `, m: ["b"] }, { s: String(v) }] } });
-    }
-  } else {
-    blocks.push({ type: "paragraph", content: text("Sem dados preenchidos no CRM.") });
-  }
-
-  const custom = Object.entries(p)
-    .filter(([k, v]) => k.startsWith("cf_") && v !== "" && v !== null &&
-      !(Array.isArray(v) && !v.length))
-    .slice(0, 25);
-  if (custom.length) {
-    blocks.push({ type: "heading3", content: text("Campos personalizados") });
-    const byKey = Object.fromEntries(
-      (snapshot.customFields || []).map((f) => [`cf_${f.id}`, f.name]));
-    for (const [k, v] of custom) {
-      blocks.push({
-        type: "bulleted_list",
-        content: { rich: [
-          { s: `${byKey[k] || k}: `, m: ["b"] },
-          { s: Array.isArray(v) ? v.join(", ") : String(v) },
-        ] },
-      });
-    }
-  }
-
-  blocks.push({ type: "heading2", content: text("Oportunidades") });
-  if (opportunities.length) {
-    for (const o of opportunities) {
-      const partes = [o.properties.pipeline, o.properties.stage, o.properties.status]
-        .filter(Boolean).join(" · ");
-      blocks.push({
-        type: "bulleted_list",
-        content: { rich: [{ s: `${o.title} `, m: ["b"] }, { s: partes ? `— ${partes}` : "" }] },
-      });
-    }
-  } else {
-    blocks.push({ type: "paragraph", content: text("Nenhuma oportunidade neste contato.") });
-  }
+  // Dados do contato, campos personalizados e oportunidades vêm do painel
+  // ao vivo — um retrato deles aqui envelheceria em minutos e ainda daria
+  // a impressão de ser editável.
+  blocks.push({ type: "crm_contact", content: { contactId: record.externalId } });
 
   blocks.push({ type: "heading2", content: text("Notas do CRM") });
   if (notes.length) {
@@ -257,6 +227,38 @@ function buildBlocks(snapshot) {
   return blocks;
 }
 
+/**
+ * Acrescenta o painel ao vivo no topo de uma ficha que não tem.
+ * Devolve true se inseriu.
+ */
+async function ensurePanel(ctx, page, contactId) {
+  const { data: blocks, error } = await db()
+    .from("workspace_blocks")
+    .select("id,type,position")
+    .eq("workspace_id", ctx.workspaceId)
+    .eq("page_id", page.id);
+  if (error) return false;
+  if ((blocks || []).some((b) => b.type === "crm_contact")) return false;
+
+  const primeiro = (blocks || [])
+    .map((b) => b.position)
+    .sort((a, b) => (a < b ? -1 : 1))[0] || null;
+
+  const { content, plainText } = normalizeBlockContent("crm_contact", { contactId });
+  const { error: insertError } = await db().from("workspace_blocks").insert({
+    workspace_id: ctx.workspaceId,
+    page_id: page.id,
+    type: "crm_contact",
+    content,
+    plain_text: plainText,
+    position: keyBetween(null, primeiro),
+    source: SOURCE,
+    created_by: ctx.userKey,
+    updated_by: ctx.userKey,
+  });
+  return !insertError;
+}
+
 /** Insere os blocos da ficha de uma vez — 30 inserts seriais seriam lentos. */
 async function insertBlocks(ctx, pageId, blocks) {
   if (!blocks.length) return;
@@ -270,6 +272,10 @@ async function insertBlocks(ctx, pageId, blocks) {
       content,
       plain_text: plainText,
       position: positions[i],
+      // Marca de origem: distingue o que a ficha gerou do que a pessoa
+      // escreveu depois. É o que permite uma migração futura mexer só no
+      // conteúdo gerado.
+      source: SOURCE,
       created_by: ctx.userKey,
       updated_by: ctx.userKey,
     };

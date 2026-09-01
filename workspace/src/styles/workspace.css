@@ -75,39 +75,58 @@
   overflow: hidden;
   font-size: 0;
 }
-.ws-sidebar__collapse {
-  margin-left: auto;
-  border: 0;
-  background: none;
-  color: var(--gray-400);
-  font-size: var(--fs-md);
-  line-height: 1;
-  padding: 3px 6px;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-}
-.ws-sidebar__collapse:hover { background: var(--gray-200); color: var(--gray-800); }
-
-/* Sidebar minimizada: some do grid e sobra uma seta para trazê-la de volta. */
+/* Sidebar minimizada: some do grid e o conteúdo ocupa a largura toda. */
 body.ws-sidebar-collapsed .ws-shell { grid-template-columns: minmax(0, 1fr); }
 body.ws-sidebar-collapsed .ws-sidebar { display: none; }
 
-.ws-sidebar-reveal {
+/*
+ * Puxador da barra lateral: fica na própria borda, na altura do meio.
+ *
+ * É onde a mão vai quando se quer empurrar a barra para o lado, e é o
+ * mesmo botão nos dois sentidos — antes havia um « no topo da barra para
+ * fechar e um » solto no canto para abrir, e depois de usar um era
+ * preciso procurar o outro.
+ */
+.ws-sidebar-handle {
   position: fixed;
-  top: 8px;
-  left: 8px;
-  z-index: 20;
+  top: 50%;
+  left: var(--sidebar-w);
+  transform: translate(-50%, -50%);
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 56px;
+  padding: 0;
   border: 1px solid var(--gray-200);
+  border-radius: 999px;
   background: var(--white);
-  color: var(--gray-600);
-  font-size: var(--fs-md);
-  line-height: 1;
-  padding: 5px 9px;
-  border-radius: var(--r-sm);
   cursor: pointer;
   box-shadow: var(--shadow-xs);
+  transition: background 120ms ease, border-color 120ms ease, height 120ms ease;
 }
-.ws-sidebar-reveal:hover { border-color: var(--ghl-300); color: var(--ghl-700); }
+.ws-sidebar-handle:hover { background: var(--ghl-50); border-color: var(--ghl-300); height: 72px; }
+
+/* A seta é desenhada, e não um caractere: « e » têm alturas diferentes
+   entre fontes e o puxador ficava desalinhado por um pixel. */
+.ws-sidebar-handle__chevron {
+  width: 6px;
+  height: 6px;
+  border-left: 1.5px solid var(--gray-400);
+  border-bottom: 1.5px solid var(--gray-400);
+  transform: rotate(45deg) translate(1px, -1px);
+  transition: transform 160ms ease, border-color 120ms ease;
+}
+.ws-sidebar-handle:hover .ws-sidebar-handle__chevron { border-color: var(--ghl-700); }
+
+/* Fechada, o puxador encosta na margem e a seta aponta para fora. */
+body.ws-sidebar-collapsed .ws-sidebar-handle {
+  left: 0;
+  transform: translate(6px, -50%);
+}
+body.ws-sidebar-collapsed .ws-sidebar-handle__chevron {
+  transform: rotate(-135deg) translate(1px, -1px);
+}
 
 .ws-sidebar__name {
   font-weight: 700;
@@ -1217,6 +1236,10 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 @media (max-width: 900px) {
   .ws-shell { grid-template-columns: minmax(0, 1fr); }
 
+  /* No celular a barra já é um drawer com botão próprio: o puxador de
+     borda não teria borda em que ficar. */
+  .ws-sidebar-handle { display: none; }
+
   /* Sidebar vira drawer, não uma coluna espremida. */
   .ws-sidebar {
     position: fixed;
@@ -1408,7 +1431,7 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   font-weight: 700;
 }
 
-/* Célula que abre a pasta: precisa parecer clicável. */
+/* Célula editável: o ▾ é o que avisa que ali se clica para alterar. */
 .ws-db__td--action { cursor: pointer; }
 .ws-db__td--action:hover { background: var(--ghl-50); }
 .ws-db__td--action:hover .ws-chip { box-shadow: 0 0 0 2px var(--ghl-200); }
@@ -1759,3 +1782,108 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   .ws-crm__props { grid-template-columns: 1fr; gap: 2px; }
   .ws-crm__prop-key { margin-top: 8px; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Painel do CRM dentro da pasta do contato                           */
+/* ------------------------------------------------------------------ */
+
+.ws-crm-panel {
+  margin: 18px 0 26px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  background: var(--gray-50);
+}
+.ws-crm-panel__section { padding: 14px 18px; }
+.ws-crm-panel__section + .ws-crm-panel__section { border-top: 1px solid var(--gray-200); }
+
+.ws-crm-panel__title {
+  margin: 0 0 10px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+.ws-crm-panel__props {
+  display: grid;
+  grid-template-columns: minmax(120px, 190px) 1fr;
+  gap: 2px 14px;
+  align-items: start;
+}
+.ws-crm-panel__prop { display: contents; }
+.ws-crm-panel__key {
+  padding: 5px 0;
+  color: var(--gray-500);
+  font-size: var(--fs-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ws-crm-panel__value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 6px;
+  border-radius: 5px;
+  font-size: var(--fs-sm);
+}
+.ws-crm-panel__value.is-editable { cursor: pointer; }
+.ws-crm-panel__value.is-editable::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--gray-300);
+  font-size: 10px;
+  flex: none;
+}
+.ws-crm-panel__value.is-editable:hover { background: var(--ghl-50); }
+.ws-crm-panel__value.is-editable:hover::after { color: var(--ghl-600); }
+.ws-crm-panel__value.is-editable:focus-visible {
+  outline: 2px solid var(--ghl-600);
+  outline-offset: -2px;
+}
+/* Valor vazio precisa de área clicável: sem isto não há onde clicar. */
+.ws-crm-panel__value .ws-cell__value.is-empty::before {
+  content: "Vazio";
+  color: var(--gray-300);
+}
+
+.ws-crm-panel__opp {
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--white);
+}
+.ws-crm-panel__opp + .ws-crm-panel__opp { margin-top: 8px; }
+.ws-crm-panel__opp-title {
+  margin: 0 0 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--gray-800);
+}
+
+.ws-crm-panel__note {
+  margin: 0;
+  color: var(--gray-500);
+  font-size: var(--fs-sm);
+}
+.ws-crm-panel__note.is-error { color: var(--danger); }
+
+.ws-crm-mount.is-broken {
+  padding: 12px;
+  border: 1px dashed var(--gray-300);
+  border-radius: 8px;
+  color: var(--gray-500);
+  font-size: var(--fs-sm);
+}
+
+/* Card da oportunidade vestindo a cor do estágio (mesma escala da
+   coluna Estágio, para a leitura ser a mesma nas duas telas). */
+.ws-crm-panel__opp { border-left-width: 3px; }
+.ws-crm-panel__opp[data-color="gray"]   { border-left-color: var(--gray-400); }
+.ws-crm-panel__opp[data-color="blue"]   { border-left-color: var(--ghl-400); }
+.ws-crm-panel__opp[data-color="purple"] { border-left-color: #8b5cf6; }
+.ws-crm-panel__opp[data-color="yellow"] { border-left-color: #f59e0b; }
+.ws-crm-panel__opp[data-color="orange"] { border-left-color: #f97316; }
+.ws-crm-panel__opp[data-color="green"]  { border-left-color: #10b981; }
+.ws-crm-panel__opp[data-color="red"]    { border-left-color: #ef4444; }

@@ -1,13 +1,19 @@
 /**
- * /api/crm — leitura dos dados da sub-account no GoHighLevel.
+ * /api/crm — leitura e escrita dos dados da conta no CRM.
  *
  *   GET ?action=status         → diagnóstico de configuração e escopos
  *   GET ?action=contacts       → contatos normalizados + colunas
  *   GET ?action=opportunities  → oportunidades + pipelines
  *   GET ?action=contact&id=    → contato + notas + tarefas
  *
- * Somente leitura nesta fase. Escrita de volta no GHL exige política de
- * conflito, e isso é assunto de outra etapa.
+ *   POST action=move-stage        → move a oportunidade de estágio
+ *   POST action=update-opportunity → grava campos da oportunidade
+ *   POST action=update-contact     → grava campos do contato
+ *
+ * A escrita é campo a campo e sempre parcial: mandamos só o que mudou.
+ * Não há resolução de conflito — quem grava por último vence, igual ao
+ * próprio CRM. O que evitamos é o pior caso, que é um PUT com o objeto
+ * inteiro apagando alterações feitas por outra pessoa no intervalo.
  */
 import {
   resolveContext, requireRole, sendError, WorkspaceError,
@@ -15,12 +21,15 @@ import {
 import { openContactDossier, listDossiers } from "../lib/server/dossier.js";
 import {
   isConfigured, ghlLocationId, checkScopes, getLocation,
-  listContacts, listCustomFields, listTags, listOpportunities, listPipelines,
-  listContactNotes, listContactTasks, listContactOpportunities, moveOpportunity, GhlError,
+  listContacts, listCustomFields, listTags, listOpportunities, listPipelines, listUsers,
+  getContact,
+  listContactNotes, listContactTasks, listContactOpportunities,
+  moveOpportunity, updateOpportunity, updateContact, GhlError,
 } from "../lib/server/ghl.js";
 import {
-  STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS,
-  customFieldsToColumns, tagsToOptions, contactToRecord, opportunityToRecord,
+  STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS, OPPORTUNITY_STATUS,
+  customFieldsToColumns, tagsToOptions, usersToOptions, stageOptions,
+  contactToRecord, opportunityToRecord, opportunityPatch, contactPatch,
 } from "../src/shared/crm.js";
 import { log } from "../lib/server/log.js";
 
@@ -53,9 +62,10 @@ export default async function handler(req, res) {
     if (action === "contact-opportunities") {
       const id = req.query?.id || body.contactId;
       if (!id) throw new WorkspaceError(400, "missing_id");
-      const [rows, pipelines] = await Promise.all([
+      const [rows, pipelines, users] = await Promise.all([
         listContactOpportunities(id),
         listPipelines().catch(() => []),
+        listUsers().catch(() => []),
       ]);
       return res.status(200).json({
         contactId: id,
@@ -63,6 +73,7 @@ export default async function handler(req, res) {
           id: p.id, name: p.name,
           stages: (p.stages || []).map((s) => ({ id: s.id, name: s.name })),
         })),
+        users: users.map((u) => ({ id: u.id, name: u.name })),
         opportunities: rows.map((o) => ({
           ...opportunityToRecord(o, pipelines),
           pipelineId: o.pipelineId,
@@ -79,6 +90,34 @@ export default async function handler(req, res) {
         workspaceId: ctx.workspaceId, opportunityId, stageId,
       });
       return res.status(200).json({ opportunity: moved });
+    }
+
+    if (action === "update-opportunity") {
+      requireRole(ctx, "editor");
+      const { opportunityId, changes } = body;
+      if (!opportunityId) throw new WorkspaceError(400, "missing_id");
+      const patch = opportunityPatch(changes || {});
+      if (!Object.keys(patch).length) throw new WorkspaceError(400, "nothing_to_update");
+      const updated = await updateOpportunity(opportunityId, patch);
+      log.info("crm.opportunity.updated", {
+        workspaceId: ctx.workspaceId, opportunityId, fields: Object.keys(patch),
+      });
+      return res.status(200).json({ opportunity: updated });
+    }
+
+    if (action === "update-contact") {
+      requireRole(ctx, "editor");
+      const { contactId, changes } = body;
+      if (!contactId) throw new WorkspaceError(400, "missing_id");
+      const patch = contactPatch(changes || {});
+      if (!Object.keys(patch).length) throw new WorkspaceError(400, "nothing_to_update");
+      const updated = await updateContact(contactId, patch);
+      log.info("crm.contact.updated", {
+        // Os nomes dos campos entram no log; os valores não — um deles
+        // pode ser telefone ou e-mail do lead.
+        workspaceId: ctx.workspaceId, contactId, fields: Object.keys(patch),
+      });
+      return res.status(200).json({ contact: updated });
     }
 
     if (action === "dossier") {
@@ -167,22 +206,22 @@ async function contacts(req) {
 
 async function opportunities(req) {
   const limit = Math.min(Number(req.query?.limit) || 200, 500);
-  const [rows, pipelines] = await Promise.all([
+  const [rows, pipelines, users] = await Promise.all([
     listOpportunities({ limit }),
     listPipelines().catch(() => []),
+    listUsers().catch(() => []),
   ]);
 
-  const stageOptions = pipelines.flatMap((p) =>
-    (p.stages || []).map((s) => ({ id: s.name, name: s.name, color: "blue" })));
+  const estagios = stageOptions(pipelines);
 
   const columns = OPPORTUNITY_FIELDS.map((c) => {
-    if (c.key === "stage") return { ...c, options: stageOptions };
+    if (c.key === "stage") return { ...c, options: estagios };
     if (c.key === "pipeline") {
       return { ...c, options: pipelines.map((p) => ({ id: p.name, name: p.name, color: "gray" })) };
     }
-    if (c.key === "status") {
-      return { ...c, options: ["open", "won", "lost", "abandoned"]
-        .map((s) => ({ id: s, name: s, color: s === "won" ? "green" : s === "lost" ? "red" : "gray" })) };
+    if (c.key === "status") return { ...c, options: OPPORTUNITY_STATUS };
+    if (c.key === "assigned") {
+      return { ...c, options: usersToOptions(users, rows.map((o) => o.assignedTo)) };
     }
     return c;
   });
@@ -197,6 +236,7 @@ async function opportunities(req) {
       name: p.name,
       stages: (p.stages || []).map((s) => ({ id: s.id, name: s.name })),
     })),
+    users: users.map((u) => ({ id: u.id, name: u.name })),
     records: rows.map((o) => ({
       ...opportunityToRecord(o, pipelines),
       pipelineId: o.pipelineId,
@@ -215,12 +255,63 @@ function parseBody(req) {
   return req.body;
 }
 
+/**
+ * Tudo o que a pasta do contato precisa numa chamada só: o registro
+ * normalizado com as colunas (para poder editar), as oportunidades dele
+ * e o histórico do CRM.
+ *
+ * Uma chamada e não cinco porque a pasta abre com a página, e cinco
+ * idas ao CRM em série apareceriam como meio segundo de tela vazia.
+ */
 async function contactDetail(req) {
   const id = req.query?.id;
   if (!id) throw new WorkspaceError(400, "missing_id");
-  const [notes, tasks] = await Promise.all([
+
+  const [contact, customFields, tags, notes, tasks, pipelines, users] = await Promise.all([
+    getContact(id),
+    listCustomFields().catch(() => []),
+    listTags().catch(() => []),
     listContactNotes(id).catch(() => []),
     listContactTasks(id).catch(() => []),
+    listPipelines().catch(() => []),
+    listUsers().catch(() => []),
   ]);
-  return { contactId: id, notes, tasks };
+  if (!contact) throw new WorkspaceError(404, "contact_not_found");
+
+  const opps = await listContactOpportunities(id).catch(() => []);
+
+  const columns = [
+    ...STANDARD_CONTACT_FIELDS,
+    ...customFieldsToColumns(customFields),
+  ].map((c) => (c.key === "tags" ? { ...c, options: tagsToOptions(tags) } : c));
+
+  const oppColumns = OPPORTUNITY_FIELDS.map((c) => {
+    if (c.key === "status") return { ...c, options: OPPORTUNITY_STATUS };
+    if (c.key === "assigned") {
+      return { ...c, options: usersToOptions(users, opps.map((o) => o.assignedTo)) };
+    }
+    if (c.key === "stage") return { ...c, options: stageOptions(pipelines) };
+    if (c.key === "pipeline") {
+      return { ...c, options: pipelines.map((p) => ({ id: p.name, name: p.name, color: "gray" })) };
+    }
+    return c;
+  });
+
+  return {
+    contactId: id,
+    columns,
+    record: contactToRecord(contact, customFields),
+    notes,
+    tasks,
+    opportunityColumns: oppColumns,
+    opportunities: opps.map((o) => ({
+      ...opportunityToRecord(o, pipelines),
+      pipelineId: o.pipelineId,
+      stageId: o.pipelineStageId,
+    })),
+    pipelines: pipelines.map((p) => ({
+      id: p.id, name: p.name,
+      stages: (p.stages || []).map((st) => ({ id: st.id, name: st.name })),
+    })),
+  };
 }

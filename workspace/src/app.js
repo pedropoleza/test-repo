@@ -25,8 +25,7 @@ const els = {
   shell: document.getElementById("ws-shell"),
   sidebar: document.getElementById("ws-sidebar-tree"),
   sidebarToggle: document.getElementById("ws-sidebar-toggle"),
-  sidebarCollapse: document.getElementById("ws-sidebar-collapse"),
-  sidebarReveal: document.getElementById("ws-sidebar-reveal"),
+  sidebarHandle: document.getElementById("ws-sidebar-handle"),
   back: document.getElementById("ws-back"),
   sidebarPanel: document.getElementById("ws-sidebar"),
   backdrop: document.getElementById("ws-sidebar-backdrop"),
@@ -366,7 +365,7 @@ function openCrm(kind) {
   h.textContent = kind === "contacts" ? "Leads" : "Oportunidades";
   const sub = document.createElement("p");
   sub.className = "ws-muted";
-  sub.textContent = "Dados ao vivo da sua conta Spark. Leitura apenas nesta fase.";
+  sub.textContent = "Dados ao vivo da sua conta Spark. Clique num campo para alterar.";
   head.append(h, sub);
   els.header.appendChild(head);
 
@@ -853,15 +852,21 @@ function wireShell() {
     }
   });
 
+  // Um puxador só, na borda da barra: é onde a mão vai quando se quer
+  // empurrar a barra para o lado. Dois botões em cantos diferentes para
+  // fechar e abrir obrigavam a procurar o outro depois de usar um.
   const SIDEBAR_KEY = "workspace:sidebarCollapsed";
   const setSidebar = (collapsed) => {
     document.body.classList.toggle("ws-sidebar-collapsed", collapsed);
-    els.sidebarReveal.hidden = !collapsed;
+    const rotulo = collapsed ? "Mostrar a navegação" : "Minimizar a navegação";
+    els.sidebarHandle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    els.sidebarHandle.setAttribute("aria-label", rotulo);
+    els.sidebarHandle.title = rotulo;
     try { localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0"); } catch { /* noop */ }
   };
-  try { if (localStorage.getItem(SIDEBAR_KEY) === "1") setSidebar(true); } catch { /* noop */ }
-  els.sidebarCollapse.addEventListener("click", () => setSidebar(true));
-  els.sidebarReveal.addEventListener("click", () => setSidebar(false));
+  try { setSidebar(localStorage.getItem(SIDEBAR_KEY) === "1"); } catch { setSidebar(false); }
+  els.sidebarHandle.addEventListener("click", () =>
+    setSidebar(!document.body.classList.contains("ws-sidebar-collapsed")));
 
   els.sidebarToggle.addEventListener("click", () => {
     els.sidebarPanel.classList.toggle("is-open");

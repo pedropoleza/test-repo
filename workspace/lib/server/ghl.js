@@ -153,6 +153,36 @@ export async function listTags(locationId = ghlLocationId()) {
   return data?.tags || [];
 }
 
+/**
+ * Usuários da conta — é o que traduz `assignedTo` (um id opaco) para o
+ * nome de quem responde pela oportunidade.
+ *
+ * Cache curto na instância: a lista muda raramente e é pedida em toda
+ * abertura da tabela de oportunidades. Como a função serverless é
+ * efêmera, o cache é um alívio, não uma fonte de verdade — por isso o TTL
+ * é de minutos e não há invalidação explícita.
+ */
+let usersCache = { at: 0, locationId: null, users: null };
+const USERS_TTL_MS = 5 * 60 * 1000;
+
+export async function listUsers(locationId = ghlLocationId()) {
+  const agora = Date.now();
+  if (usersCache.users && usersCache.locationId === locationId
+      && agora - usersCache.at < USERS_TTL_MS) {
+    return usersCache.users;
+  }
+  const data = await ghlFetch("/users/", { query: { locationId } });
+  const users = (data?.users || [])
+    .filter((u) => u && u.id)
+    .map((u) => ({
+      id: u.id,
+      name: u.name || [u.firstName, u.lastName].filter(Boolean).join(" ").trim() || u.email || u.id,
+      email: u.email || "",
+    }));
+  usersCache = { at: agora, locationId, users };
+  return users;
+}
+
 export async function listPipelines(locationId = ghlLocationId()) {
   const data = await ghlFetch("/opportunities/pipelines", { query: { locationId } });
   return data?.pipelines || [];
@@ -210,19 +240,60 @@ export async function listContactOpportunities(contactId, locationId = ghlLocati
 }
 
 /**
- * Move a oportunidade de estágio (e de pipeline, quando pedido).
+ * Atualiza a oportunidade.
  *
- * Única escrita que o módulo faz no CRM hoje. Mandamos só os campos que
- * mudam: um PUT com o objeto inteiro sobrescreveria o que outra pessoa
- * alterou entre a leitura e a gravação.
+ * Única escrita que o módulo faz no CRM hoje, junto com a do contato.
+ * Mandamos só os campos que mudam: um PUT com o objeto inteiro
+ * sobrescreveria o que outra pessoa alterou entre a leitura e a gravação.
+ *
+ * A allowlist é dupla de propósito. A de cima, em shared/crm.js, decide
+ * quais COLUNAS a interface oferece; esta decide quais CAMPOS do CRM
+ * podem ser tocados. Um bug de mapeamento na primeira não vira escrita
+ * indevida por causa da segunda.
  */
-export async function moveOpportunity(opportunityId, { pipelineId, stageId }) {
+const OPPORTUNITY_FIELDS_WRITABLE = new Set([
+  "name", "status", "monetaryValue", "assignedTo", "pipelineId", "pipelineStageId",
+]);
+
+export async function updateOpportunity(opportunityId, patch = {}) {
   if (!opportunityId) throw new GhlError(400, "missing_opportunity");
-  if (!stageId) throw new GhlError(400, "missing_stage");
-  const body = { pipelineStageId: stageId };
-  if (pipelineId) body.pipelineId = pipelineId;
+  const body = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (OPPORTUNITY_FIELDS_WRITABLE.has(key) && value !== undefined) body[key] = value;
+  }
+  if (!Object.keys(body).length) throw new GhlError(400, "nothing_to_update");
   const data = await ghlFetch(`/opportunities/${opportunityId}`, { method: "PUT", body });
   return data?.opportunity || null;
+}
+
+/** Mover é atualizar estágio e pipeline juntos: um sem o outro fica órfão. */
+export async function moveOpportunity(opportunityId, { pipelineId, stageId }) {
+  if (!stageId) throw new GhlError(400, "missing_stage");
+  return updateOpportunity(opportunityId, {
+    pipelineStageId: stageId,
+    ...(pipelineId ? { pipelineId } : {}),
+  });
+}
+
+const CONTACT_FIELDS_WRITABLE = new Set([
+  "firstName", "lastName", "name", "email", "phone", "tags",
+  "companyName", "city", "state", "country", "dnd", "customFields",
+]);
+
+export async function updateContact(contactId, patch = {}) {
+  if (!contactId) throw new GhlError(400, "missing_contact");
+  const body = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (CONTACT_FIELDS_WRITABLE.has(key) && value !== undefined) body[key] = value;
+  }
+  if (!Object.keys(body).length) throw new GhlError(400, "nothing_to_update");
+  const data = await ghlFetch(`/contacts/${contactId}`, { method: "PUT", body });
+  return data?.contact || null;
+}
+
+export async function getContact(contactId) {
+  const data = await ghlFetch(`/contacts/${contactId}`);
+  return data?.contact || null;
 }
 
 export async function listContactNotes(contactId) {

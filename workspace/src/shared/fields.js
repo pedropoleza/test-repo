@@ -63,7 +63,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/;
  * formato brasileiro, e tratar o ponto como decimal cegamente transforma
  * mil duzentos e trinta e quatro em NaN.
  */
-function parseNumberPtBr(input) {
+export function parseNumberPtBr(input) {
   const s = input.trim().replace(/[\s\u00a0]/g, "");
   if (!s) return NaN;
   const hasDot = s.includes(".");

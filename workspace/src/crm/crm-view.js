@@ -1,7 +1,7 @@
 /**
  * Visão de CRM: leads e oportunidades da sub-account no GHL.
  *
- * Somente leitura. Os dados vivem no GHL; o que é NOSSO é a organização —
+ * Os dados vivem no CRM; o que é NOSSO é a organização —
  * quais colunas mostrar, como filtrar, ordenar e agrupar. Isso fica em
  * localStorage por enquanto; quando virar configuração compartilhada, o
  * lugar é uma view de database (a estrutura já existe).
@@ -12,11 +12,12 @@
 import { api } from "../api.js";
 import { openMenu, openModal } from "../ui/menu.js";
 import { toast } from "../ui/toast.js";
-import { renderCellValue } from "../database/cells.js";
+import { renderCellValue, editCell } from "../database/cells.js";
 import {
   applySorts, groupRecords, fieldSpec, matchesFilter, operatorsFor, OPERATOR_LABEL,
 } from "../shared/fields.js";
 import { loadWidths, applyTemplate, attachResizer } from "../database/columns.js";
+import { isWritable, isMoveField, openStageMenu, commitField, commitMove } from "./editing.js";
 
 const PREFS_KEY = "workspace:crmPrefs";
 
@@ -44,6 +45,7 @@ function toField(col) {
     is_primary: !!col.primary,
     config: col.options ? { options: col.options } : {},
     source: col.source || "ghl_standard",
+    readOnly: !!col.readOnly,
   };
 }
 
@@ -635,17 +637,26 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
             : "Abrir a pasta do contato desta oportunidade";
         }
 
-        // Estágio e pipeline viram ação: clicar move a oportunidade.
-        if (kind === "opportunities" && ["stage", "pipeline"].includes(col.key) && record.externalId) {
+        // Campo gravável vira ação: clicar edita no lugar, sem sair da
+        // lista. A coluna primária já tem o clique de abrir a pasta, e
+        // roubá-lo para editar quebraria o gesto principal — o nome se
+        // edita pela pasta.
+        if (record.externalId && !col.is_primary && isWritable(kind, col)) {
+          td.classList.remove("ws-db__td--readonly");
           td.classList.add("ws-db__td--action");
           td.setAttribute("role", "button");
           td.tabIndex = 0;
-          const abrir = () => openStageMenu(td, record);
-          td.addEventListener("click", abrir);
-          td.addEventListener("keydown", (e) => {
-            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); }
+          const mover = isMoveField(kind, col.key);
+          const editar = () => (mover ? abrirEstagios(td, record) : editarCelula(td, col, record));
+          td.addEventListener("click", (e) => {
+            if (e.target !== td && e.target.closest("input, a, .ws-menu")) return;
+            editar();
           });
-          td.title = "Mover para outro estágio";
+          td.addEventListener("keydown", (e) => {
+            if (e.target !== td) return;
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); editar(); }
+          });
+          td.title = mover ? "Mover para outro estágio" : `Alterar ${col.name.toLowerCase()}`;
         }
 
         td.appendChild(renderCellValue(col, value));
@@ -738,63 +749,21 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
     }
   }
 
-  /**
-   * Dropdown de estágios com a hierarquia visível: cada pipeline vira uma
-   * seção do menu e os estágios dela aparecem embaixo. Assim dá para
-   * mover dentro da pipeline ou para outra sem trocar de tela.
-   */
-  function openStageMenu(anchor, record) {
-    if (!pipelines.length) {
-      toast("Não foi possível carregar os estágios.", { tone: "warn" });
-      return;
-    }
-    const items = [];
-    for (const pipe of pipelines) {
-      for (const stage of pipe.stages || []) {
-        items.push({
-          id: `${pipe.id}:${stage.id}`,
-          label: stage.name,
-          icon: stage.id === record.stageId ? "✓" : " ",
-          section: pipe.name,
-          disabled: stage.id === record.stageId,
-        });
-      }
-    }
-    openMenu({
-      anchor,
-      width: 300,
-      items,
-      onSelect: (id) => {
-        const [pipelineId, stageId] = id.split(":");
-        moverEstagio(record, pipelineId, stageId);
-      },
-    });
+  function abrirEstagios(anchor, record) {
+    openStageMenu(anchor, record, pipelines, (pipelineId, stageId) =>
+      commitMove({ record, pipelines, pipelineId, stageId, repaint: render }));
   }
 
-  async function moverEstagio(record, pipelineId, stageId) {
-    const anterior = { pipelineId: record.pipelineId, stageId: record.stageId,
-                        props: { ...record.properties } };
-    const pipe = pipelines.find((p) => p.id === pipelineId);
-    const stage = (pipe?.stages || []).find((s) => s.id === stageId);
-
-    // Otimista: a linha muda na hora e volta atrás se o CRM recusar.
-    record.pipelineId = pipelineId;
-    record.stageId = stageId;
-    record.properties = { ...record.properties, pipeline: pipe?.name || "", stage: stage?.name || "" };
-    render();
-
-    try {
-      await api.crm.moveStage(record.externalId, pipelineId, stageId);
-      toast(`Movido para "${stage?.name}".`, { tone: "success" });
-    } catch (err) {
-      record.pipelineId = anterior.pipelineId;
-      record.stageId = anterior.stageId;
-      record.properties = anterior.props;
-      render();
-      toast(err.code === "missing_scope"
-        ? "O token não tem permissão para mover oportunidades."
-        : "Não foi possível mover. Nada foi alterado.", { tone: "danger" });
-    }
+  /**
+   * Edição inline reaproveitando a célula das tabelas nativas: select
+   * abre menu, texto e número viram input no lugar. O `done` repinta a
+   * grade — sem isso a célula ficaria com o input órfão depois de gravar.
+   */
+  function editarCelula(td, col, record) {
+    editCell(td, col, record, {
+      commit: (value) => commitField({ kind, record, field: col, value, repaint: render }),
+      done: () => { if (td.isConnected) render(); },
+    });
   }
 
   /** Painel do lead: notas e tarefas, buscadas sob demanda. */

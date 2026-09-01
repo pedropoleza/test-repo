@@ -27,6 +27,7 @@ import { initDnd } from "./dnd.js";
 import { openModal, closeMenu } from "../ui/menu.js";
 import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
 import { createTableView } from "../database/table-view.js";
+import { createContactPanel } from "../crm/contact-panel.js";
 import { toast } from "../ui/toast.js";
 
 const AUTOSAVE_DELAY_MS = 700;
@@ -88,6 +89,7 @@ export function createEditor(root) {
     }
 
     mountDatabases();
+    mountCrmPanels();
   }
 
   function emptyHint() {
@@ -507,6 +509,19 @@ export function createEditor(root) {
   }
 
   /** Monta uma tabela em cada bloco de database presente na página. */
+  /**
+   * Painéis do CRM: mesma mecânica das tabelas montadas. `data-mounted`
+   * evita refazer o fetch a cada repintura do editor — o painel se
+   * recarrega sozinho quando precisa.
+   */
+  function mountCrmPanels() {
+    for (const mount of root.querySelectorAll(".ws-crm-mount[data-contact-id]")) {
+      if (mount.dataset.mounted === "1" || !mount.dataset.contactId) continue;
+      mount.dataset.mounted = "1";
+      createContactPanel(mount, { contactId: mount.dataset.contactId });
+    }
+  }
+
   function mountDatabases() {
     for (const mount of root.querySelectorAll(".ws-db-mount[data-database-id]")) {
       if (mount.dataset.mounted === "1" || !mount.dataset.databaseId) continue;

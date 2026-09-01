@@ -41,6 +41,11 @@ export const BLOCK_TYPES = {
   subpage:        { group: "structure", rich: false, children: false, void: true },
   database:       { group: "data",      rich: false, children: false, void: true },
   /**
+   * Painel do CRM ao vivo (content: { contactId }). É void porque o
+   * conteúdo não é da página: mora no CRM e é buscado a cada abertura.
+   */
+  crm_contact:    { group: "data",      rich: false, children: false, void: true },
+  /**
    * Fallback obrigatório (§52). Qualquer tipo desconhecido — inclusive
    * bloco do Notion ainda não suportado — vira `unsupported` guardando o
    * payload original, em vez de quebrar a página inteira.
@@ -172,6 +177,9 @@ export function normalizeBlockContent(type, rawContent) {
     case "database":
       out.databaseId = clampString(content.databaseId, 64);
       out.viewId = clampString(content.viewId, 64) || null;
+      break;
+    case "crm_contact":
+      out.contactId = clampString(content.contactId, 64);
       break;
     case "unsupported":
       out.originalType = clampString(content.originalType, 120) || "unknown";

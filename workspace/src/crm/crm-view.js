@@ -14,6 +14,7 @@ import { openMenu, openModal } from "../ui/menu.js";
 import { toast } from "../ui/toast.js";
 import { renderCellValue } from "../database/cells.js";
 import { applySorts, groupRecords, fieldSpec } from "../shared/fields.js";
+import { loadWidths, applyTemplate, attachResizer } from "../database/columns.js";
 
 const PREFS_KEY = "workspace:crmPrefs";
 
@@ -49,6 +50,7 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
   let records = [];
   let meta = {};
   let dossiers = new Map();   // contactId → pageId
+  const widths = loadWidths(`crm:${kind}`);
   let prefs = {
     visible: null,        // null = só os padrão
     sorts: [],
@@ -99,18 +101,18 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
 
     if (err.code === "ghl_not_configured") {
       h.textContent = "CRM não conectado";
-      p.textContent = "Falta o token da sub-account (GHL_LOCATION_TOKEN). "
+      p.textContent = "Falta configurar o token de acesso da conta (SPARK_CRM_TOKEN). "
         + "Seu conteúdo do workspace não é afetado.";
     } else if (err.code === "missing_scope") {
       h.textContent = "O token não tem permissão para este recurso";
       p.textContent = err.payload?.fix
         || "Habilite leitura de Contacts, Opportunities, Custom Fields e Tags na Private Integration.";
     } else if (err.code === "invalid_token") {
-      h.textContent = "Token do GHL inválido ou revogado";
-      p.textContent = "Gere um novo Private Integration Token e atualize a variável.";
+      h.textContent = "Token de acesso inválido ou revogado";
+      p.textContent = "Gere um novo token de integração e atualize a variável SPARK_CRM_TOKEN.";
     } else {
       h.textContent = "Não foi possível carregar os dados do CRM";
-      p.textContent = "O GHL não respondeu. Nada foi alterado.";
+      p.textContent = "O serviço de dados não respondeu. Nada foi alterado.";
     }
 
     const retry = document.createElement("button");
@@ -372,6 +374,7 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
     grid.className = "ws-db__grid";
     grid.style.setProperty("--ws-db-cols", cols.length);
     grid.setAttribute("role", "table");
+    applyTemplate(grid, cols, widths, { trailing: "96px" });
 
     const head = document.createElement("div");
     head.className = "ws-db__row ws-db__row--head";
@@ -385,15 +388,21 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
       const name = document.createElement("span");
       name.textContent = col.name;
       th.append(icon, name);
+      attachResizer(th, col, {
+        scope: `crm:${kind}`, gridEl: grid, fields: cols, widths, trailing: "96px",
+      });
       head.appendChild(th);
     }
+    const headActions = document.createElement("div");
+    headActions.className = "ws-db__th ws-db__th--actions";
+    head.appendChild(headActions);
     grid.appendChild(head);
 
     for (const record of rows) {
       const row = document.createElement("div");
       row.className = "ws-db__row";
       row.setAttribute("role", "row");
-      cols.forEach((col, index) => {
+      cols.forEach((col) => {
         const td = document.createElement("div");
         td.className = "ws-db__td ws-db__td--readonly";
         td.setAttribute("role", "cell");
@@ -401,39 +410,46 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
           ? { title: record.title, properties: record.properties }
           : record;
         td.appendChild(renderCellValue(col, value));
-        if (index === 0 && kind === "contacts") {
-          const temFicha = dossiers.has(record.externalId);
-          if (temFicha) {
-            // Marcador permanente: dá para ver de relance quem já tem ficha.
-            const mark = document.createElement("span");
-            mark.className = "ws-db__badge";
-            mark.textContent = "pasta";
-            mark.title = "Já existe pasta para este contato";
-            td.appendChild(mark);
-          }
-          const ficha = document.createElement("button");
-          ficha.type = "button";
-          ficha.className = `ws-db__open${temFicha ? " is-primary" : ""}`;
-          ficha.textContent = "Abrir pasta";
-          ficha.title = temFicha
-            ? "Abrir a pasta deste contato"
-            : "Abrir a pasta deste contato (criada na primeira vez)";
-          ficha.addEventListener("click", (event) => {
-            event.stopPropagation();
-            abrirFicha(record, ficha);
-          });
-          const det = document.createElement("button");
-          det.type = "button";
-          det.className = "ws-db__open";
-          det.textContent = "Detalhes";
-          det.addEventListener("click", (event) => {
-            event.stopPropagation();
-            openContact(record);
-          });
-          td.append(ficha, det);
+        if (col.is_primary && kind === "contacts" && dossiers.has(record.externalId)) {
+          const mark = document.createElement("span");
+          mark.className = "ws-db__badge";
+          mark.textContent = "pasta";
+          mark.title = "Já existe pasta para este contato";
+          td.appendChild(mark);
         }
         row.appendChild(td);
       });
+
+      // Ações em coluna própria: empilhadas na primeira célula elas
+      // disputavam espaço com o nome e a linha ficava ilegível.
+      const acoes = document.createElement("div");
+      acoes.className = "ws-db__td ws-db__td--actions";
+      if (kind === "contacts") {
+        const abrir = document.createElement("button");
+        abrir.type = "button";
+        abrir.className = "ws-db__row-action";
+        abrir.textContent = "Pasta";
+        abrir.title = "Abrir a pasta deste contato";
+        abrir.addEventListener("click", () => abrirFicha(record, abrir));
+
+        const mais = document.createElement("button");
+        mais.type = "button";
+        mais.className = "ws-db__row-menu";
+        mais.textContent = "⋯";
+        mais.setAttribute("aria-label", `Ações de ${record.title}`);
+        mais.addEventListener("click", () => {
+          openMenu({
+            anchor: mais, width: 220,
+            items: [
+              { id: "pasta", label: "Abrir pasta", icon: "📁" },
+              { id: "detalhes", label: "Ver dados, notas e tarefas", icon: "👁" },
+            ],
+            onSelect: (id) => (id === "pasta" ? abrirFicha(record, abrir) : openContact(record)),
+          });
+        });
+        acoes.append(abrir, mais);
+      }
+      row.appendChild(acoes);
       grid.appendChild(row);
     }
 
@@ -463,7 +479,7 @@ export function createCrmView(host, { kind = "contacts", onOpenPage } = {}) {
       onOpenPage?.(page.id);
     } catch (err) {
       toast(err.code === "contact_not_found"
-        ? "Este contato não existe mais no CRM."
+        ? "Este contato não existe mais na sua conta Spark."
         : "Não foi possível abrir a pasta.", { tone: "danger" });
       button.disabled = false;
       button.textContent = rotuloAnterior;

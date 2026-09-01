@@ -75,8 +75,8 @@ export default async function handler(req, res) {
 }
 
 const SCOPE_FIX =
-  "O token do GHL não tem escopo para este recurso. Na Private Integration, " +
-  "habilite leitura de Contacts, Opportunities, Custom Fields e Tags.";
+  "O token não tem permissão para este recurso. Habilite leitura de Contatos, " +
+  "Oportunidades, Campos personalizados e Tags na integração da conta.";
 
 async function status() {
   const configured = isConfigured();
@@ -84,7 +84,7 @@ async function status() {
     return {
       configured: false,
       locationId: ghlLocationId(),
-      hint: "Defina GHL_LOCATION_TOKEN (e GHL_LOCATION_ID, se diferente do tenant fixo).",
+      hint: "Defina SPARK_CRM_TOKEN (e SPARK_CRM_ACCOUNT_ID, se diferente do tenant fixo).",
     };
   }
   const scopes = await checkScopes();
@@ -125,7 +125,7 @@ async function contacts(req) {
   ].map((c) => (c.key === "tags" ? { ...c, options: tagsToOptions(tags) } : c));
 
   return {
-    source: "ghl",
+    source: "spark",
     locationId: ghlLocationId(),
     columns,
     records: rows.map((c) => contactToRecord(c, customFields)),
@@ -157,7 +157,7 @@ async function opportunities(req) {
   });
 
   return {
-    source: "ghl",
+    source: "spark",
     columns,
     pipelines: pipelines.map((p) => ({ id: p.id, name: p.name })),
     records: rows.map((o) => opportunityToRecord(o, pipelines)),

@@ -25,6 +25,9 @@ const els = {
   shell: document.getElementById("ws-shell"),
   sidebar: document.getElementById("ws-sidebar-tree"),
   sidebarToggle: document.getElementById("ws-sidebar-toggle"),
+  sidebarCollapse: document.getElementById("ws-sidebar-collapse"),
+  sidebarReveal: document.getElementById("ws-sidebar-reveal"),
+  back: document.getElementById("ws-back"),
   sidebarPanel: document.getElementById("ws-sidebar"),
   backdrop: document.getElementById("ws-sidebar-backdrop"),
   newPage: document.getElementById("ws-new-page"),
@@ -166,12 +169,16 @@ async function openPage(pageId, { push = true } = {}) {
 
     header.render(page, breadcrumbs);
     editor.render();
+    applyTypography(page);
     sidebar.render();
     updatePageChrome();
     document.title = `${page.title || "Sem título"} · Spark`;
 
     if (push) {
       const url = new URL(window.location.href);
+      // Limpa a rota de CRM: sem isto a URL ficava com ?crm= e ?p= ao
+      // mesmo tempo, e recarregar levava de volta ao CRM em vez da página.
+      url.searchParams.delete("crm");
       url.searchParams.set("p", pageId);
       window.history.pushState({ pageId }, "", url.toString());
     }
@@ -359,7 +366,7 @@ function openCrm(kind) {
   h.textContent = kind === "contacts" ? "Leads" : "Oportunidades";
   const sub = document.createElement("p");
   sub.className = "ws-muted";
-  sub.textContent = "Dados ao vivo do GoHighLevel. Leitura apenas nesta fase.";
+  sub.textContent = "Dados ao vivo da sua conta Spark. Leitura apenas nesta fase.";
   head.append(h, sub);
   els.header.appendChild(head);
 
@@ -460,7 +467,55 @@ async function sectionAction(action, sectionId, name) {
   }
 }
 
+const FONTES = [
+  ["sans", "Padrão (Inter)"],
+  ["serif", "Serifada"],
+  ["mono", "Monoespaçada"],
+  ["rounded", "Arredondada"],
+];
+const TAMANHOS = [
+  ["small", "Pequeno"],
+  ["normal", "Normal"],
+  ["large", "Grande"],
+];
+
+/** Tipografia é da página inteira, como no Notion — não bloco a bloco. */
+async function setTypography(page, patch) {
+  const atual = page.properties?.typography || {};
+  const properties = { ...(page.properties || {}), typography: { ...atual, ...patch } };
+  await patchPage({ properties });
+  applyTypography(getState().page);
+}
+
+export function applyTypography(page) {
+  const t = page?.properties?.typography || {};
+  const alvo = document.querySelector(".ws-page");
+  if (!alvo) return;
+  alvo.dataset.font = t.font || "sans";
+  alvo.dataset.textSize = t.size || "normal";
+}
+
 async function pageAction(action, page) {
+  switch (action) {
+    case "font":
+    case "size": {
+      const { openMenu } = await import("./ui/menu.js");
+      const atual = page.properties?.typography || {};
+      const opcoes = action === "font" ? FONTES : TAMANHOS;
+      const chaveAtual = action === "font" ? (atual.font || "sans") : (atual.size || "normal");
+      openMenu({
+        anchor: els.pageMenuBtn,
+        placement: "bottom-end",
+        width: 230,
+        items: opcoes.map(([id, label]) => ({
+          id, label, icon: chaveAtual === id ? "✓" : " ",
+          section: action === "font" ? "Fonte" : "Tamanho do texto",
+        })),
+        onSelect: (id) => setTypography(page, action === "font" ? { font: id } : { size: id }),
+      });
+      return;
+    }
+  }
   switch (action) {
     case "rename":
       await openPage(page.id);
@@ -747,6 +802,20 @@ function wireShell() {
     if (state.page) openPageMenuFor(state.page);
   });
 
+  // Voltar para onde o usuário estava. O app usa pushState em toda
+  // navegação, então o histórico do browser já é a trilha certa.
+  els.back.addEventListener("click", () => window.history.back());
+
+  const SIDEBAR_KEY = "workspace:sidebarCollapsed";
+  const setSidebar = (collapsed) => {
+    document.body.classList.toggle("ws-sidebar-collapsed", collapsed);
+    els.sidebarReveal.hidden = !collapsed;
+    try { localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0"); } catch { /* noop */ }
+  };
+  try { if (localStorage.getItem(SIDEBAR_KEY) === "1") setSidebar(true); } catch { /* noop */ }
+  els.sidebarCollapse.addEventListener("click", () => setSidebar(true));
+  els.sidebarReveal.addEventListener("click", () => setSidebar(false));
+
   els.sidebarToggle.addEventListener("click", () => {
     els.sidebarPanel.classList.toggle("is-open");
     els.backdrop.hidden = !els.sidebarPanel.classList.contains("is-open");
@@ -786,6 +855,9 @@ function openPageMenuFor(page) {
       placement: "bottom-end",
       width: 230,
       items: [
+        { id: "font", label: "Fonte da página…", icon: "Aa" },
+        { id: "size", label: "Tamanho do texto…", icon: "↕" },
+        { separator: true },
         { id: "favorite", label: favorited ? "Remover dos favoritos" : "Adicionar aos favoritos", icon: "★" },
         { id: "duplicate", label: "Duplicar", icon: "⧉" },
         { id: "visibility", label: page.visibility === "shared" ? "Tornar privada" : "Compartilhar com o time", icon: "👥" },

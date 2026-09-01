@@ -29,12 +29,25 @@ export class GhlError extends Error {
   }
 }
 
+/**
+ * Token de acesso ao CRM.
+ *
+ * `SPARK_CRM_TOKEN` é o nome canônico — nada na interface cita o
+ * fornecedor. Os nomes antigos seguem aceitos para não quebrar ambientes
+ * já configurados.
+ */
 export function ghlToken() {
-  return process.env.GHL_LOCATION_TOKEN || process.env.GHL_AGENCY_PIT || null;
+  return process.env.SPARK_CRM_TOKEN
+    || process.env.GHL_LOCATION_TOKEN
+    || process.env.GHL_AGENCY_PIT
+    || null;
 }
 
 export function ghlLocationId() {
-  return process.env.GHL_LOCATION_ID || process.env.WORKSPACE_FIXED_TENANT_ID || null;
+  return process.env.SPARK_CRM_ACCOUNT_ID
+    || process.env.GHL_LOCATION_ID
+    || process.env.WORKSPACE_FIXED_TENANT_ID
+    || null;
 }
 
 export function isConfigured() {

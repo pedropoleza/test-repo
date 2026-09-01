@@ -12,6 +12,7 @@ import { renderCellValue, editCell } from "./cells.js";
 import { openFieldEditor, openNewFieldMenu } from "./field-editor.js";
 import { renderViewToolbar } from "./view-toolbar.js";
 import { fieldSpec, groupRecords } from "../shared/fields.js";
+import { loadWidths, applyTemplate, attachResizer } from "./columns.js";
 
 /**
  * Monta a tabela dentro de `host`.
@@ -20,6 +21,7 @@ import { fieldSpec, groupRecords } from "../shared/fields.js";
 export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
   let bundle = null;
   let activeViewId = viewId || null;
+  const widths = loadWidths(`db:${databaseId}`);
 
   async function load() {
     try {
@@ -186,6 +188,8 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
     grid.className = "ws-db__grid";
     grid.style.setProperty("--ws-db-cols", fields.length);
     grid.setAttribute("role", "table");
+    // +44px da coluna de ações, +44px do "adicionar coluna"
+    applyTemplate(grid, fields, widths, { trailing: "44px 44px" });
 
     // ---- cabeçalho ----
     const headRow = document.createElement("div");
@@ -205,6 +209,9 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
       cell.append(icon, name);
       cell.addEventListener("click", () =>
         openFieldEditor(cell, field, { databaseId, onDone: load }));
+      attachResizer(cell, field, {
+        scope: `db:${databaseId}`, gridEl: grid, fields, widths, trailing: "44px 44px",
+      });
       headRow.appendChild(cell);
     }
 

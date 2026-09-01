@@ -75,6 +75,40 @@
   overflow: hidden;
   font-size: 0;
 }
+.ws-sidebar__collapse {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--gray-400);
+  font-size: var(--fs-md);
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.ws-sidebar__collapse:hover { background: var(--gray-200); color: var(--gray-800); }
+
+/* Sidebar minimizada: some do grid e sobra uma seta para trazê-la de volta. */
+body.ws-sidebar-collapsed .ws-shell { grid-template-columns: minmax(0, 1fr); }
+body.ws-sidebar-collapsed .ws-sidebar { display: none; }
+
+.ws-sidebar-reveal {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 20;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  color: var(--gray-600);
+  font-size: var(--fs-md);
+  line-height: 1;
+  padding: 5px 9px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+.ws-sidebar-reveal:hover { border-color: var(--ghl-300); color: var(--ghl-700); }
+
 .ws-sidebar__name {
   font-weight: 700;
   font-size: var(--fs-md);
@@ -257,7 +291,7 @@
   border-bottom: 1px solid var(--gray-150);
 }
 .ws-topbar__toggle { display: none; }
-.ws-topbar__right { margin-left: auto; display: flex; gap: 4px; }
+.ws-topbar__right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
 .ws-icon-btn {
   border: 0;
@@ -280,6 +314,31 @@
 
 .ws-main { flex: 1; min-width: 0; }
 .ws-page { padding-bottom: 30vh; }
+
+/* ---- tipografia da página (§6: identidade da página) ---- */
+.ws-page[data-font="serif"] .ws-text,
+.ws-page[data-font="serif"] .ws-page__title,
+.ws-page[data-font="serif"] .ws-caption {
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+}
+.ws-page[data-font="mono"] .ws-text,
+.ws-page[data-font="mono"] .ws-page__title,
+.ws-page[data-font="mono"] .ws-caption {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.ws-page[data-font="rounded"] .ws-text,
+.ws-page[data-font="rounded"] .ws-page__title,
+.ws-page[data-font="rounded"] .ws-caption {
+  font-family: "SF Pro Rounded", "Nunito", "Quicksand", var(--font-sans);
+}
+
+/* O tamanho é relativo ao token, não um valor solto: títulos e listas
+   acompanham a mudança em vez de descolar do corpo. */
+.ws-page[data-text-size="small"]  .ws-text { font-size: calc(var(--fs-base) * 1.02); }
+.ws-page[data-text-size="small"]  .ws-page__title { font-size: var(--fs-3xl); }
+.ws-page[data-text-size="large"]  .ws-text { font-size: calc(var(--fs-md) * 1.2); }
+.ws-page[data-text-size="large"]  .ws-page__title { font-size: calc(var(--fs-4xl) * 1.1); }
+.ws-page[data-text-size="large"]  .ws-heading .ws-text { font-size: inherit; }
 
 .ws-breadcrumbs {
   display: flex;
@@ -1239,7 +1298,8 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
    só rolam na horizontal quando não cabem mesmo. */
 .ws-db__row {
   display: grid;
-  grid-template-columns: repeat(var(--ws-db-cols), minmax(150px, 1fr)) 44px;
+  /* A largura vem do container: uma variável, todas as linhas em sincronia. */
+  grid-template-columns: var(--ws-db-template, repeat(var(--ws-db-cols), minmax(150px, 1fr)) 44px 44px);
   border-bottom: 1px solid var(--gray-150);
 }
 .ws-db__row:last-child { border-bottom: 0; }
@@ -1261,7 +1321,31 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   cursor: pointer;
   min-width: 0;
 }
+.ws-db__th { position: relative; }
 .ws-db__th:hover { background: var(--gray-150); }
+
+/* Punho de largura, como em planilha. */
+.ws-db__resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 3;
+}
+.ws-db__resize::after {
+  content: "";
+  position: absolute;
+  inset: 4px auto 4px 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background var(--d-fast) var(--bezier);
+}
+.ws-db__resize:hover::after,
+.ws-db__resize:focus-visible::after { background: var(--ghl-400); }
+body.is-resizing-col { cursor: col-resize; user-select: none; }
 .ws-db__th span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ws-db__th-icon { color: var(--gray-400); flex: none; width: 16px; text-align: center; }
 .ws-db__th--add { justify-content: center; color: var(--gray-400); }
@@ -1281,7 +1365,24 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 .ws-db__td:hover { background: var(--ghl-50); }
 .ws-db__td:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: -2px; }
 .ws-db__td.is-editing { background: var(--white); box-shadow: inset 0 0 0 2px var(--ghl-400); }
-.ws-db__td--actions { justify-content: center; cursor: default; border-right: 0; }
+.ws-db__td--actions { justify-content: flex-end; gap: 4px; cursor: default; border-right: 0; }
+.ws-db__th--actions { border-right: 0; cursor: default; }
+.ws-db__th--actions:hover { background: var(--gray-50); }
+
+.ws-db__row-action {
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--gray-700);
+  padding: 3px 9px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  opacity: 0;
+}
+.ws-db__row:hover .ws-db__row-action { opacity: 1; }
+.ws-db__row-action:hover { border-color: var(--ghl-400); color: var(--ghl-700); }
 
 .ws-cell__value {
   flex: 1;
@@ -1504,7 +1605,9 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 .ws-crm__search { max-width: 260px; }
 
 /* Leitura apenas: a célula não deve sugerir edição. */
-.ws-crm .ws-db__row { grid-template-columns: repeat(var(--ws-db-cols), minmax(150px, 1fr)); }
+.ws-crm .ws-db__row {
+  grid-template-columns: var(--ws-db-template, repeat(var(--ws-db-cols), minmax(150px, 1fr)) 96px);
+}
 .ws-db__td--readonly { cursor: default; }
 .ws-db__td--readonly:hover { background: var(--gray-50); }
 

@@ -24,6 +24,17 @@
     <div class="ws-shell" id="ws-shell">
       <div class="ws-sidebar-backdrop" id="ws-sidebar-backdrop" hidden></div>
 
+      <button
+        type="button"
+        class="ws-sidebar-reveal"
+        id="ws-sidebar-reveal"
+        aria-label="Mostrar a navegação"
+        title="Mostrar a navegação"
+        hidden
+      >
+        »
+      </button>
+
       <aside class="ws-sidebar" id="ws-sidebar" aria-label="Navegação do workspace">
         <div class="ws-sidebar__head">
           <img
@@ -34,6 +45,15 @@
             height="28"
           />
           <span class="ws-sidebar__name">Spark</span>
+          <button
+            type="button"
+            class="ws-sidebar__collapse"
+            id="ws-sidebar-collapse"
+            aria-label="Minimizar a navegação"
+            title="Minimizar a navegação"
+          >
+            «
+          </button>
         </div>
 
         <button type="button" class="ws-sidebar__new" id="ws-new-page">
@@ -47,6 +67,16 @@
         <header class="ws-topbar">
           <button
             type="button"
+            class="ws-icon-btn"
+            id="ws-back"
+            aria-label="Voltar para onde eu estava"
+            title="Voltar"
+          >
+            ←
+          </button>
+
+          <button
+            type="button"
             class="ws-icon-btn ws-topbar__toggle"
             id="ws-sidebar-toggle"
             aria-label="Abrir ou fechar a navegação"
@@ -54,9 +84,8 @@
             ☰
           </button>
 
-          <span class="ws-save" id="ws-save-state" data-state="saved" role="status" aria-live="polite"></span>
-
           <div class="ws-topbar__right">
+            <span class="ws-save" id="ws-save-state" data-state="saved" role="status" aria-live="polite"></span>
             <button type="button" class="ws-icon-btn" id="ws-favorite" hidden aria-pressed="false">☆</button>
             <button type="button" class="ws-icon-btn" id="ws-page-menu" hidden aria-label="Ações da página">⋯</button>
           </div>

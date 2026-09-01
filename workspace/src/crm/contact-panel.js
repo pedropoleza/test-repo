@@ -11,10 +11,9 @@
  * ficam só os campos que pertencem ao CRM.
  */
 import { api } from "../api.js";
-import { openMenu } from "../ui/menu.js";
-import { openPrompt } from "../ui/prompt.js";
+import { subscribe } from "../store.js";
 import { toast } from "../ui/toast.js";
-import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
+import { renderPhotoControl, patchDaFoto, fotoDa } from "./photo.js";
 import { renderCellValue, editCell } from "../database/cells.js";
 import { isEmptyValue, optionColor } from "../shared/fields.js";
 import { isWritable, isMoveField, openStageMenu, commitField, commitMove } from "./editing.js";
@@ -144,76 +143,10 @@ export function createContactPanel(host, {
 
   /* ---------------- foto ---------------- */
 
-  /**
-   * A foto do contato é o ÍCONE da página, não um campo à parte.
-   *
-   * Guardar em outro lugar daria duas imagens para a mesma pessoa e a
-   * obrigação de mantê-las em sincronia. Como ícone, ela já aparece
-   * redonda na navegação e sobre a capa — que é onde a pessoa espera ver
-   * o rosto — sem nenhum código de exibição novo.
-   */
   function avatar() {
     const page = getPage?.();
-    const foto = page?.icon_type === "url" ? page.icon_value : null;
-
-    const wrap = document.createElement("div");
-    wrap.className = "ws-avatar-wrap";
-
-    const botao = document.createElement("button");
-    botao.type = "button";
-    botao.className = `ws-avatar${foto ? " has-photo" : ""}`;
-    botao.title = foto ? "Trocar a foto" : "Adicionar uma foto";
-    botao.setAttribute("aria-label", botao.title);
-
-    if (foto) {
-      const img = document.createElement("img");
-      img.src = foto;
-      img.alt = "";
-      img.loading = "lazy";
-      botao.appendChild(img);
-    } else {
-      const iniciais = document.createElement("span");
-      iniciais.className = "ws-avatar__initials";
-      iniciais.textContent = iniciaisDe(dados.record.title);
-      botao.appendChild(iniciais);
-    }
-
-    wrap.appendChild(botao);
-
-    if (!pageId || !onPatchPage) {
-      // Painel aberto fora de uma página (não deve acontecer hoje): sem
-      // onde gravar, a foto vira só exibição em vez de um botão morto.
-      botao.disabled = true;
-      botao.title = "";
-      return wrap;
-    }
-
-    // O distintivo fica FORA do botão: o círculo recorta o que está
-    // dentro dele (overflow hidden é o que mantém a foto redonda), e o
-    // ＋ aparecia cortado, encostado na borda.
-    const marca = document.createElement("span");
-    marca.className = "ws-avatar__edit";
-    marca.textContent = foto ? "✎" : "＋";
-    marca.setAttribute("aria-hidden", "true");
-    wrap.appendChild(marca);
-
-    botao.addEventListener("click", () => {
-      openMenu({
-        anchor: botao,
-        width: 240,
-        items: [
-          { id: "upload", label: "Enviar uma foto", icon: "🖼" },
-          { id: "url", label: "Usar um endereço de imagem", icon: "🔗" },
-          ...(foto ? [{ id: "remove", label: "Remover a foto", icon: "×", danger: true }] : []),
-        ],
-        onSelect: (id) => {
-          if (id === "remove") return gravarFoto(null);
-          if (id === "url") return pedirUrl();
-          return escolherArquivo();
-        },
-      });
-    });
-    return wrap;
+    if (!pageId || !onPatchPage) return renderPhotoControl(page, { size: 72 });
+    return renderPhotoControl(page, { size: 72, onPick: gravarFoto });
   }
 
   function identidade() {
@@ -234,69 +167,21 @@ export function createContactPanel(host, {
     return box;
   }
 
-  function escolherArquivo() {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/png,image/jpeg,image/webp,image/gif";
-    input.addEventListener("change", async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      if (file.size > MAX_UPLOAD_BYTES) {
-        toast(`A imagem passa de ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB.`,
-              { tone: "warn" });
-        return;
-      }
-      try {
-        // uploadFile devolve a linha do arquivo: a URL pública está em
-        // `public_url`. Ler `url` daqui dava undefined, e gravar undefined
-        // APAGAVA a foto logo depois de enviá-la.
-        const enviado = await uploadFile(file);
-        if (!enviado?.public_url) throw new Error("upload sem url");
-        gravarFoto(enviado.public_url);
-      } catch (err) {
-        toast(err?.code === "storage_unavailable"
-          ? "Storage indisponível. Verifique o bucket workspace-files."
-          : "Não foi possível enviar a foto.", { tone: "danger" });
-      }
-    });
-    input.click();
-  }
-
-  async function pedirUrl() {
-    const url = await openPrompt({
-      title: "Foto do contato",
-      label: "Endereço da imagem",
-      placeholder: "https://…",
-      confirmLabel: "Usar esta imagem",
-      validate: (texto) => (/^https?:\/\//i.test(texto)
-        ? null
-        : "O endereço precisa começar com http:// ou https://"),
-    });
-    if (url) gravarFoto(url);
-  }
-
   /** `url` null = remover. undefined seria um bug de quem chama. */
   function gravarFoto(url) {
     if (url === undefined) {
       toast("Não foi possível obter o endereço da imagem.", { tone: "danger" });
       return;
     }
-    onPatchPage({ icon_type: url ? "url" : null, icon_value: url || null });
+    onPatchPage(patchDaFoto(url));
     // Repinta com o que acabou de ser gravado: getPage() só reflete a
     // mudança depois que o app atualiza o estado, e o painel repinta
     // antes disso.
     const page = getPage?.();
-    if (page) { page.icon_type = url ? "url" : null; page.icon_value = url; }
+    if (page) Object.assign(page, patchDaFoto(url));
+    fotoPintada = url || null;
     render();
     toast(url ? "Foto atualizada." : "Foto removida.", { tone: "success" });
-  }
-
-  function iniciaisDe(nome) {
-    const partes = String(nome || "").trim().split(/\s+/).filter(Boolean);
-    if (!partes.length) return "?";
-    const primeira = partes[0][0] || "";
-    const ultima = partes.length > 1 ? partes[partes.length - 1][0] : "";
-    return (primeira + ultima).toUpperCase();
   }
 
   /* ---------------- linha editável ---------------- */
@@ -362,6 +247,23 @@ export function createContactPanel(host, {
     p.textContent = texto;
     return p;
   }
+
+  /*
+   * A foto pode ser trocada pela capa, fora deste painel. Sem observar a
+   * página, o avatar daqui só acompanharia quando a troca partisse dele —
+   * duas imagens da mesma pessoa na mesma tela, discordando.
+   *
+   * A inscrição se cancela sozinha quando o painel sai do DOM: não há
+   * gancho de desmontagem, e o editor troca esses nós a cada repintura.
+   */
+  let fotoPintada = fotoDa(getPage?.());
+  const parar = subscribe(() => {
+    if (!host.isConnected) { parar(); return; }
+    const agora = fotoDa(getPage?.());
+    if (agora === fotoPintada) return;
+    fotoPintada = agora;
+    if (dados) render();
+  });
 
   load();
   return { reload: load };

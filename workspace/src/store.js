@@ -71,6 +71,28 @@ export function setAllSectionsCollapsed(collapsed) {
   emit("tree");
 }
 
+/**
+ * Recolhe uma seção UMA vez, na primeira vez que ela é vista.
+ *
+ * A seção de fichas cresce sem teto — uma por contato aberto — e aberta
+ * por padrão empurra o resto da navegação para fora da tela. Recolher só
+ * na primeira vez respeita quem depois decidir deixá-la aberta.
+ */
+const SEEDED_KEY = "workspace:sectionsSeeded";
+export function collapseSectionOnce(sectionId) {
+  if (!sectionId) return;
+  let seeded = [];
+  try { seeded = JSON.parse(localStorage.getItem(SEEDED_KEY) || "[]"); } catch { /* noop */ }
+  if (seeded.includes(sectionId)) return;
+
+  collapsedSections.add(sectionId);
+  seeded.push(sectionId);
+  try {
+    localStorage.setItem(SEEDED_KEY, JSON.stringify(seeded));
+    localStorage.setItem(COLLAPSED_SECTIONS_KEY, JSON.stringify([...collapsedSections]));
+  } catch { /* noop */ }
+}
+
 export function toggleSectionCollapsed(sectionId, force) {
   const next = force === undefined ? !collapsedSections.has(sectionId) : force;
   if (next) collapsedSections.add(sectionId);

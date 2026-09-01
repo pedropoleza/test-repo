@@ -123,6 +123,17 @@ function renderGate(title, message) {
   els.shell.appendChild(box);
 }
 
+/** Põe a página no topo dos recentes, sem duplicar. */
+function marcarComoRecente(pageId) {
+  const anteriores = (getState().recent || []).filter((r) => r.target_id !== pageId);
+  setState({
+    recent: [
+      { target_type: "page", target_id: pageId, last_visited_at: new Date().toISOString() },
+      ...anteriores,
+    ].slice(0, 30),
+  }, "tree");
+}
+
 /** Primeira visita: mostra o empty state em vez de uma tela em branco (§72). */
 async function openInitialPage() {
   const roots = childrenOf(null);
@@ -200,7 +211,12 @@ async function openPage(pageId, { push = true, trilha: registrar = true } = {}) 
     }
     closeMobileSidebar();
 
-    // Recentes são registrados fora do caminho crítico.
+    // Recentes são registrados fora do caminho crítico. A lista local
+    // também é atualizada na hora: ela só vinha do bootstrap, então uma
+    // ficha aberta agora só entraria nos "últimos vistos" depois de
+    // recarregar a página — que é justamente quando não se precisa mais
+    // do atalho.
+    marcarComoRecente(pageId);
     api.pages.visit(pageId).catch(() => {});
   } catch (err) {
     if (err.code === "page_not_found") {
@@ -1006,6 +1022,18 @@ const SAVE_LABEL = { saved: "Salvo", saving: "Salvando…", error: "Sem salvar" 
  */
 let saveHideTimer = null;
 let estavaSalvando = false;
+
+/*
+ * A navegação repinta quando a árvore muda.
+ *
+ * Faltava: recolher e expandir uma seção alteravam o estado e emitiam
+ * "tree", mas ninguém escutava — a seta não fazia nada. Uma seção
+ * recolhida ficava recolhida para sempre, e era o único jeito de voltar
+ * a ver as fichas.
+ */
+subscribe((_, reason) => {
+  if (reason === "tree") sidebar?.render();
+});
 
 subscribe((state, reason) => {
   if (reason !== "save-state" && reason !== "page") return;

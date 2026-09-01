@@ -100,7 +100,11 @@ export function openMenu({ anchor, items, onSelect, placement = "bottom-start", 
    */
   const onScroll = (event) => {
     if (event.target === el || el.contains(event.target)) return;   // rolagem do próprio menu
-    if (!document.contains(anchor)) { closeMenu(); return; }
+    // Âncora fora do documento: o editor repinta os blocos e troca o nó
+    // sob o menu. Fechar aqui matava o menu que a pessoa acabou de abrir,
+    // de forma intermitente — só quando um scroll acontecia no intervalo.
+    // Sem âncora não há o que acompanhar, então ele fica onde está.
+    if (!document.contains(anchor)) return;
     const rect = anchor.getBoundingClientRect();
     const foraDeVista = rect.bottom < 0 || rect.top > window.innerHeight
       || rect.right < 0 || rect.left > window.innerWidth;
@@ -127,8 +131,8 @@ export function openMenu({ anchor, items, onSelect, placement = "bottom-start", 
   };
 
   const onResize = () => {
+    // Mesma regra do scroll: sem âncora, o menu fica onde está.
     if (document.contains(anchor)) position(el, anchor, placement);
-    else closeMenu();
   };
 
   activeMenu = { el, onOutside, onKey, onScroll, onResize, returnFocusTo: document.activeElement };

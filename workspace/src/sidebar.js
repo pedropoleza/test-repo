@@ -7,9 +7,10 @@
  */
 import {
   getState, childrenOf, pagesInSection, pageById, isFavorite, isExpanded, toggleExpanded,
-  isSectionCollapsed, toggleSectionCollapsed, setAllSectionsCollapsed,
+  isSectionCollapsed, toggleSectionCollapsed, setAllSectionsCollapsed, collapseSectionOnce,
 } from "./store.js";
 import { renderIcon } from "./icon-picker.js";
+import { ehFichaDeContato, renderAvatar } from "./crm/photo.js";
 import { openMenu } from "./ui/menu.js";
 import { initDnd } from "./editor/dnd.js";
 
@@ -58,9 +59,16 @@ export function createSidebar(root, handlers) {
     // Seções vêm do banco: o usuário cria, renomeia e reordena as suas.
     state.sections.forEach((sec, index) => {
       const pages = pagesInSection(sec.id);
+      const fichas = pages.filter(ehFicha);
+      // Seção de fichas nasce recolhida: ela cresce uma linha por contato
+      // aberto e, aberta, empurra o resto da navegação para fora da tela.
+      if (fichas.length) collapseSectionOnce(sec.id);
       root.appendChild(
         section(sec.name, pages.map((p) => item(p, 0)), {
           sectionId: sec.id,
+          // Seção de fichas: recolhida ela mostra os últimos contatos
+          // abertos, em vez de um "N páginas" que não leva a lugar nenhum.
+          previaRecolhida: fichas.length ? () => ultimosContatos(fichas) : null,
           isDefault: sec.is_default,
           isFirst: index === 0,
           isLast: index === state.sections.length - 1,
@@ -269,7 +277,14 @@ export function createSidebar(root, handlers) {
     }
 
     if (collapsed) {
-      if (children.length) {
+      const previa = options.previaRecolhida?.();
+      if (previa) {
+        // Recolher não pode ser esconder: a seção de fichas tem centenas
+        // de itens e precisa ficar fechada, mas os últimos abertos são
+        // justamente os que se volta a usar. O contador de antes ocupava
+        // a mesma linha sem levar a lugar nenhum.
+        wrap.appendChild(previa);
+      } else if (children.length) {
         const count = document.createElement("span");
         count.className = "ws-tree__collapsed-count";
         count.textContent = `${children.length} ${children.length === 1 ? "página" : "páginas"}`;
@@ -286,6 +301,65 @@ export function createSidebar(root, handlers) {
     }
     children.forEach((child) => wrap.appendChild(child));
     return wrap;
+  }
+
+  const ehFicha = (page) => ehFichaDeContato(page);
+
+  /**
+   * Os últimos contatos abertos, em linha compacta e clicável.
+   *
+   * Quatro porque é o que cabe sem a seção voltar a ser uma lista, e
+   * porque na prática se alterna entre poucas fichas por vez. Quem some
+   * daqui continua a um clique em "Ver todos", que expande a seção.
+   */
+  function ultimosContatos(fichas, quantos = 4) {
+    const state = getState();
+    const ordem = new Map(
+      (state.recent || []).map((r, i) => [r.target_id, i]),   // já vem do mais recente
+    );
+    const vistas = fichas
+      .filter((p) => ordem.has(p.id))
+      .sort((a, b) => ordem.get(a.id) - ordem.get(b.id))
+      .slice(0, quantos);
+
+    const box = document.createElement("div");
+    box.className = "ws-tree__recent";
+
+    if (!vistas.length) {
+      const vazio = document.createElement("p");
+      vazio.className = "ws-tree__empty";
+      vazio.textContent = `${fichas.length} ${fichas.length === 1 ? "ficha" : "fichas"}. `
+        + "Abra uma para ela aparecer aqui.";
+      box.appendChild(vazio);
+    }
+
+    for (const page of vistas) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = `ws-tree__row ws-tree__row--mini${
+        state.currentPageId === page.id ? " is-current" : ""}`;
+      const ic = document.createElement("span");
+      ic.className = "ws-tree__icon";
+      ic.appendChild(renderAvatar(page, { size: 18 }));
+      const lb = document.createElement("span");
+      lb.className = "ws-tree__label";
+      lb.textContent = page.title || "Sem título";
+      row.append(ic, lb);
+      row.title = page.title || "Sem título";
+      row.addEventListener("click", () => handlers.onOpen(page.id));
+      box.appendChild(row);
+    }
+
+    const todos = document.createElement("button");
+    todos.type = "button";
+    todos.className = "ws-tree__new-list";
+    todos.textContent = `Ver todos (${fichas.length})`;
+    todos.addEventListener("click", () => {
+      const sectionId = todos.closest("[data-section-id]")?.dataset.sectionId;
+      if (sectionId) toggleSectionCollapsed(sectionId, false);
+    });
+    box.appendChild(todos);
+    return box;
   }
 
   function item(page, depth, { flat = false } = {}) {
@@ -318,7 +392,11 @@ export function createSidebar(root, handlers) {
 
     const icon = document.createElement("span");
     icon.className = "ws-tree__icon";
-    icon.appendChild(renderIcon(page.icon_type, page.icon_value, { size: 15 }));
+    // Ficha de contato mostra o rosto (ou as iniciais); página comum, o
+    // ícone dela.
+    icon.appendChild(ehFicha(page)
+      ? renderAvatar(page, { size: 16 })
+      : renderIcon(page.icon_type, page.icon_value, { size: 15 }));
 
     const label = document.createElement("span");
     label.className = "ws-tree__label";

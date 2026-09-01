@@ -7,6 +7,7 @@
  */
 import { paintCover, openCoverPicker } from "./cover.js";
 import { openIconPicker, renderIcon } from "./icon-picker.js";
+import { ehFichaDeContato, renderPhotoControl, patchDaFoto } from "./crm/photo.js";
 import { openMenu } from "./ui/menu.js";
 import { toast } from "./ui/toast.js";
 
@@ -232,16 +233,30 @@ export function createPageHeader(root, handlers) {
   function renderIconSlot(page) {
     const slot = document.createElement("div");
     slot.className = "ws-page__icon-slot";
+
+    /*
+     * Numa ficha de contato o lugar do ícone é o rosto da pessoa —
+     * sempre, mesmo sem foto ainda. Antes toda ficha nascia com o mesmo
+     * 👤: ocupava o espaço sem dizer de quem era a ficha, e duas abertas
+     * lado a lado ficavam idênticas. Sem foto agora vêm as iniciais, e
+     * clicar leva direto a enviar uma — não ao seletor de emoji.
+     */
+    if (ehFichaDeContato(page)) {
+      slot.classList.add("ws-page__icon-slot--photo");
+      slot.appendChild(renderPhotoControl(page, {
+        size: 88,
+        onPick: (url) => handlers.onPatch(patchDaFoto(url)),
+      }));
+      return slot;
+    }
+
     if (!page.icon_type) return slot;
 
-    // Numa ficha de contato o ícone é o rosto da pessoa: redondo, maior e
-    // com anel, sobrepondo a capa. Em página comum continua um ícone.
-    const ehFoto = page.source === "ghl_contact" && page.icon_type === "url";
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `ws-page__icon${ehFoto ? " ws-page__icon--photo" : ""}`;
-    button.setAttribute("aria-label", ehFoto ? "Trocar a foto" : "Trocar ícone da página");
-    button.appendChild(renderIcon(page.icon_type, page.icon_value, { size: ehFoto ? 88 : 56 }));
+    button.className = "ws-page__icon";
+    button.setAttribute("aria-label", "Trocar ícone da página");
+    button.appendChild(renderIcon(page.icon_type, page.icon_value, { size: 56 }));
     button.addEventListener("click", async () => {
       const picked = await openIconPicker({ hasIcon: true });
       if (picked) handlers.onPatch({ icon_type: picked.type, icon_value: picked.value || null });
@@ -256,9 +271,14 @@ export function createPageHeader(root, handlers) {
     // Página sem capa e sem ícone: mostra os controles direto. Esconder a
     // única forma de adicioná-los atrás de um hover é fricção pura (§71
     // pede contextual, não invisível).
-    if (!page.cover_type && !page.icon_type) bar.classList.add("is-visible");
+    if (!page.cover_type && !page.icon_type && !ehFichaDeContato(page)) {
+      bar.classList.add("is-visible");
+    }
 
-    if (!page.icon_type) {
+    // Numa ficha de contato o avatar já está sempre lá e é o caminho
+    // para a foto: "Adicionar ícone" seria um segundo caminho para o
+    // mesmo lugar, levando ao seletor errado.
+    if (!page.icon_type && !ehFichaDeContato(page)) {
       bar.appendChild(
         control("Adicionar ícone", async () => {
           const picked = await openIconPicker({ hasIcon: false });

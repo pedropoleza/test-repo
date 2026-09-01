@@ -812,6 +812,16 @@ export const taskRouter = createTRPCRouter({
           }
         }
       }
+
+      // Mirror each affected task to the Spark Workspace (configured locations
+      // only — currently just Daniely Jones's subaccount).
+      if (shouldMirror(ctx.locationId)) {
+        const locationId = ctx.locationId;
+        for (const r of rows) {
+          const id = r.id;
+          after(() => mirrorTaskToWorkspace(locationId, id));
+        }
+      }
       return { updated: rows.length };
     }),
 

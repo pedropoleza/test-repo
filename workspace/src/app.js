@@ -161,7 +161,7 @@ function renderEmptyWorkspace() {
 /* Navegação                                                          */
 /* ------------------------------------------------------------------ */
 
-async function openPage(pageId, { push = true } = {}) {
+async function openPage(pageId, { push = true, trilha: registrar = true } = {}) {
   if (!pageId) return;
   editor?.flush();
 
@@ -186,12 +186,15 @@ async function openPage(pageId, { push = true } = {}) {
     sidebar.render();
     updatePageChrome();
     document.title = `${page.title || "Sem título"} · Spark`;
+    if (registrar) registrarNaTrilha();
+    else atualizarBotaoVoltar();
 
     if (push) {
       const url = new URL(window.location.href);
       // Limpa a rota de CRM: sem isto a URL ficava com ?crm= e ?p= ao
       // mesmo tempo, e recarregar levava de volta ao CRM em vez da página.
       url.searchParams.delete("crm");
+      url.searchParams.delete("lista");
       url.searchParams.set("p", pageId);
       window.history.pushState({ pageId }, "", url.toString());
     }
@@ -245,13 +248,92 @@ function errorState(title, detail, onRetry) {
   return box;
 }
 
-window.addEventListener("popstate", () => {
+/* ------------------------------------------------------------------ */
+/* Trilha de navegação                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * O botão Voltar anda por uma trilha nossa, não por history.back().
+ *
+ * O histórico do navegador falhava em três frentes: incluía o que veio
+ * ANTES do workspace (voltar saía do app), acumulava uma entrada por
+ * clique repetido na mesma aba (voltar não saía do lugar) e o popstate
+ * não sabia restaurar uma lista salva — voltar de uma lista caía na
+ * página inicial em vez da seção onde a pessoa estava.
+ *
+ * A trilha guarda destinos, não URLs, e nunca repete o topo.
+ */
+const trilha = [];
+const TRILHA_MAX = 50;
+
+function destinoAtual() {
+  const s = getState();
+  if (s.crmListId) return { tipo: "list", id: s.crmListId };
+  if (s.crmView) return { tipo: "crm", id: s.crmView };
+  if (s.currentPageId) return { tipo: "page", id: s.currentPageId };
+  return null;
+}
+
+const mesmoDestino = (a, b) => !!a && !!b && a.tipo === b.tipo && a.id === b.id;
+
+/** Registra onde estamos. Clicar duas vezes na mesma aba não empilha. */
+function registrarNaTrilha() {
+  const atual = destinoAtual();
+  if (!atual || mesmoDestino(trilha[trilha.length - 1], atual)) return;
+  trilha.push(atual);
+  if (trilha.length > TRILHA_MAX) trilha.shift();
+  atualizarBotaoVoltar();
+}
+
+function atualizarBotaoVoltar() {
+  if (!els.back) return;
+  const temParaOnde = trilha.length > 1;
+  els.back.disabled = !temParaOnde;
+  els.back.title = temParaOnde ? "Voltar (Alt+←)" : "Não há para onde voltar";
+}
+
+async function abrirDestino(destino) {
+  if (!destino) return;
+  if (destino.tipo === "page") return openPage(destino.id, { push: true, trilha: false });
+  if (destino.tipo === "crm") return openCrm(destino.id, null, { trilha: false });
+  const lista = (getState().crmLists || []).find((l) => l.id === destino.id);
+  // Lista removida enquanto estávamos fora: pular em vez de abrir nada.
+  if (lista) return openCrm(lista.kind, lista, { trilha: false });
+  return voltar();
+}
+
+async function voltar() {
+  if (trilha.length < 2) return;
+  trilha.pop();                                   // o topo é onde estamos
+  const anterior = trilha[trilha.length - 1];
+  atualizarBotaoVoltar();
+  await abrirDestino(anterior);
+}
+
+/**
+ * Voltar do navegador: restaura pela URL, que carrega os três casos.
+ * A trilha acompanha para os dois botões não brigarem.
+ */
+window.addEventListener("popstate", async () => {
   const params = new URLSearchParams(window.location.search);
   const crm = params.get("crm");
+  const listaId = params.get("lista");
   const pageId = params.get("p");
-  if (crm) openCrm(crm);
-  else if (pageId) openPage(pageId, { push: false });
-  else openInitialPage();
+
+  if (listaId) {
+    const lista = (getState().crmLists || []).find((l) => l.id === listaId);
+    if (lista) await openCrm(lista.kind, lista, { push: false, trilha: false });
+    else await openInitialPage();
+  } else if (crm) await openCrm(crm, null, { push: false, trilha: false });
+  else if (pageId) await openPage(pageId, { push: false, trilha: false });
+  else await openInitialPage();
+
+  // Se o navegador nos levou ao destino anterior da trilha, o topo dela
+  // deixou de valer; senão, este é um destino novo.
+  const atual = destinoAtual();
+  if (mesmoDestino(trilha[trilha.length - 2], atual)) trilha.pop();
+  else registrarNaTrilha();
+  atualizarBotaoVoltar();
 });
 
 /* ------------------------------------------------------------------ */
@@ -363,7 +445,7 @@ const sidebarHandlers = {
 };
 
 /** Abre Leads ou Oportunidades: dados do GHL, organização nossa. */
-function openCrm(kind, list = null) {
+function openCrm(kind, list = null, { push = true, trilha: registrar = true } = {}) {
   editor?.flush();
   setState({
     currentPageId: null, page: null, blocks: [],
@@ -413,16 +495,25 @@ function openCrm(kind, list = null) {
     },
   });
 
-  const url = new URL(window.location.href);
-  url.searchParams.delete("p");
-  if (list) {
-    url.searchParams.delete("crm");
-    url.searchParams.set("lista", list.id);
-  } else {
-    url.searchParams.delete("lista");
-    url.searchParams.set("crm", kind);
+  if (push) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("p");
+    if (list) {
+      url.searchParams.delete("crm");
+      url.searchParams.set("lista", list.id);
+    } else {
+      url.searchParams.delete("lista");
+      url.searchParams.set("crm", kind);
+    }
+    // replaceState quando o destino é o mesmo: clicar duas vezes em
+    // "Leads" não pode virar duas entradas para o Voltar percorrer.
+    const repetido = window.location.search === url.search;
+    const estado = list ? { lista: list.id } : { crm: kind };
+    if (repetido) window.history.replaceState(estado, "", url.toString());
+    else window.history.pushState(estado, "", url.toString());
   }
-  window.history.pushState(list ? { lista: list.id } : { crm: kind }, "", url.toString());
+  if (registrar) registrarNaTrilha();
+  else atualizarBotaoVoltar();
   document.title = `${h.textContent} · Spark`;
   closeMobileSidebar();
 }
@@ -966,17 +1057,16 @@ function wireShell() {
     if (state.page) openPageMenuFor(state.page);
   });
 
-  // Voltar para onde o usuário estava. O app usa pushState em toda
-  // navegação, então o histórico do browser já é a trilha certa.
-  els.back.addEventListener("click", () => window.history.back());
-  // Alt+← é o atalho que o navegador já usa; espelhar aqui evita que o
-  // usuário precise decidir entre os dois caminhos.
+  // Voltar anda pela trilha do app, não pelo histórico do navegador —
+  // ver o bloco da trilha, acima.
+  els.back.addEventListener("click", () => voltar());
   document.addEventListener("keydown", (event) => {
     if (event.altKey && event.key === "ArrowLeft") {
       event.preventDefault();
-      window.history.back();
+      voltar();
     }
   });
+  atualizarBotaoVoltar();
 
   // Um puxador só, na borda da barra: é onde a mão vai quando se quer
   // empurrar a barra para o lado. Dois botões em cantos diferentes para

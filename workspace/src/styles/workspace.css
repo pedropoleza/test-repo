@@ -1987,9 +1987,16 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   overflow-wrap: anywhere;
 }
 
+/*
+ * O círculo recorta o que está dentro dele — é isso que mantém a foto
+ * redonda. Por isso o distintivo de editar mora no wrapper, e não no
+ * botão: dentro, ele aparecia cortado pela borda arredondada.
+ */
+.ws-avatar-wrap { position: relative; flex: none; line-height: 0; }
+
 .ws-avatar {
-  position: relative;
-  flex: none;
+  display: grid;
+  place-items: center;
   width: 72px;
   height: 72px;
   padding: 0;
@@ -1999,8 +2006,6 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   box-shadow: 0 0 0 1px var(--gray-200), var(--shadow-xs);
   cursor: pointer;
   overflow: hidden;
-  display: grid;
-  place-items: center;
   transition: box-shadow 120ms ease;
 }
 .ws-avatar:hover { box-shadow: 0 0 0 2px var(--ghl-400), var(--shadow-sm); }
@@ -2015,27 +2020,27 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   user-select: none;
 }
 
-/* O lápis/mais só aparece no hover: sem foto o círculo já convida, e com
-   foto uma marca fixa sujaria o rosto. */
+/* Encostado na borda de fora, como um distintivo — e não em cima do
+   rosto. `pointer-events: none` para o clique cair no botão de baixo. */
 .ws-avatar__edit {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  width: 24px;
-  height: 24px;
+  right: -4px;
+  bottom: -2px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
+  border: 2px solid var(--white);
   border-radius: 50%;
   background: var(--ghl-600);
   color: var(--white);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
-  opacity: 0;
-  transition: opacity 120ms ease;
+  pointer-events: none;
+  box-shadow: var(--shadow-xs);
+  transition: transform 120ms ease, background 120ms ease;
 }
-.ws-avatar:hover .ws-avatar__edit,
-.ws-avatar:focus-visible .ws-avatar__edit { opacity: 1; }
-.ws-avatar:not(.has-photo) .ws-avatar__edit { opacity: 1; }
+.ws-avatar-wrap:hover .ws-avatar__edit { transform: scale(1.08); }
 
 /* Sobre a capa: a foto vira o rosto da ficha, com anel branco para
    destacar de qualquer fundo. */

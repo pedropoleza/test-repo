@@ -156,6 +156,9 @@ export function createContactPanel(host, {
     const page = getPage?.();
     const foto = page?.icon_type === "url" ? page.icon_value : null;
 
+    const wrap = document.createElement("div");
+    wrap.className = "ws-avatar-wrap";
+
     const botao = document.createElement("button");
     botao.type = "button";
     botao.className = `ws-avatar${foto ? " has-photo" : ""}`;
@@ -175,19 +178,24 @@ export function createContactPanel(host, {
       botao.appendChild(iniciais);
     }
 
-    const marca = document.createElement("span");
-    marca.className = "ws-avatar__edit";
-    marca.textContent = foto ? "✎" : "＋";
-    marca.setAttribute("aria-hidden", "true");
-    botao.appendChild(marca);
+    wrap.appendChild(botao);
 
     if (!pageId || !onPatchPage) {
       // Painel aberto fora de uma página (não deve acontecer hoje): sem
       // onde gravar, a foto vira só exibição em vez de um botão morto.
       botao.disabled = true;
       botao.title = "";
-      return botao;
+      return wrap;
     }
+
+    // O distintivo fica FORA do botão: o círculo recorta o que está
+    // dentro dele (overflow hidden é o que mantém a foto redonda), e o
+    // ＋ aparecia cortado, encostado na borda.
+    const marca = document.createElement("span");
+    marca.className = "ws-avatar__edit";
+    marca.textContent = foto ? "✎" : "＋";
+    marca.setAttribute("aria-hidden", "true");
+    wrap.appendChild(marca);
 
     botao.addEventListener("click", () => {
       openMenu({
@@ -205,7 +213,7 @@ export function createContactPanel(host, {
         },
       });
     });
-    return botao;
+    return wrap;
   }
 
   function identidade() {
@@ -239,10 +247,16 @@ export function createContactPanel(host, {
         return;
       }
       try {
-        const { url } = await uploadFile(file);
-        gravarFoto(url);
-      } catch {
-        toast("Não foi possível enviar a foto.", { tone: "danger" });
+        // uploadFile devolve a linha do arquivo: a URL pública está em
+        // `public_url`. Ler `url` daqui dava undefined, e gravar undefined
+        // APAGAVA a foto logo depois de enviá-la.
+        const enviado = await uploadFile(file);
+        if (!enviado?.public_url) throw new Error("upload sem url");
+        gravarFoto(enviado.public_url);
+      } catch (err) {
+        toast(err?.code === "storage_unavailable"
+          ? "Storage indisponível. Verifique o bucket workspace-files."
+          : "Não foi possível enviar a foto.", { tone: "danger" });
       }
     });
     input.click();
@@ -261,8 +275,13 @@ export function createContactPanel(host, {
     if (url) gravarFoto(url);
   }
 
+  /** `url` null = remover. undefined seria um bug de quem chama. */
   function gravarFoto(url) {
-    onPatchPage({ icon_type: url ? "url" : null, icon_value: url });
+    if (url === undefined) {
+      toast("Não foi possível obter o endereço da imagem.", { tone: "danger" });
+      return;
+    }
+    onPatchPage({ icon_type: url ? "url" : null, icon_value: url || null });
     // Repinta com o que acabou de ser gravado: getPage() só reflete a
     // mudança depois que o app atualiza o estado, e o painel repinta
     // antes disso.

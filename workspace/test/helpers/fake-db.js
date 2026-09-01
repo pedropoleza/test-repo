@@ -214,10 +214,35 @@ export function createFakeDb() {
     }
   }
 
+  /**
+   * Storage em memória, com a mesma forma da API do Supabase.
+   *
+   * Sem ele o upload não tinha como ser exercitado fora de produção — e
+   * foi exatamente aí que passou um bug: o cliente lia `url` do retorno,
+   * que na verdade é `public_url`, e apagava a foto logo depois de
+   * enviá-la.
+   */
+  const arquivos = new Map();
+  const storage = (bucket) => ({
+    async upload(key, buffer, options = {}) {
+      const chave = `${bucket}/${key}`;
+      if (arquivos.has(chave) && options.upsert === false) {
+        return { data: null, error: { message: "Duplicate" } };
+      }
+      arquivos.set(chave, { size: buffer?.length || 0, contentType: options.contentType });
+      return { data: { path: key }, error: null };
+    },
+    getPublicUrl(key) {
+      return { data: { publicUrl: `https://fake.storage/${bucket}/${key}` } };
+    },
+  });
+
   return {
     from: (table) => new Query(table),
+    storage: { from: storage },
     /** Acesso direto ao estado, para asserções nos testes. */
     __tables: tables,
     __rows: rowsOf,
+    __files: arquivos,
   };
 }

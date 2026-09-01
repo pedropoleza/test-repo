@@ -241,3 +241,23 @@ a capa, em bolinha na navegação e no breadcrumb. O campo onde se põe fica
 no painel do CRM dentro da ficha — enviar um arquivo (até 4 MB, no nosso
 storage) ou colar um endereço `https://`. Sem foto, mostramos as iniciais
 do nome.
+
+## Navegação: a trilha do botão Voltar
+
+O Voltar anda por uma trilha do app (`trilha` em `src/app.js`), não por
+`history.back()`. O histórico do navegador falhava em três frentes:
+
+1. incluía o que veio **antes** do workspace — voltar saía do app;
+2. acumulava uma entrada por clique repetido na mesma aba — voltar não
+   saía do lugar;
+3. o `popstate` só entendia `?crm=` e `?p=`, não `?lista=` — voltar de
+   uma lista salva caía na página inicial em vez da seção anterior.
+
+A trilha guarda destinos (`{tipo, id}` com tipo `page`/`crm`/`list`), não
+URLs, e nunca repete o topo. O botão fica desabilitado quando não há para
+onde voltar, em vez de não fazer nada.
+
+O `pushState` continua existindo para a URL ser compartilhável e o Voltar
+do navegador funcionar; abrir o mesmo destino usa `replaceState` para não
+criar entrada duplicada. Ao adicionar um novo tipo de tela, acrescente-o
+a `destinoAtual()`, `abrirDestino()` e ao `popstate` — os três.

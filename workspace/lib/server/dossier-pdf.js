@@ -17,6 +17,7 @@ import {
   pushGraphicsState, popGraphicsState, moveTo, appendBezierCurve, closePath, clip, endPath,
 } from "pdf-lib";
 import { COLORS, GRADIENT_STOPS, corDoGradiente, hexToRgb } from "../../src/shared/cover.js";
+import { textoDaNota } from "../../src/shared/timeline.js";
 
 const A4 = [595.28, 841.89];
 const ALTURA_CAPA = 132;
@@ -259,7 +260,8 @@ export async function buildDossierPdf({
   if (notes?.length) {
     titulo(`Notas do CRM (${notes.length})`);
     for (const n of notes.slice(0, 25)) {
-      texto(n.body || n.note || "—", { size: 10, gap: 3 });
+      // Sem as tags: o CRM guarda a nota em HTML e o PDF é texto puro.
+      texto(textoDaNota(n) || "—", { size: 10, gap: 3 });
       y -= 4;
     }
   }

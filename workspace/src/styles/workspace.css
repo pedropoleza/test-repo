@@ -2487,3 +2487,61 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 
 .ws-renew__open { align-self: flex-start; padding: 4px 8px; font-size: var(--fs-sm); }
 .ws-renew__foot { margin: 0; }
+
+/* ------------------------------------------------------------------ */
+/* Linha do tempo do contato                                          */
+/* ------------------------------------------------------------------ */
+
+.ws-timeline__toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 0; background: none; border: 0; cursor: pointer;
+  text-align: left; font: inherit;
+}
+.ws-timeline__caret { color: var(--gray-400); font-size: 10px; width: 10px; }
+.ws-timeline__toggle:hover .ws-timeline__caret { color: var(--gray-600); }
+.ws-timeline__toggle:focus-visible {
+  outline: 2px solid var(--ghl-600); outline-offset: 3px; border-radius: var(--r-sm);
+}
+
+.ws-timeline { list-style: none; margin: 10px 0 0; padding: 0; }
+.ws-timeline__day + .ws-timeline__day { margin-top: 14px; }
+.ws-timeline__date {
+  margin: 0 0 6px; font-size: var(--fs-xs); font-weight: 600;
+  color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/*
+ * O fio vertical é uma borda no item, não um pseudo-elemento absoluto:
+ * assim ele acompanha a altura real do conteúdo, que varia muito (uma
+ * nota resumida ocupa três linhas, uma mudança de estágio ocupa uma).
+ */
+.ws-timeline__item {
+  position: relative;
+  display: flex; gap: 10px;
+  padding: 0 0 12px 0;
+  margin-left: 4px;
+  border-left: 1px solid var(--gray-200);
+  padding-left: 14px;
+}
+.ws-timeline__day > .ws-timeline__item:last-child { border-left-color: transparent; }
+
+.ws-timeline__dot {
+  position: absolute; left: -4px; top: 5px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gray-300);
+  box-shadow: 0 0 0 2px var(--white);
+}
+.ws-timeline__item[data-tipo="nota"]         .ws-timeline__dot { background: #d97706; }
+.ws-timeline__item[data-tipo="estagio"]      .ws-timeline__dot { background: var(--ghl-500); }
+.ws-timeline__item[data-tipo="status"]       .ws-timeline__dot { background: #7c3aed; }
+.ws-timeline__item[data-tipo="oportunidade"] .ws-timeline__dot { background: #059669; }
+
+.ws-timeline__body { min-width: 0; }
+.ws-timeline__what {
+  margin: 0; font-size: var(--fs-sm); font-weight: 500; color: var(--gray-800);
+}
+.ws-timeline__detail {
+  margin: 2px 0 0; font-size: var(--fs-sm); color: var(--gray-600);
+  overflow-wrap: anywhere;
+}
+.ws-timeline__when { margin: 2px 0 0; font-size: var(--fs-xs); color: var(--gray-400); }

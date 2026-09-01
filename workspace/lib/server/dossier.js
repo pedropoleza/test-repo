@@ -21,6 +21,7 @@
 import { db } from "./db.js";
 import { keysBetween, keyBetween } from "../../src/shared/fracdex.js";
 import { WorkspaceError } from "./context.js";
+import { textoDaNota } from "../../src/shared/timeline.js";
 import { ensureSectionByName } from "./sections.js";
 import { recordRevision } from "./revisions.js";
 import {
@@ -196,7 +197,10 @@ function buildBlocks(snapshot) {
   blocks.push({ type: "heading2", content: text("Notas do CRM") });
   if (notes.length) {
     for (const n of notes.slice(0, 30)) {
-      blocks.push({ type: "quote", content: text(n.body || n.note || "—") });
+      // `body` vem do CRM com parágrafos e spans inteiros de estilo. O
+      // editor renderiza texto puro, então o HTML apareceria como texto
+      // literal na ficha — foi o que acontecia.
+      blocks.push({ type: "quote", content: text(textoDaNota(n) || "—") });
     }
   } else {
     blocks.push({ type: "paragraph", content: text("Nenhuma nota registrada no CRM.") });

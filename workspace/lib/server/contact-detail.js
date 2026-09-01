@@ -11,6 +11,9 @@ import {
 } from "./ghl.js";
 import { WorkspaceError } from "./context.js";
 import { listRelations } from "./relations.js";
+import { findDossier } from "./dossier.js";
+import { listRevisions } from "./revisions.js";
+import { buildTimeline } from "../../src/shared/timeline.js";
 import {
   STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS, OPPORTUNITY_STATUS,
   customFieldsToColumns, tagsToOptions, usersToOptions, stageOptions,
@@ -75,9 +78,30 @@ export async function loadContactDetail(contactId, ctx = null) {
     }));
   }
 
+  // Linha do tempo: as quatro fontes numa lista só. As revisões vêm da
+  // ficha, quando ela existe — um contato que nunca foi aberto aqui tem
+  // história no CRM mesmo assim, e é isso que sustenta a seção.
+  let revisions = [];
+  if (ctx) {
+    const ficha = await findDossier(ctx, contactId).catch(() => null);
+    if (ficha) revisions = await listRevisions(ctx, ficha.id, 60).catch(() => []);
+  }
+  const timeline = buildTimeline({
+    contact, notes, tasks, revisions,
+    // Com o NOME do estágio, não o id: "Agora em September" é a
+    // informação; "Agora em 1fdb3767-…" é a ausência dela.
+    opportunities: opps.map((o) => ({
+      ...o,
+      stage: pipelines.find((p) => p.id === o.pipelineId)
+        ?.stages?.find((st) => st.id === o.pipelineStageId)?.name || "",
+    })),
+    users: new Map(users.map((u) => [u.id, u.name])),
+  });
+
   return {
     contactId,
     relations,
+    timeline,
     columns,
     record,
     notes,

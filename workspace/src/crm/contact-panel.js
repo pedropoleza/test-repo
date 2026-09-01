@@ -18,6 +18,7 @@ import { groupRelations } from "../shared/relations.js";
 import { renderAvatar } from "./photo.js";
 import { toast } from "../ui/toast.js";
 import { renderLoader } from "../ui/loader.js";
+import { agruparPorDia } from "../shared/timeline.js";
 
 /** Campos do contato sempre visíveis, mesmo vazios: são os que se preenche. */
 const SEMPRE_VISIVEIS = new Set(["email", "phone", "tags", "company", "city"]);
@@ -36,6 +37,7 @@ function toField(col) {
 export function createContactPanel(host, { contactId } = {}) {
   let dados = null;
   let erro = null;
+  let linhaAberta = false;
 
   host.classList.add("ws-crm-panel");
 
@@ -48,6 +50,7 @@ export function createContactPanel(host, { contactId } = {}) {
         record: data.record,
         oppColumns: (data.opportunityColumns || []).map(toField),
         relations: data.relations || [],
+        timeline: data.timeline || [],
         opportunities: data.opportunities || [],
         pipelines: data.pipelines || [],
       };
@@ -71,6 +74,7 @@ export function createContactPanel(host, { contactId } = {}) {
     frag.appendChild(secaoContato());
     if (dados.relations.length) frag.appendChild(secaoVinculos());
     frag.appendChild(secaoOportunidades());
+    if (dados.timeline.length) frag.appendChild(secaoLinhaDoTempo());
     host.replaceChildren(frag);
   }
 
@@ -264,6 +268,103 @@ export function createContactPanel(host, { contactId } = {}) {
 
     row.append(rotulo, valor);
     return row;
+  }
+
+  /* ---------------- linha do tempo ---------------- */
+
+  /**
+   * O que aconteceu com essa pessoa, em ordem.
+   *
+   * A resposta estava espalhada por quatro lugares — a data de entrada
+   * no contato, o histórico comercial nas oportunidades, o que foi dito
+   * nas notas, o que mexemos nas revisões da ficha — e nenhum deles
+   * respondia sozinho. Aqui é uma lista só.
+   *
+   * Fechada por padrão: quem abre a ficha quer os dados primeiro; a
+   * história é a segunda pergunta, e aberta ela empurraria as
+   * oportunidades para fora da tela.
+   */
+  function secaoLinhaDoTempo() {
+    const box = document.createElement("section");
+    box.className = "ws-crm-panel__section";
+
+    const head = document.createElement("button");
+    head.type = "button";
+    head.className = "ws-crm-panel__title ws-timeline__toggle";
+    head.setAttribute("aria-expanded", String(linhaAberta));
+    const seta = document.createElement("span");
+    seta.className = "ws-timeline__caret";
+    seta.textContent = linhaAberta ? "▾" : "▸";
+    const rotulo = document.createElement("span");
+    rotulo.textContent = `Linha do tempo (${dados.timeline.length})`;
+    head.append(seta, rotulo);
+    head.addEventListener("click", () => { linhaAberta = !linhaAberta; render(); });
+    box.appendChild(head);
+
+    if (!linhaAberta) return box;
+
+    const lista = document.createElement("ol");
+    lista.className = "ws-timeline";
+    for (const grupo of agruparPorDia(dados.timeline)) {
+      const dia = document.createElement("li");
+      dia.className = "ws-timeline__day";
+      const data = document.createElement("p");
+      data.className = "ws-timeline__date";
+      data.textContent = formatarDia(grupo.dia);
+      dia.appendChild(data);
+
+      for (const ev of grupo.eventos) dia.appendChild(itemDaLinha(ev));
+      lista.appendChild(dia);
+    }
+    box.appendChild(lista);
+    return box;
+  }
+
+  function itemDaLinha(ev) {
+    const item = document.createElement("div");
+    item.className = "ws-timeline__item";
+    item.dataset.tipo = ev.tipo;
+
+    const ponto = document.createElement("span");
+    ponto.className = "ws-timeline__dot";
+    ponto.setAttribute("aria-hidden", "true");
+
+    const corpo = document.createElement("div");
+    corpo.className = "ws-timeline__body";
+    const titulo = document.createElement("p");
+    titulo.className = "ws-timeline__what";
+    titulo.textContent = ev.titulo;
+    corpo.appendChild(titulo);
+
+    if (ev.detalhe) {
+      const det = document.createElement("p");
+      det.className = "ws-timeline__detail";
+      det.textContent = ev.detalhe;
+      corpo.appendChild(det);
+    }
+
+    const rodape = document.createElement("p");
+    rodape.className = "ws-timeline__when";
+    rodape.textContent = ev.ator ? `${formatarHora(ev.at)} · ${ev.ator}` : formatarHora(ev.at);
+    corpo.appendChild(rodape);
+
+    item.append(ponto, corpo);
+    return item;
+  }
+
+  /** "1 de setembro de 2026", com "Hoje" e "Ontem" onde ajuda mais. */
+  function formatarDia(dia) {
+    const d = new Date(`${dia}T12:00:00Z`);
+    const hoje = new Date();
+    const mesmoDia = (a, b) => a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+    const ontem = new Date(hoje.getTime() - 86400000);
+    if (mesmoDia(d, hoje)) return "Hoje";
+    if (mesmoDia(d, ontem)) return "Ontem";
+    return d.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
+  }
+
+  function formatarHora(iso) {
+    return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   }
 
   /* ---------------- utilitários ---------------- */

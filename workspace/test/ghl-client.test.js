@@ -4,7 +4,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ghlFetch, checkScopes, listContacts, GhlError } from "../lib/server/ghl.js";
+import {
+  ghlFetch, checkScopes, listContacts, GhlError, __clearGhlCache,
+} from "../lib/server/ghl.js";
 
 const realFetch = globalThis.fetch;
 function stub(handler) {
@@ -28,6 +30,9 @@ function json(status, body, headers = {}) {
 function setup() {
   process.env.GHL_LOCATION_TOKEN = "tok_teste";
   process.env.GHL_LOCATION_ID = "loc_teste";
+  // Sem isto, a memoização de custom fields/tags/pipelines serve o
+  // resultado do teste anterior e o caso seguinte mede outra coisa.
+  __clearGhlCache();
 }
 function teardown() {
   globalThis.fetch = realFetch;
@@ -128,5 +133,54 @@ test("checkScopes reporta cada recurso separadamente", async () => {
   assert.equal(scopes.contacts.ok, false);
   assert.equal(scopes.contacts.code, "missing_scope");
   assert.equal(scopes.pipelines.ok, true);
+  teardown();
+});
+
+/* ------------------------------------------------------------------ */
+/* O status não pode dizer "pronto" com o CRM fora                    */
+/* ------------------------------------------------------------------ */
+
+const { __status } = await import("../api/crm.js");
+
+test("token de outra subconta: o status diz que NÃO está pronto", async () => {
+  // Este é o caso real da segunda conta: o token é válido, mas foi
+  // gerado dentro de outra subconta. As seis sondagens voltam 403 e
+  // nenhuma é `missing_scope` — o status dizia `ready: true` com seis
+  // erros ao lado, que é a pior forma de errar num diagnóstico.
+  setup();
+  stub(() => json(403, { message: "The token does not have access to this location." }));
+  const s = await __status();
+
+  assert.equal(s.ready, false);
+  assert.equal(s.missingScopes.length, 0, "não é problema de escopo");
+  assert.equal(s.failing.length, 6, "as seis sondagens falharam");
+  assert.match(s.fix, /gerado DENTRO da subconta/);
+  teardown();
+});
+
+test("faltando escopo, o status segue apontando os escopos", async () => {
+  setup();
+  stub(() => json(401, { message: "The token is not authorized for this scope." }));
+  const s = await __status();
+  assert.equal(s.ready, false);
+  assert.ok(s.missingScopes.length > 0);
+  assert.match(s.fix, /Private Integration|escopo|leitura/i);
+  teardown();
+});
+
+test("com tudo respondendo, o status diz que está pronto", async () => {
+  setup();
+  stub((url) => {
+    if (url.includes("/locations/")) return json(200, { location: { id: "loc_teste", name: "Conta" } });
+    if (url.includes("customFields")) return json(200, { customFields: [] });
+    if (url.includes("/tags")) return json(200, { tags: [] });
+    if (url.includes("pipelines")) return json(200, { pipelines: [] });
+    if (url.includes("opportunities")) return json(200, { opportunities: [] });
+    return json(200, { contacts: [] });
+  });
+  const s = await __status();
+  assert.equal(s.ready, true);
+  assert.deepEqual(s.failing, []);
+  assert.equal(s.location.name, "Conta");
   teardown();
 });

@@ -191,6 +191,8 @@ const SCOPE_FIX =
   "O token não tem permissão para este recurso. Habilite leitura de Contatos, " +
   "Oportunidades, Campos personalizados e Tags na integração da conta.";
 
+export async function __status() { return status(); }
+
 async function status() {
   const configured = isConfigured();
   if (!configured) {
@@ -213,14 +215,31 @@ async function status() {
     } catch { /* já refletido em scopes */ }
   }
 
+  // `ready` é "dá para usar o CRM", não "não faltam escopos".
+  //
+  // Eram a mesma coisa enquanto a única falha possível era escopo. Com
+  // duas contas, apareceu a outra: um token válido apontado para a
+  // subconta errada devolve 403 em TODAS as sondagens e nenhuma delas é
+  // `missing_scope` — e o status dizia `ready: true` com seis erros na
+  // tela ao lado.
+  const falhando = Object.entries(scopes).filter(([, v]) => !v.ok).map(([k]) => k);
+
   return {
     configured: true,
     locationId: ghlLocationId(),
     location,
     scopes,
     missingScopes: missing,
-    ready: missing.length === 0,
+    failing: falhando,
+    ready: falhando.length === 0,
     ...(missing.length ? { fix: SCOPE_FIX } : {}),
+    // 403 em tudo com escopo nenhum faltando é quase sempre token de
+    // outra subconta. Dizer isso poupa a caçada.
+    ...(!missing.length && falhando.length === Object.keys(scopes).length
+      ? { fix: "O token não tem acesso a esta subconta. Confira se o "
+          + "SPARK_CRM_TOKEN foi gerado DENTRO da subconta de "
+          + `${ghlLocationId()} e se o location id está correto.` }
+      : {}),
   };
 }
 

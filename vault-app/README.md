@@ -56,12 +56,13 @@ dedicado `dv_app` (menor privilégio, só esse schema) via pooler. Migrations em
 
 | Rota | Função |
 |------|--------|
-| `GET /` | Custom Page (Cofre) — grid de pastas + search + drag-drop |
+| `GET /` | Custom Page (Cofre) — grid de pastas + search + drag-drop + **Modelos** |
 | `POST /api/session` | Handshake SSO do iframe → sessão + nome da subaccount |
 | `GET /api/documents` | Documentos da location por contato (auth pela sessão) |
 | `POST /api/upload` | Sobe um arquivo para a pasta do contato (bytea no banco) |
 | `GET /api/file?id=` | Baixa/exibe um arquivo salvo (escopo por location) |
 | `GET /api/contacts?q=` | Busca contatos reais do GHL (search do topo) |
+| `GET /api/contact-data?id=` | Dados do contato + custom fields resolvidos p/ preencher modelos |
 | `GET /api/pipelines` | Funis (setores) + funil/estágio de cada contato |
 | `GET /api/oauth/callback` | OAuth do app (captura token na instalação) |
 | `POST /api/webhooks/ghl` | INSTALL/UNINSTALL + **auto-captura de anexo de conversa** |
@@ -72,6 +73,10 @@ dedicado `dv_app` (menor privilégio, só esse schema) via pooler. Migrations em
 - ✅ Custom Page (SSO), nome da subaccount, UI de grid de pastas + search + drag-drop
 - ✅ Upload manual → banco (bytea) + download com auditoria
 - ✅ Segmentação por setor (pipelines) + badge de funil/estágio
+- ✅ **Modelos** (aba "Modelos"): 7 contratos da Latino USA em HTML com merge
+  fields (`{{contact.*}}`, `{{custom.*}}`, `{{today}}`). Seleciona modelo →
+  busca contato → preenche automático → pré-visualiza → **Imprimir / Salvar PDF**
+  (print do navegador, MVP). Arquivos em `templates/` + `templates/registry.json`.
 - ✅ Auto-captura: webhook InboundMessage/OutboundMessage com anexo → grava na
   pasta do contato (`source='conversation'`, idempotente por messageId)
 - ⏳ **Falta só validar** a auto-captura com um teste real (mensagem com anexo).

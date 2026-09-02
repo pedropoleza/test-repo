@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Insurance Services Client Agreement — Latino USA</title>
+<style>
+  :root{ --ink:#1a2230; --muted:#5b6577; --line:#d7dce4; --brand:#155eef; --fill:#eaf2ff; --fillbd:#bcd4ff; }
+  *{box-sizing:border-box}
+  body{ font-family:"Georgia","Times New Roman",serif; color:var(--ink); margin:0; background:#f3f5f9; }
+  .page{ width:820px; margin:20px auto; background:#fff; padding:54px 60px; box-shadow:0 4px 18px rgba(15,23,42,.10); }
+  .brandbar{ display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid var(--brand); padding-bottom:12px; }
+  .brandbar .co{ font-family:Arial,Helvetica,sans-serif; font-weight:800; letter-spacing:.02em; color:var(--brand); font-size:15px; }
+  .brandbar .ini{ font-family:Arial,sans-serif; font-size:11px; color:var(--muted); }
+  h1{ font-size:20px; text-align:center; margin:22px 0 2px; letter-spacing:.01em; }
+  .sub{ text-align:center; color:var(--muted); font-size:12px; font-family:Arial,sans-serif; margin-bottom:18px; }
+  p{ font-size:12.5px; line-height:1.55; margin:8px 0; text-align:justify; }
+  h2{ font-family:Arial,sans-serif; font-size:12.5px; letter-spacing:.03em; margin:20px 0 8px; color:var(--ink); border-bottom:1px solid var(--line); padding-bottom:4px; }
+  .grid{ display:grid; grid-template-columns:180px 1fr; gap:6px 14px; font-size:12.5px; }
+  .grid .lbl{ font-family:Arial,sans-serif; color:var(--muted); }
+  .f{ background:var(--fill); border:1px solid var(--fillbd); border-radius:4px; padding:2px 8px; min-height:20px; font-family:Arial,sans-serif; }
+  .checks{ font-family:Arial,sans-serif; font-size:12.5px; line-height:1.9; }
+  .checks .box{ display:inline-block; width:12px; height:12px; border:1.5px solid var(--muted); border-radius:2px; margin:0 4px -1px 0; vertical-align:middle; }
+  .checks .on{ background:var(--brand); border-color:var(--brand); }
+  .fee{ background:#fff8e6; border:1px solid #f6d98a; border-radius:6px; padding:10px 12px; font-size:12.5px; font-family:Arial,sans-serif; }
+  ul{ font-size:12.5px; line-height:1.55; }
+  .sign{ display:grid; grid-template-columns:1fr 160px; gap:26px; margin-top:20px; }
+  .sigline{ border-bottom:1px solid var(--ink); height:26px; }
+  .cap{ font-family:Arial,sans-serif; font-size:10.5px; color:var(--muted); margin-top:3px; }
+  .office{ margin-top:22px; border:1px dashed var(--line); border-radius:6px; padding:12px 14px; font-family:Arial,sans-serif; font-size:11.5px; color:var(--muted); }
+  .office .row{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:6px; }
+  .legend{ font-family:Arial,sans-serif; font-size:11px; color:var(--muted); text-align:center; margin:6px auto 14px; }
+  .legend .swatch{ display:inline-block;width:11px;height:11px;background:var(--fill);border:1px solid var(--fillbd);border-radius:3px;vertical-align:middle;margin:0 4px -1px 8px}
+  @media print{ body{background:#fff} .page{box-shadow:none;margin:0;width:auto} .legend{display:none} }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="brandbar"><span class="co">LATINO USA MULTI SERVICES LLC</span><span class="ini">Client Initials: ______</span></div>
+    <h1>Insurance Services Client Agreement</h1>
+    <div class="sub">Client Information • Authorization • Service Disclosure</div>
+    <div class="legend">Campos <span class="swatch"></span> são preenchidos automaticamente com os dados do contato / custom fields do GHL.</div>
+
+    <p>This Insurance Services Client Agreement (“Agreement”) documents the information and authorization provided by the undersigned client (“Client”) in connection with insurance-related assistance coordinated through Latino USA Multi Services LLC (“Latino USA”).</p>
+
+    <h2>1. CLIENT INFORMATION</h2>
+    <div class="grid">
+      <span class="lbl">Full Legal Name</span><span class="f">{{contact.full_name}}</span>
+      <span class="lbl">Address</span><span class="f">{{contact.address1}}</span>
+      <span class="lbl">City / State / ZIP</span><span class="f">{{contact.city}} / {{contact.state}} / {{contact.postal_code}}</span>
+      <span class="lbl">Phone Number</span><span class="f">{{contact.phone}}</span>
+      <span class="lbl">Email Address</span><span class="f">{{contact.email}}</span>
+      <span class="lbl">Date of Birth</span><span class="f">{{contact.date_of_birth}}</span>
+    </div>
+
+    <h2>2. TYPE OF INSURANCE REQUESTED</h2>
+    <div class="checks">
+      <span class="box on"></span>Auto &nbsp;&nbsp; <span class="box"></span>Homeowners &nbsp;&nbsp; <span class="box"></span>Renters &nbsp;&nbsp; <span class="box"></span>Life &nbsp;&nbsp; <span class="box"></span>Commercial / Business &nbsp;&nbsp; <span class="box"></span>General Liability &nbsp;&nbsp; <span class="box"></span>Workers’ Compensation &nbsp;&nbsp; <span class="box"></span>Other: ____________
+    </div>
+
+    <h2>3. AUTHORIZATION</h2>
+    <p>Client authorizes Latino USA and/or the appropriately licensed insurance professional handling the request to use the information supplied by Client to obtain quotations, communicate with insurance carriers or authorized representatives, prepare applications, and assist with insurance-related paperwork.</p>
+    <p>Client certifies that all information provided for insurance purposes is true, accurate, and complete. Client understands that inaccurate or incomplete information may affect eligibility, premium, coverage, or the validity of a policy.</p>
+    <p>Client authorizes reasonable contact by telephone, text message, or email regarding quotations, applications, policy documents, payment information, renewals, and service matters related to the insurance request.</p>
+
+    <h2>4. INSURANCE SERVICES DISCLOSURE</h2>
+    <p>Latino USA Multi Services LLC is a multiservice business and is not itself an insurance carrier or underwriting company. Insurance products are issued and underwritten solely by the applicable insurance company. Any activity that legally requires an insurance producer license, including insurance recommendations, solicitation, negotiation, or placement of coverage, will be performed only by an appropriately licensed insurance producer. Latino USA may provide administrative assistance, customer support, document collection, translation, and coordination in connection with the insurance process.</p>
+    <p>Coverage is not effective merely because a quote, application, payment, or document has been submitted. Coverage becomes effective only when confirmed or bound by an authorized insurance carrier or licensed insurance producer, subject to the carrier’s underwriting requirements and policy terms.</p>
+
+    <div class="fee"><strong>SERVICE FEE:</strong> A $100.00 service fee is charged when a client accepts a quote and the insurance policy is successfully bound/issued through the services coordinated by Latino USA. This service fee is separate from the insurance premium and any carrier-imposed fees.</div>
+
+    <h2>5. QUOTES, PREMIUMS AND COVERAGE</h2>
+    <ul>
+      <li>Insurance quotations are estimates based on information available at the time of the quote and may change after underwriting, verification of records, inspections, reports, or carrier review.</li>
+      <li>Client is responsible for reviewing the declarations page, limits, deductibles, exclusions, endorsements, beneficiaries, insured persons/entities, vehicles, properties, and all other policy information for accuracy.</li>
+      <li>Latino USA does not guarantee approval, premium amount, carrier acceptance, claim payment, renewal, or continuation of any policy.</li>
+    </ul>
+
+    <h2>6. PAYMENTS, CANCELLATIONS AND POLICY CHANGES</h2>
+    <p>Client understands that premiums, deposits, installment payments, late fees, reinstatement charges, cancellation terms, refunds, and policy changes are governed by the insurance carrier and the applicable policy. Client remains responsible for making required payments by the due date and for promptly reporting changes that may affect coverage.</p>
+
+    <h2>7. NO GUARANTEE OF CLAIMS OR COVERAGE</h2>
+    <p>Assistance with obtaining or servicing insurance does not constitute a guarantee that a particular loss or claim will be covered. Claim decisions are made by the insurance carrier according to the policy language, facts of the loss, applicable law, and the carrier’s claims process.</p>
+
+    <h2>8. CLIENT ACKNOWLEDGMENT AND SIGNATURE</h2>
+    <p>By signing below, Client confirms that Client has read and understands this Agreement, authorizes the requested insurance-related assistance, and confirms that the information supplied is accurate and complete.</p>
+    <div class="sign">
+      <div><div class="sigline"></div><div class="cap">Client Signature &nbsp; · &nbsp; Printed Name: {{contact.full_name}}</div></div>
+      <div><div class="sigline"></div><div class="cap">Date: {{today}}</div></div>
+    </div>
+
+    <div class="office">
+      FOR OFFICE USE
+      <div class="row">
+        <span>Handled By: {{user.name}}</span>
+        <span>Carrier / Quote Ref.: {{custom.seg_carrier}}</span>
+        <span>Policy #: {{custom.policy_number}}</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

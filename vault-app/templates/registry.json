@@ -1,0 +1,60 @@
+{
+  "templates": [
+    {
+      "id": "insurance",
+      "file": "insurance.html",
+      "title": "Insurance Services Client Agreement",
+      "desc": "Autorização e disclosure de serviços de seguro.",
+      "lang": "EN",
+      "tag": "Seguros"
+    },
+    {
+      "id": "llc-formation",
+      "file": "llc-formation.html",
+      "title": "LLC Formation Service Agreement",
+      "desc": "Abertura de LLC (NJ) — autorização e termos de serviço.",
+      "lang": "EN",
+      "tag": "Empresas"
+    },
+    {
+      "id": "master-service",
+      "file": "master-service.html",
+      "title": "Master Client Service Agreement",
+      "desc": "Contrato guarda-chuva de serviços da Latino USA.",
+      "lang": "EN",
+      "tag": "Geral"
+    },
+    {
+      "id": "pmb-mailbox",
+      "file": "pmb-mailbox.html",
+      "title": "P.O. Box / Mailbox Service Agreement",
+      "desc": "Serviço de caixa postal (PMB).",
+      "lang": "EN",
+      "tag": "Correspondência"
+    },
+    {
+      "id": "divorce-en",
+      "file": "divorce-en.html",
+      "title": "Divorce Service Agreement (English)",
+      "desc": "Serviço de divórcio — versão em inglês.",
+      "lang": "EN",
+      "tag": "Divórcio"
+    },
+    {
+      "id": "divorce-pt",
+      "file": "divorce-pt.html",
+      "title": "Contrato de Serviço de Divórcio (Português)",
+      "desc": "Serviço de divórcio — versão em português.",
+      "lang": "PT",
+      "tag": "Divórcio"
+    },
+    {
+      "id": "divorce-es",
+      "file": "divorce-es.html",
+      "title": "Acuerdo de Servicio de Divorcio (Español)",
+      "desc": "Serviço de divórcio — versão em espanhol.",
+      "lang": "ES",
+      "tag": "Divórcio"
+    }
+  ]
+}

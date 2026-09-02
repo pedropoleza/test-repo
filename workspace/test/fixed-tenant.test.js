@@ -78,3 +78,50 @@ test("token inválido é recusado mesmo com tenant fixo ligado", async () => {
   );
   delete process.env.JWT_SIGNING_KEY;
 });
+
+/* ------------------------------------------------------------------ */
+/* Duas contas, um banco só                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Cada conta tem o seu deploy, e os deploys dividem o mesmo Postgres. O
+ * que separa uma da outra é o tenant — então o caminho de suporte, que
+ * aceita `?tenantId=` livre, não pode ser uma ponte entre elas.
+ *
+ * Isto foi verificado em produção antes de existir a trava: a instância
+ * de uma conta, com a chave de suporte, devolvia as 12 páginas da outra.
+ */
+const OUTRO_TENANT = "zFrqRkebl6dO8uI45jjC";
+
+test("no deploy de conta fixa, o suporte não alcança outro tenant", async () => {
+  reset();
+  process.env.WORKSPACE_FIXED_TENANT_ID = FIXED;
+  process.env.ADMIN_URL_SECRET = "segredo-de-suporte";
+  await assert.rejects(
+    () => resolveContext({ headers: {}, query: { k: "segredo-de-suporte", tenantId: OUTRO_TENANT } }),
+    (err) => err instanceof WorkspaceError && err.status === 403
+      && err.code === "tenant_not_allowed_here",
+  );
+});
+
+test("o suporte continua entrando no tenant do próprio deploy", async () => {
+  reset();
+  process.env.WORKSPACE_FIXED_TENANT_ID = FIXED;
+  process.env.ADMIN_URL_SECRET = "segredo-de-suporte";
+  const ctx = await resolveContext({
+    headers: {}, query: { k: "segredo-de-suporte", tenantId: FIXED },
+  });
+  assert.equal(ctx.tenantId, FIXED);
+  assert.equal(ctx.role, "owner");
+});
+
+test("sem conta fixa, o suporte segue alcançando qualquer tenant", async () => {
+  // É o modo multi-tenant do Hub: lá o suporte precisa mesmo poder abrir
+  // a conta de quem abriu o chamado. A trava é só do deploy de conta fixa.
+  reset();
+  process.env.ADMIN_URL_SECRET = "segredo-de-suporte";
+  const ctx = await resolveContext({
+    headers: {}, query: { k: "segredo-de-suporte", tenantId: OUTRO_TENANT },
+  });
+  assert.equal(ctx.tenantId, OUTRO_TENANT);
+});

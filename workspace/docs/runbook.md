@@ -303,6 +303,70 @@ verificam que todo bloco é de um tipo que o editor conhece e que passa
 pela normalização da API — um tipo inventado viraria uma pilha de blocos
 `unsupported` na página.
 
+## Duas contas, dois deploys
+
+Cada subconta tem o **seu próprio projeto Vercel**, apontando para o
+mesmo repositório e a mesma branch. O que muda são as variáveis:
+
+| Projeto | Conta | `WORKSPACE_FIXED_TENANT_ID` |
+|---|---|---|
+| `workspace-engine` | Daniely Jones | `mqO0er6vDQahqWGS1FYJ` |
+| `workspace-samantha` | Samantha | `zFrqRkebl6dO8uI45jjC` |
+
+**Próprio de cada projeto** (nunca copiar entre eles):
+`WORKSPACE_FIXED_TENANT_ID`, `GHL_LOCATION_ID`, `SPARK_CRM_ACCOUNT_ID`,
+`SPARK_CRM_TOKEN`, `GHL_LOCATION_TOKEN`, `SPARK_TASKS_WEBHOOK_SECRET`,
+`ADMIN_URL_SECRET`.
+
+**Compartilhado**: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (mesmo
+banco, tenants diferentes) e `JWT_SIGNING_KEY` (mesmo valor do Hub, senão
+o SSO não valida).
+
+O deploy não precisa de código novo para uma conta a mais: a semeadura
+das listas e a detecção da pipeline de renovação saem do CRM daquele
+token, então cada instância nasce com as pipelines da sua própria conta.
+Se a conta não tiver pipeline de apólices, a aba simplesmente não
+aparece.
+
+### Por que o `ADMIN_URL_SECRET` não pode ser o mesmo
+
+Os dois deploys dividem o mesmo Postgres; o que separa as contas é o
+`tenant_id`. O caminho de suporte (`?k=<segredo>&tenantId=<id>`) aceita
+qualquer tenant — então, com o segredo repetido, a instância de uma conta
+lia o workspace da outra. **Isso foi verificado**: antes da trava, a
+instância da Samantha devolvia as 12 páginas da Daniely.
+
+Duas medidas, e as duas valem:
+
+1. **Cada projeto tem o seu segredo.** Um vazamento de um lado não abre
+   o outro.
+2. **Deploy de conta fixa só fala do próprio tenant.** Com
+   `WORKSPACE_FIXED_TENANT_ID` definida, um `?tenantId=` diferente é
+   recusado com `403 tenant_not_allowed_here` — o deploy passa a ser
+   *incapaz* de alcançar outra conta, não só proibido. O modo
+   multi-tenant (sem a variável) segue alcançando qualquer tenant, que é
+   o que o suporte do Hub precisa.
+
+### Acrescentar mais uma conta
+
+1. Novo projeto na Vercel, mesmo repositório, **Root Directory
+   `workspace`**, Production Branch igual à dos outros.
+2. Copiar os três compartilhados; gerar os próprios do resto.
+3. `WORKSPACE_FIXED_TENANT_ID` = o location id da subconta. O
+   `SPARK_CRM_TOKEN` tem que ser um Private Integration Token **gerado
+   dentro daquela subconta** — um token de outra subconta responde
+   `403 The token does not have access to this location`.
+4. Conferir em `/api/crm?action=status`: `ready: true` e o nome da conta
+   preenchido.
+
+### Diagnóstico de token
+
+| Resposta | O que é |
+|---|---|
+| `401 Invalid Private Integration token` | o token não existe ou foi revogado |
+| `403 The token does not have access to this location` | o token é válido, mas é de **outra** subconta — ou o location id está errado |
+| `403 Forbidden resource` em `/locations/:id` | mesma causa acima |
+
 ## Nada de diálogo nativo do navegador
 
 `window.prompt/confirm/alert` não podem aparecer em nenhum campo. Eles

@@ -109,6 +109,21 @@ export async function resolveContext(req, { ensure = true } = {}) {
     if (!tenantId || typeof tenantId !== "string") {
       throw new WorkspaceError(400, "missing_tenantId");
     }
+    // Um deploy de conta fixa só fala do PRÓPRIO tenant, nem pelo
+    // caminho de suporte.
+    //
+    // Sem esta trava, duas contas hospedadas no mesmo banco ficam a um
+    // `?tenantId=` de distância uma da outra: quem tiver a chave de
+    // suporte de qualquer um dos deploys lê o workspace do outro. Foi
+    // verificado — a instância de uma conta devolvia as 12 páginas da
+    // outra. O deploy fixo passa a ser incapaz disso, e não só proibido.
+    //
+    // O modo multi-tenant (sem a variável) segue como era: lá o suporte
+    // precisa mesmo alcançar qualquer tenant.
+    const fixo = process.env.WORKSPACE_FIXED_TENANT_ID;
+    if (fixo && tenantId !== fixo) {
+      throw new WorkspaceError(403, "tenant_not_allowed_here");
+    }
     return buildContext({
       tenantId,
       userKey: `admin:${String(req.query?.as || "spark")}`,

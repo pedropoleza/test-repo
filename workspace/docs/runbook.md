@@ -367,6 +367,85 @@ Duas medidas, e as duas valem:
 | `403 The token does not have access to this location` | o token é válido, mas é de **outra** subconta — ou o location id está errado |
 | `403 Forbidden resource` em `/locations/:id` | mesma causa acima |
 
+## Abas por pipeline, agrupadas
+
+A navegação nasce com **uma aba por pipeline da conta**, na ordem em que
+o CRM as devolve — que é a ordem que a conta escolheu ao numerá-las. O
+número sai do nome ("2 · Apólices Ativas" vira "Apólices Ativas"): ele é
+ordenação, e a ordenação já está em `position`.
+
+As abas são agrupadas por assunto (`group_name`), com o nome do grupo
+vindo de `GRUPOS` em `lib/server/crm-lists.js`. O nome do grupo é escolha
+de produto, não dado: nada no CRM liga "Seguro de Vida" a "Apólices
+Ativas" a não ser o negócio. Pipeline que não casa com nenhum grupo fica
+solta, como sempre foi.
+
+**A semeadura só roda enquanto o workspace está vazio** — nenhuma página
+escrita. É setup de primeira execução, não reorganização retroativa: uma
+conta que já montou a navegação dela não pode ganhar seis abas de
+surpresa porque o app aprendeu a ler pipelines. Depois disso, aba nova
+sai do "+ Nova lista".
+
+## Colunas específicas por aba
+
+Cada aba mostra os campos personalizados da **sua** pipeline, não os da
+conta inteira. A aba de apólices mostra `Seg · Carrier` e `Seg · Nº da
+Apólice`; a de casos jurídicos mostra `Jur · Advogado Responsável`.
+Nenhuma das duas mostra as colunas da outra.
+
+Isso sai de uma convenção que a conta já usa no CRM: os campos são
+nomeados com um prefixo (`Seg ·`, `Emp ·`, `Cons ·`, `Trad ·`, `MV ·`,
+`Jur ·`, `POBox ·`). `src/shared/field-groups.js` lê essa convenção e
+liga cada gaveta à pipeline de três formas, nesta ordem:
+
+1. **começo de palavra** — "Emp" casa com "Empresas e Fiscal";
+2. **iniciais** — "MV" casa com "Motor Vehicle";
+3. **conteúdo da gaveta** — "Apólices Ativas" não começa com "Seg", mas
+   o campo `Seg · Nº da Apólice` fala de apólice. Só vale radical de 5+
+   letras que apareça em UMA gaveta: palavra genérica como "Data" ou
+   "Tipo" está em todas e não distingue nada.
+
+**Sem convenção, nada muda.** Medido: a conta da Daniely tem 115 campos
+e nenhum prefixo — lá o módulo devolve zero gavetas e as tabelas ficam
+com os campos padrão, como sempre. Um agrupamento adivinhado por
+heurística separaria campos que andam juntos, e seria pior que a parede.
+
+### Por que a oportunidade carrega campos do contato
+
+Os campos personalizados são todos do **contato** (`model: contact`), mas
+o trabalho é por **caso**, e caso é oportunidade: o mesmo contato tem uma
+apólice e um processo, em pipelines diferentes. Então a aba de pipeline
+pede `?action=opportunities&fields=1`, e a API junta os campos do contato
+ligado a cada oportunidade — uma linha por caso, com os dados do caso.
+
+O `fields=1` só é pedido por abas que têm colunas próprias. Sem ele, a
+aba geral de Oportunidades pagaria uma segunda ida ao CRM (a lista de
+contatos) para mostrar colunas que ninguém pediu.
+
+## Renovação: por mês OU por estado
+
+Duas contas marcam renovação de jeitos diferentes, e a tela serve as duas
+(`modoDaPipeline` em `src/shared/renewals.js`):
+
+| Modo | Como a pipeline marca | Exemplo |
+|---|---|---|
+| `meses` | os doze meses como estágios | January … December |
+| `estados` | o ponto da renovação | Apólice Ativa → Auditoria Pendente → Renovação Próxima → Em Renovação → Renovada → Cancelada |
+
+O modo `meses` exige 6+ estágios e 70% deles sendo mês. O modo `estados`
+exige 3+ estágios, 70% reconhecíveis, **e pelo menos um falando de
+renovar** — senão todo funil de vendas com um "Ativo" e um "Perdido"
+viraria tela de renovação.
+
+No modo estado, a faixa é o próprio estágio, ordenada por urgência
+(vencendo → em andamento → pendência → ativa → concluída) e não pela
+ordem do funil. Dentro da faixa, o mais parado primeiro: numa pipeline
+de estado, "Em Renovação há 90 dias" é uma renovação que travou.
+
+Estágio com nome fora do vocabulário aparece por último, sem cor — nunca
+some. Perder uma apólice porque o estágio tem nome desconhecido seria
+pior que mostrá-la sem destaque.
+
 ## Nada de diálogo nativo do navegador
 
 `window.prompt/confirm/alert` não podem aparecer em nenhum campo. Eles

@@ -116,54 +116,16 @@ export function createSidebar(root, handlers) {
       btn.addEventListener("click", () => handlers.onOpenCrm(id));
       crm.appendChild(btn);
     }
-    // Listas salvas: recortes de pipeline/estágio que a pessoa criou, e a
-    // de Apólices que já nasce pronta. Ficam abaixo das abas fixas porque
-    // são conteúdo dela, não do produto.
-    for (const lista of getState().crmLists || []) {
-      // div com role, e não <button>: a linha carrega o ⋯ dentro dela, e
-      // botão dentro de botão é HTML inválido — o clique no ⋯ não chega.
-      // É o mesmo formato das linhas de página, logo acima.
-      const row = document.createElement("div");
-      row.className = `ws-tree__row ws-tree__row--static${
-        getState().crmListId === lista.id ? " is-current" : ""}`;
-      row.tabIndex = 0;
-      row.setAttribute("role", "button");
-      const abrir = () => handlers.onOpenCrmList(lista.id);
-      row.addEventListener("click", abrir);
-      row.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); abrir(); }
-      });
-
-      const ic = document.createElement("span");
-      ic.className = "ws-tree__icon";
-      ic.textContent = lista.icon_value || "📋";
-      const lb = document.createElement("span");
-      lb.className = "ws-tree__label";
-      lb.textContent = lista.name;
-
-      const acoes = document.createElement("span");
-      acoes.className = "ws-tree__actions";
-      const mais = document.createElement("button");
-      mais.type = "button";
-      mais.className = "ws-tree__action";
-      mais.textContent = "⋯";
-      mais.setAttribute("aria-label", `Ações de ${lista.name}`);
-      mais.addEventListener("click", (event) => {
-        event.stopPropagation();               // não abrir a lista ao pedir o menu
-        openMenu({
-          anchor: mais,
-          width: 220,
-          items: [
-            { id: "rename", label: "Renomear", icon: "✏️" },
-            { id: "delete", label: "Remover lista", icon: "🗑", danger: true },
-          ],
-          onSelect: (id) => handlers.onCrmListAction(id, lista),
-        });
-      });
-      acoes.appendChild(mais);
-
-      row.append(ic, lb, acoes);
-      crm.appendChild(row);
+    // Listas salvas: recortes de pipeline/estágio que a pessoa criou, e
+    // as que nascem prontas com a conta. Ficam abaixo das abas fixas
+    // porque são conteúdo dela, não do produto.
+    //
+    // Agrupadas quando a lista traz grupo: seis abas soltas embaixo de
+    // "CRM" são uma lista, não uma organização. Sem grupo, ficam soltas
+    // exatamente como sempre ficaram.
+    for (const { grupo, listas } of agruparListas(getState().crmLists || [])) {
+      if (grupo) crm.appendChild(cabecalhoDeGrupo(grupo));
+      for (const lista of listas) crm.appendChild(linhaDeLista(lista));
     }
 
     const novaLista = document.createElement("button");
@@ -501,6 +463,77 @@ export function createSidebar(root, handlers) {
       ],
       onSelect: (id) => handlers.onPageAction(id, page),
     });
+  }
+
+
+  /**
+   * Agrupa as listas pelo `group_name`, preservando a ordem em que vêm.
+   * Listas sem grupo formam blocos próprios, no lugar onde estão — assim
+   * uma aba solta não é empurrada para o fim só por não ter grupo.
+   */
+  function agruparListas(listas) {
+    const blocos = [];
+    for (const lista of listas) {
+      const grupo = lista.group_name || null;
+      const ultimo = blocos[blocos.length - 1];
+      if (ultimo && ultimo.grupo === grupo) ultimo.listas.push(lista);
+      else blocos.push({ grupo, listas: [lista] });
+    }
+    return blocos;
+  }
+
+  function cabecalhoDeGrupo(nome) {
+    const h = document.createElement("div");
+    h.className = "ws-tree__group-head";
+    h.textContent = nome;
+    return h;
+  }
+
+  function linhaDeLista(lista) {
+    // div com role, e não <button>: a linha carrega o ⋯ dentro dela, e
+    // botão dentro de botão é HTML inválido — o clique no ⋯ não chega.
+    // É o mesmo formato das linhas de página, logo acima.
+    const row = document.createElement("div");
+    row.className = `ws-tree__row ws-tree__row--static${
+      getState().crmListId === lista.id ? " is-current" : ""}`;
+    row.tabIndex = 0;
+    row.setAttribute("role", "button");
+    const abrir = () => handlers.onOpenCrmList(lista.id);
+    row.addEventListener("click", abrir);
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); abrir(); }
+    });
+
+    const ic = document.createElement("span");
+    ic.className = "ws-tree__icon";
+    ic.textContent = lista.icon_value || "📋";
+    const lb = document.createElement("span");
+    lb.className = "ws-tree__label";
+    lb.textContent = lista.name;
+
+    const acoes = document.createElement("span");
+    acoes.className = "ws-tree__actions";
+    const mais = document.createElement("button");
+    mais.type = "button";
+    mais.className = "ws-tree__action";
+    mais.textContent = "⋯";
+    mais.setAttribute("aria-label", `Ações de ${lista.name}`);
+    mais.addEventListener("click", (event) => {
+      event.stopPropagation();               // não abrir a lista ao pedir o menu
+      openMenu({
+        anchor: mais,
+        width: 220,
+        items: [
+          { id: "rename", label: "Renomear", icon: "✏️" },
+          { id: "delete", label: "Remover lista", icon: "🗑", danger: true },
+        ],
+        onSelect: (id) => handlers.onCrmListAction(id, lista),
+      });
+    });
+    acoes.appendChild(mais);
+
+    row.append(ic, lb, acoes);
+    return row;
   }
 
   return { render };

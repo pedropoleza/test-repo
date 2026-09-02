@@ -2570,3 +2570,18 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   font-size: var(--fs-xs); font-weight: 500;
 }
 .ws-template__desc { font-size: var(--fs-sm); color: var(--gray-600); }
+
+/*
+ * Cabeçalho de grupo de abas de CRM.
+ *
+ * Um degrau ABAIXO do "CRM" que o contém: menor, sem caixa alta, com
+ * recuo. Se fosse igual, "Seguros" competiria com "CRM" e a hierarquia
+ * que o grupo existe para criar sumiria.
+ */
+.ws-tree__group-head {
+  padding: 8px 6px 3px 12px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--gray-500);
+}
+.ws-tree__group-head:first-child { padding-top: 2px; }

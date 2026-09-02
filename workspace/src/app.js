@@ -485,7 +485,11 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
   sub.textContent = list
     ? "Quem está nesse recorte agora. A lista consulta o CRM a cada abertura."
     : kind === "renewals"
-    ? "As apólices pelo mês em que vencem, e há quanto tempo cada uma não é tocada."
+    // Genérico de propósito: uma conta marca renovação pelo mês, outra
+    // pelo estado. Dizer "pelo mês" numa conta de estados descreveria
+    // uma tela que ela não está vendo.
+    ? "O que precisa ser renovado, primeiro o mais urgente — "
+      + "e há quanto tempo cada apólice não é tocada."
     : kind === "tasks"
     // Tarefas vêm do Spark Tasks e são editadas lá: aqui é a réplica que
     // permite filtrar e agrupar junto do resto.

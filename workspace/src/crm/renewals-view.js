@@ -21,7 +21,8 @@ import { toast } from "../ui/toast.js";
 import { renderLoader } from "../ui/loader.js";
 import { openStageMenu, commitMove, aplicarMovimentosRecentes } from "./editing.js";
 import {
-  organizarRenovacoes, ehPipelineDeRenovacao, nomeDoMes, mesesAte, LIMITE_PARADA,
+  organizarRenovacoes, organizarPorEstado, ehPipelineDeRenovacao, modoDaPipeline,
+  nomeDoMes, mesesAte, LIMITE_PARADA, estadoDoEstagio,
 } from "../shared/renewals.js";
 
 export function createRenewalsView(host, { onOpenPage } = {}) {
@@ -97,7 +98,14 @@ export function createRenewalsView(host, { onOpenPage } = {}) {
 
     host.appendChild(renderBarra());
 
-    const { grupos, total } = organizarRenovacoes(apolices());
+    // Duas contas, duas maneiras de marcar renovação: uma usa os doze
+    // meses como estágios, a outra o estado da renovação. A tela é a
+    // mesma; só muda quem organiza.
+    const pipeline = pipelines.find((p) => p.id === pipelineId) || null;
+    const porEstado = modoDaPipeline(pipeline) === "estados";
+    const { grupos, total } = porEstado
+      ? organizarPorEstado(apolices(), pipeline)
+      : organizarRenovacoes(apolices());
     if (!total) {
       const vazio = document.createElement("div");
       vazio.className = "ws-db__empty";
@@ -190,9 +198,11 @@ export function createRenewalsView(host, { onOpenPage } = {}) {
     // Buscando, tudo abre — e a busca vence até o que a pessoa fechou
     // à mão: um resultado escondido atrás de uma faixa fechada é
     // indistinguível de "não encontrei".
-    const aberta = busca.trim()
-      ? true
-      : aberturas.get(grupo.id) ?? grupo.tom !== "neutral";
+    // No modo meses, "mais adiante" nasce fechada porque é sempre a
+    // maioria. No modo estado cada faixa é um estágio real do trabalho
+    // dela — fechar qualquer um esconderia parte da carteira.
+    const padrao = grupo.tom !== "neutral" || grupo.id.startsWith("estagio:");
+    const aberta = busca.trim() ? true : aberturas.get(grupo.id) ?? padrao;
 
     const head = document.createElement("button");
     head.type = "button";
@@ -236,9 +246,11 @@ export function createRenewalsView(host, { onOpenPage } = {}) {
     const quando = document.createElement("button");
     quando.type = "button";
     quando.className = "ws-chip ws-renew__month";
-    quando.dataset.color = corDoPrazo(mes);
-    quando.textContent = mes === null ? (record.properties?.stage || "Sem mês") : nomeDoMes(mes);
-    quando.title = "Mover para outro mês";
+    quando.dataset.color = mes === null ? corDoEstado(record) : corDoPrazo(mes);
+    quando.textContent = mes === null
+      ? (record.properties?.stage || "Sem estágio")
+      : nomeDoMes(mes);
+    quando.title = mes === null ? "Mover para outro estágio" : "Mover para outro mês";
     quando.addEventListener("click", () => {
       openStageMenu(quando, record, pipelines, (pid, sid) =>
         commitMove({ record, pipelines, pipelineId: pid, stageId: sid, repaint: render }));
@@ -307,6 +319,12 @@ export function createRenewalsView(host, { onOpenPage } = {}) {
     } catch {
       return String(v);
     }
+  }
+
+  /** Numa pipeline de estado, a cor vem do próprio estágio. */
+  function corDoEstado(record) {
+    const tom = estadoDoEstagio(record.properties?.stage)?.tom;
+    return { danger: "red", warn: "orange", info: "yellow", done: "green" }[tom] || "gray";
   }
 
   /** Cor do mês pela distância até ele: vermelho agora, cinza lá longe. */

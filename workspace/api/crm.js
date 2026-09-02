@@ -266,12 +266,29 @@ async function contacts(req) {
   };
 }
 
+/**
+ * Oportunidades, opcionalmente com os campos do contato ligado.
+ *
+ * Os 50 campos personalizados desta conta são todos do CONTATO — "Seg ·
+ * Nº da Apólice", "Jur · Advogado Responsável". Mas o trabalho dela é
+ * por CASO, e caso é oportunidade: o mesmo contato tem uma apólice e um
+ * processo, em pipelines diferentes. Uma linha por oportunidade,
+ * carregando os dados do contato, é a única forma de a tabela responder
+ * "como está este caso?".
+ *
+ * Só busca os contatos quando alguém pede (`fields=1`): sem isso, a aba
+ * geral de Oportunidades pagaria uma segunda ida ao CRM para mostrar
+ * colunas que ninguém pediu.
+ */
 async function opportunities(req) {
   const limit = Math.min(Number(req.query?.limit) || 200, 500);
-  const [rows, pipelines, users] = await Promise.all([
+  const comCampos = req.query?.fields === "1";
+  const [rows, pipelines, users, customFields, contatos] = await Promise.all([
     listOpportunities({ limit }),
     listPipelines().catch(() => []),
     listUsers().catch(() => []),
+    comCampos ? listCustomFields().catch(() => []) : [],
+    comCampos ? listContacts({ limit: 500 }).catch(() => []) : [],
   ]);
 
   const estagios = stageOptions(pipelines);
@@ -288,9 +305,16 @@ async function opportunities(req) {
     return c;
   });
 
+  // Os campos do contato viram colunas ao lado das da oportunidade. A
+  // tela decide quais mostrar; aqui só entregamos o que existe.
+  const colunasDeContato = comCampos ? customFieldsToColumns(customFields) : [];
+  const porContato = new Map(
+    contatos.map((c) => [c.id, contactToRecord(c, customFields).properties]),
+  );
+
   return {
     source: "spark",
-    columns,
+    columns: [...columns, ...colunasDeContato],
     // Com os estágios: é o que permite mover a oportunidade direto da
     // célula, inclusive para outra pipeline.
     pipelines: pipelines.map((p) => ({
@@ -299,15 +323,22 @@ async function opportunities(req) {
       stages: (p.stages || []).map((s) => ({ id: s.id, name: s.name })),
     })),
     users: users.map((u) => ({ id: u.id, name: u.name })),
-    records: rows.map((o) => ({
-      ...opportunityToRecord(o, pipelines),
-      pipelineId: o.pipelineId,
-      stageId: o.pipelineStageId,
-      // Quando o estágio mudou pela última vez. É o único sinal de
-      // abandono que esta conta tem preenchido (300/300), e é o que a
-      // tela de Renovações usa para ordenar quem ligar primeiro.
-      lastStageChangeAt: o.lastStageChangeAt || o.updatedAt || null,
-    })),
+    records: rows.map((o) => {
+      const base = opportunityToRecord(o, pipelines);
+      const doContato = porContato.get(o.contactId || o.contact?.id);
+      return {
+        ...base,
+        // Os campos do contato entram ANTES: se um dia houver nome
+        // repetido, quem manda é a oportunidade, que é do que a linha fala.
+        properties: doContato ? { ...doContato, ...base.properties } : base.properties,
+        pipelineId: o.pipelineId,
+        stageId: o.pipelineStageId,
+        // Quando o estágio mudou pela última vez. É o único sinal de
+        // abandono que esta conta tem preenchido (300/300), e é o que a
+        // tela de Renovações usa para ordenar quem ligar primeiro.
+        lastStageChangeAt: o.lastStageChangeAt || o.updatedAt || null,
+      };
+    }),
     total: rows.length,
     truncated: rows.length >= limit,
   };

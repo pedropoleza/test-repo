@@ -227,3 +227,113 @@ test("toda faixa produzida existe na tabela de faixas", () => {
     }
   }
 });
+
+/* ------------------------------------------------------------------ */
+/* Renovação por ESTADO, e não por mês                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A segunda conta marca renovação de outro jeito: em vez dos doze meses,
+ * o estágio diz em que ponto da renovação a apólice está. É a mesma
+ * pergunta — "o que precisa ser renovado?" — com outro vocabulário, e a
+ * tela serve as duas.
+ */
+import { modoDaPipeline, estadoDoEstagio, organizarPorEstado } from "../src/shared/renewals.js";
+
+const stages = (...nomes) => ({ stages: nomes.map((name) => ({ name })) });
+
+const APOLICES_SAMANTHA = stages(
+  "Apólice Ativa", "Auditoria Pendente", "Renovação Próxima",
+  "Em Renovação", "Renovada", "Cancelada",
+);
+
+test("a pipeline de estados é reconhecida como renovação", () => {
+  assert.equal(modoDaPipeline(APOLICES_SAMANTHA), "estados");
+  assert.equal(ehPipelineDeRenovacao(APOLICES_SAMANTHA), true);
+});
+
+test("o calendário de doze meses continua sendo lido como calendário", () => {
+  assert.equal(modoDaPipeline(dozeMeses), "meses");
+});
+
+test("funil comum não vira tela de renovação por ter 'Ativo' e 'Perdido'", () => {
+  // Sem isto, todo funil de vendas apareceria como pipeline de apólice.
+  assert.equal(modoDaPipeline(stages(
+    "Novo Lead", "Contato", "Proposta", "Negociação", "Fechado", "Perdido",
+  )), null);
+  assert.equal(modoDaPipeline(stages(
+    "New Request", "Triage / Quote", "Waiting Documents", "In Process",
+    "Waiting Third Party", "Ready for Delivery", "Delivered / Paid",
+  )), null);
+});
+
+test("não basta um estágio solto falando de renovação", () => {
+  assert.equal(modoDaPipeline(stages("Novo", "Andamento", "Renovada", "X", "Y", "Z")), null);
+});
+
+test("estágio de estado é reconhecido em português e em inglês", () => {
+  assert.equal(estadoDoEstagio("Renovação Próxima").id, "vencendo");
+  assert.equal(estadoDoEstagio("Em Renovação").id, "andamento");
+  assert.equal(estadoDoEstagio("Auditoria Pendente").id, "pendencia");
+  assert.equal(estadoDoEstagio("Apólice Ativa").id, "ativa");
+  assert.equal(estadoDoEstagio("Renovada").id, "concluida");
+  assert.equal(estadoDoEstagio("Cancelada").id, "encerrada");
+  assert.equal(estadoDoEstagio("Expiring Soon").id, "vencendo");
+  assert.equal(estadoDoEstagio("Cadastro"), null);
+});
+
+function noEstagio(nome, estagio, diasAtras) {
+  return {
+    externalId: nome, title: nome, properties: { stage: estagio },
+    lastStageChangeAt: new Date(SETEMBRO.getTime() - diasAtras * 86400000).toISOString(),
+  };
+}
+
+test("os grupos saem na ordem de urgência, não na do funil", () => {
+  // "Apólice Ativa" é o primeiro estágio da pipeline, mas quem vence
+  // agora é que precisa aparecer primeiro na tela.
+  const { grupos, total } = organizarPorEstado([
+    noEstagio("A", "Apólice Ativa", 3),
+    noEstagio("B", "Renovação Próxima", 3),
+    noEstagio("C", "Em Renovação", 3),
+    noEstagio("D", "Auditoria Pendente", 3),
+  ], APOLICES_SAMANTHA, { agora: SETEMBRO });
+
+  assert.equal(total, 4);
+  assert.deepEqual(grupos.map((g) => g.nome),
+    ["Renovação Próxima", "Em Renovação", "Auditoria Pendente", "Apólice Ativa"]);
+  assert.deepEqual(grupos.map((g) => g.tom), ["danger", "warn", "info", "neutral"]);
+});
+
+test("dentro do estágio, o mais parado vem primeiro", () => {
+  // Numa pipeline de estado é o sinal mais forte que existe: "Em
+  // Renovação há 90 dias" é uma renovação que travou.
+  const { grupos } = organizarPorEstado([
+    noEstagio("recente", "Em Renovação", 2),
+    noEstagio("travada", "Em Renovação", 90),
+  ], APOLICES_SAMANTHA, { agora: SETEMBRO });
+  assert.deepEqual(grupos[0].itens.map((i) => i.record.title), ["travada", "recente"]);
+});
+
+test("estágio sem apólice nenhuma não vira faixa vazia", () => {
+  const { grupos } = organizarPorEstado([noEstagio("A", "Em Renovação", 1)],
+    APOLICES_SAMANTHA, { agora: SETEMBRO });
+  assert.equal(grupos.length, 1);
+});
+
+test("estágio fora do vocabulário aparece por último, sem sumir", () => {
+  // Perder uma apólice porque o estágio tem nome que não conhecemos
+  // seria pior que mostrá-la sem cor.
+  const { grupos } = organizarPorEstado([
+    noEstagio("A", "Renovação Próxima", 1),
+    noEstagio("B", "Etapa Nova da Conta", 1),
+  ], APOLICES_SAMANTHA, { agora: SETEMBRO });
+  assert.equal(grupos.length, 2);
+  assert.equal(grupos[1].nome, "Etapa Nova da Conta");
+  assert.equal(grupos[1].tom, "neutral");
+});
+
+test("sem apólices, nenhum grupo", () => {
+  assert.deepEqual(organizarPorEstado([], APOLICES_SAMANTHA, { agora: SETEMBRO }),
+    { grupos: [], total: 0 });
+});

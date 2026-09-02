@@ -44,12 +44,59 @@ export function nomeDoMes(indice) {
   return NOME_PT[indice] ?? "";
 }
 
-/** A pipeline é um calendário? Só se a MAIORIA dos estágios for mês. */
-export function ehPipelineDeRenovacao(pipeline) {
+/**
+ * Estágios que descrevem o ESTADO da renovação, e a urgência de cada um.
+ *
+ * A pipeline de apólices nem sempre é um calendário. Uma conta marca o
+ * mês em que cada apólice vence; outra marca em que ponto da renovação
+ * ela está — "Renovação Próxima", "Em Renovação", "Renovada". As duas
+ * respondem à mesma pergunta, e a tela serve as duas.
+ *
+ * A ordem aqui é a ordem de urgência na tela, não a do funil.
+ */
+const ESTADOS = [
+  { id: "vencendo",  tom: "danger",  match: /pr[oó]xim|vencend|a vencer|expiring|due|upcoming/i },
+  { id: "andamento", tom: "warn",    match: /em renova|renovando|in renewal|processing/i },
+  { id: "pendencia", tom: "info",    match: /pendent|auditoria|revis|pending|audit|review/i },
+  { id: "ativa",     tom: "neutral", match: /ativ|vigente|active|current/i },
+  { id: "concluida", tom: "done",    match: /renovad|renewed|conclu[ií]|complete/i },
+  { id: "encerrada", tom: "done",    match: /cancel|perdid|lost|churn|encerrad/i },
+];
+
+/** O estado que um nome de estágio descreve, ou null. */
+export function estadoDoEstagio(nome) {
+  const alvo = String(nome || "");
+  if (!alvo.trim()) return null;
+  return ESTADOS.find((e) => e.match.test(alvo)) || null;
+}
+
+/**
+ * Como esta pipeline fala de renovação: por mês, por estado, ou nem uma
+ * coisa nem outra.
+ *
+ * Meses primeiro: uma pipeline de doze meses é inequívoca. Estados
+ * exigem que a renovação seja mesmo o assunto — pelo menos um estágio
+ * falando de renovar, e a maioria deles reconhecível — senão qualquer
+ * funil com um "Ativo" e um "Cancelado" viraria tela de renovação.
+ */
+export function modoDaPipeline(pipeline) {
   const stages = pipeline?.stages || [];
-  if (stages.length < 6) return false;
-  const meses = stages.filter((s) => mesDoEstagio(s.name) !== null).length;
-  return meses >= stages.length * 0.7;
+  if (stages.length >= 6) {
+    const meses = stages.filter((s) => mesDoEstagio(s.name) !== null).length;
+    if (meses >= stages.length * 0.7) return "meses";
+  }
+  if (stages.length < 3) return null;
+  const estados = stages.map((s) => estadoDoEstagio(s.name));
+  const reconhecidos = estados.filter(Boolean);
+  const falaDeRenovar = estados.some((e) => e && (e.id === "vencendo"
+    || e.id === "andamento" || e.id === "concluida"));
+  if (falaDeRenovar && reconhecidos.length >= stages.length * 0.7) return "estados";
+  return null;
+}
+
+/** A pipeline responde "quando cada apólice renova?" de algum jeito. */
+export function ehPipelineDeRenovacao(pipeline) {
+  return modoDaPipeline(pipeline) !== null;
 }
 
 /** Dias desde a última mudança de estágio. Null quando o CRM não informa. */
@@ -125,6 +172,57 @@ export function organizarRenovacoes(records = [], { agora = new Date() } = {}) {
       // ordem em que vale a pena ligar.
       .sort((a, b) => (b.dias ?? -1) - (a.dias ?? -1)),
   })).filter((g) => g.itens.length);
+
+  return { grupos, total: analisadas.length };
+}
+
+
+/**
+ * Organiza as apólices de uma pipeline de ESTADO.
+ *
+ * Aqui a faixa é o próprio estágio — ele já diz o que falta fazer. O que
+ * a tela acrescenta é a ordem entre eles (o que vence antes do que está
+ * só ativo) e, dentro de cada um, quem está parado há mais tempo. Numa
+ * pipeline de estado o tempo parado é o sinal mais forte que existe:
+ * "Em Renovação há 45 dias" é uma renovação que travou.
+ */
+export function organizarPorEstado(records = [], pipeline = null, { agora = new Date() } = {}) {
+  const ordemDoEstagio = new Map(
+    (pipeline?.stages || []).map((s, i) => [s.name, i]),
+  );
+
+  const analisadas = records.map((record) => {
+    const estagio = record.properties?.stage || "";
+    return {
+      record,
+      mes: null,
+      estagio,
+      estado: estadoDoEstagio(estagio),
+      dias: record.diasParado ?? diasParado(record, agora),
+    };
+  });
+
+  // Um grupo por estágio existente, na ordem de urgência do estado; entre
+  // estágios do mesmo estado, a ordem da própria pipeline.
+  const porEstagio = new Map();
+  for (const a of analisadas) {
+    if (!porEstagio.has(a.estagio)) porEstagio.set(a.estagio, []);
+    porEstagio.get(a.estagio).push(a);
+  }
+
+  const grupos = [...porEstagio.entries()]
+    .map(([estagio, itens]) => {
+      const estado = estadoDoEstagio(estagio);
+      return {
+        id: `estagio:${estagio}`,
+        nome: estagio || "Sem estágio",
+        tom: estado?.tom || "neutral",
+        urgencia: estado ? ESTADOS.findIndex((e) => e.id === estado.id) : ESTADOS.length,
+        ordem: ordemDoEstagio.get(estagio) ?? Number.MAX_SAFE_INTEGER,
+        itens: itens.sort((a, b) => (b.dias ?? -1) - (a.dias ?? -1)),
+      };
+    })
+    .sort((a, b) => a.urgencia - b.urgencia || a.ordem - b.ordem);
 
   return { grupos, total: analisadas.length };
 }

@@ -114,8 +114,13 @@ export const api = {
   crm: {
     status: () => request("GET", "/api/crm", { query: { action: "status" } }),
     contacts: (limit) => request("GET", "/api/crm", { query: { action: "contacts", limit } }),
-    opportunities: (limit) =>
-      request("GET", "/api/crm", { query: { action: "opportunities", limit } }),
+    // `fields` pede os campos do contato ligado a cada oportunidade. Só
+    // as abas de pipeline pedem: sem isso, a lista geral pagaria uma
+    // segunda ida ao CRM por colunas que ninguém vai mostrar.
+    opportunities: (limit, { fields = false } = {}) =>
+      request("GET", "/api/crm", {
+        query: { action: "opportunities", limit, ...(fields ? { fields: "1" } : {}) },
+      }),
     contact: (id) => request("GET", "/api/crm", { query: { action: "contact", id } }),
     dossiers: () => request("GET", "/api/crm", { query: { action: "dossiers" } }),
     contactOpportunities: (id) =>

@@ -102,7 +102,9 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
   function carregarDados() {
     if (kind === "contacts") return api.crm.contacts(300);
     if (kind === "tasks") return api.tasks.list(300);
-    return api.crm.opportunities(300);
+    // Os campos do caso moram no contato: a aba que pede colunas
+    // próprias precisa deles junto de cada oportunidade.
+    return api.crm.opportunities(300, { fields: !!list?.filters?.columns?.length });
   }
 
   const CARREGANDO = {
@@ -149,8 +151,16 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
 
   function visibleColumns() {
     if (!prefs.visible) {
-      // Padrão: só campos padrão. Esta conta tem 115 custom fields — mostrar
-      // tudo de saída daria uma tabela de 127 colunas, ilegível.
+      // Os campos personalizados que ESTA aba pede — os da pipeline dela,
+      // e só. É o que separa a tabela de apólices da tabela jurídica: as
+      // duas leem a mesma base, mas nenhuma das duas quer as colunas da
+      // outra. Vem da lista salva, não da sessão: é definição da aba.
+      const daAba = new Set(list?.filters?.columns || []);
+      if (daAba.size) {
+        return columns.filter((c) => c.source !== "ghl_custom_field" || daAba.has(c.key));
+      }
+      // Sem colunas próprias: só os campos padrão. A conta da Daniely tem
+      // 115 personalizados — mostrar todos daria 127 colunas, ilegível.
       return columns.filter((c) => c.source !== "ghl_custom_field");
     }
     const set = new Set(prefs.visible);

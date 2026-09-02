@@ -56,16 +56,27 @@ dedicado `dv_app` (menor privilégio, só esse schema) via pooler. Migrations em
 
 | Rota | Função |
 |------|--------|
-| `GET /` | Custom Page (Cofre) |
-| `POST /api/session` | Handshake SSO do iframe → sessão + locationId |
-| `GET /api/documents` | Taxonomia + documentos da location (auth pela sessão) |
+| `GET /` | Custom Page (Cofre) — grid de pastas + search + drag-drop |
+| `POST /api/session` | Handshake SSO do iframe → sessão + nome da subaccount |
+| `GET /api/documents` | Documentos da location por contato (auth pela sessão) |
+| `POST /api/upload` | Sobe um arquivo para a pasta do contato (bytea no banco) |
+| `GET /api/file?id=` | Baixa/exibe um arquivo salvo (escopo por location) |
+| `GET /api/contacts?q=` | Busca contatos reais do GHL (search do topo) |
+| `GET /api/pipelines` | Funis (setores) + funil/estágio de cada contato |
 | `GET /api/oauth/callback` | OAuth do app (captura token na instalação) |
-| `POST /api/webhooks/ghl` | Webhook (INSTALL/UNINSTALL/mídia) |
+| `POST /api/webhooks/ghl` | INSTALL/UNINSTALL + **auto-captura de anexo de conversa** |
 | `GET /api/cron/harvest` | Poll incremental da Media Library (a cada 5 min) |
 
 ## Estado
 
-- ✅ Custom Page (SSO) + UI de pastas por contato + PT/EN
-- ✅ OAuth, webhook, harvester (poll da media grava `pending`)
-- 🚧 Download + storage seguro dos arquivos = **D2** (definir provider)
-- 🚧 Resolução de dono por conversa/WhatsApp = **D1**
+- ✅ Custom Page (SSO), nome da subaccount, UI de grid de pastas + search + drag-drop
+- ✅ Upload manual → banco (bytea) + download com auditoria
+- ✅ Segmentação por setor (pipelines) + badge de funil/estágio
+- ✅ Auto-captura: webhook InboundMessage/OutboundMessage com anexo → grava na
+  pasta do contato (`source='conversation'`, idempotente por messageId)
+- ⏳ **Falta só validar** a auto-captura com um teste real (mensagem com anexo).
+  O payload cru fica em `document_vault.webhook_events` para ajuste fino se o GHL
+  usar outro nome de campo.
+- 🚫 "Documents" nativo do contato (`/documents/*`) — serviço INTERNO do GHL, sem
+  scope público (401 com OAuth). Não usado; cofre = storage próprio.
+- 🚧 Storage de objeto + URL assinada (remove o limite de 10MB) = **D2**

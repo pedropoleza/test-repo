@@ -1,0 +1,16 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/webhooks/ghl/ghost/inbound", "destination": "/api/whatsapp/ghost-inbound" },
+    { "source": "/webhooks/ghl/ghost/status", "destination": "/api/whatsapp/status" },
+    { "source": "/webhooks/ghl/provider/outbound", "destination": "/api/whatsapp/provider-outbound" },
+    { "source": "/settings", "destination": "/whatsapp-settings.html" },
+    { "source": "/logs", "destination": "/whatsapp-logs.html" }
+  ],
+  "functions": {
+    "api/whatsapp/ghost-inbound.js": { "maxDuration": 30 },
+    "api/whatsapp/provider-outbound.js": { "maxDuration": 30 },
+    "api/whatsapp/status.js": { "maxDuration": 30 },
+    "api/whatsapp/test-connection.js": { "maxDuration": 30 }
+  }
+}

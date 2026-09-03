@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#155EEF" />
+    <title>Secondary WhatsApp · Message Logs</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    />
+    <style>
+      :root {
+        --blue: #155eef; --navy: #0f1e3d; --gray-50: #f8fafc; --gray-100: #f1f5f9;
+        --gray-200: #e2e8f0; --gray-400: #94a3b8; --gray-500: #64748b; --gray-700: #334155; --gray-900: #0f172a;
+        --success: #16a34a; --success-bg: #ecfdf5; --danger: #dc2626; --danger-bg: #fef2f2;
+        --warn: #d97706; --warn-bg: #fffbeb; --info-bg: #eef4ff;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: "Inter", system-ui, sans-serif; color: var(--gray-900); background: var(--gray-50); font-size: 13.5px; }
+      .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 64px; }
+      header.page { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+      h1 { font-size: 20px; margin: 0; font-weight: 800; letter-spacing: -0.02em; }
+      .muted { color: var(--gray-400); }
+      .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      select, button { font: inherit; font-weight: 600; border-radius: 9px; padding: 8px 12px; border: 1px solid var(--gray-200); background: #fff; color: var(--gray-700); cursor: pointer; }
+      button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+      .card { background: #fff; border: 1px solid var(--gray-200); border-radius: 14px; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+      th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--gray-400); font-weight: 700; background: var(--gray-50); position: sticky; top: 0; }
+      td.msg { max-width: 320px; color: var(--gray-700); }
+      .tag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+      .tag.in { background: var(--info-bg); color: var(--blue); }
+      .tag.out { background: #f0fdf4; color: var(--success); }
+      .st { font-weight: 700; font-size: 12px; }
+      .st.delivered, .st.read, .st.sent { color: var(--success); }
+      .st.failed { color: var(--danger); }
+      .st.pending { color: var(--warn); }
+      .flow { font-size: 12px; color: var(--gray-500); white-space: nowrap; }
+      .empty { padding: 48px; text-align: center; color: var(--gray-400); }
+      .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 10px; font-weight: 600; opacity: 0; transition: .25s; pointer-events: none; }
+      .toast.show { opacity: 1; } .toast.err { background: var(--danger); }
+      .scroll { overflow-x: auto; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="page">
+        <div>
+          <h1>Message Logs</h1>
+          <div class="muted">Cada trânsito de mensagem — diagnostique sem entrar no banco.</div>
+        </div>
+        <div class="controls">
+          <select id="dir">
+            <option value="">All directions</option>
+            <option value="INBOUND">Inbound (Ghost → Main)</option>
+            <option value="OUTBOUND">Outbound (Main → WhatsApp)</option>
+          </select>
+          <select id="limit">
+            <option value="100">100 rows</option>
+            <option value="250">250 rows</option>
+            <option value="500">500 rows</option>
+          </select>
+          <button id="refresh" class="primary">Refresh</button>
+        </div>
+      </header>
+
+      <div class="card scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th><th>Contact</th><th>Phone</th><th>Direction</th>
+              <th>Message</th><th>Flow</th><th>Status</th><th>Error</th>
+            </tr>
+          </thead>
+          <tbody id="rows"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let SECRET = sessionStorage.getItem("wa_admin_secret") || "";
+      function ensureSecret() {
+        if (!SECRET) { SECRET = prompt("Admin secret (CRON_SECRET):") || ""; if (SECRET) sessionStorage.setItem("wa_admin_secret", SECRET); }
+        return SECRET;
+      }
+      function toast(m, err) { const t = $("toast"); t.textContent = m; t.className = "toast show" + (err ? " err" : ""); setTimeout(() => (t.className = "toast"), 2600); }
+      const params = new URLSearchParams(location.search);
+      const tenant = params.get("tenant_id") || "";
+      const esc = (s) => (s == null ? "" : String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])));
+
+      function flowLabel(r) {
+        if (r.source && r.destination) return `${r.source} → ${r.destination}`;
+        return r.direction === "INBOUND" ? "Ghost → Main" : "Main → WhatsApp";
+      }
+      function timeLabel(ts) { try { return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return ts; } }
+
+      async function load() {
+        const q = new URLSearchParams();
+        if (tenant) q.set("tenant_id", tenant);
+        if ($("dir").value) q.set("direction", $("dir").value);
+        q.set("limit", $("limit").value);
+        $("rows").innerHTML = `<tr><td colspan="8" class="empty">Loading…</td></tr>`;
+        try {
+          const r = await fetch("/api/whatsapp/logs?" + q.toString(), { headers: { "x-cron-secret": ensureSecret() } });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.error || "load_failed");
+          const logs = j.logs || [];
+          if (!logs.length) { $("rows").innerHTML = `<tr><td colspan="8" class="empty">No messages yet.</td></tr>`; return; }
+          $("rows").innerHTML = logs.map((r) => {
+            const din = r.direction === "INBOUND";
+            return `<tr>
+              <td class="muted">${esc(timeLabel(r.occurred_at))}</td>
+              <td>${esc(r.contact_name || "—")}</td>
+              <td class="muted">${esc(r.phone || "—")}</td>
+              <td><span class="tag ${din ? "in" : "out"}">${din ? "INBOUND" : "OUTBOUND"}</span></td>
+              <td class="msg">${esc(r.message_preview || "")}</td>
+              <td class="flow">${esc(flowLabel(r))}</td>
+              <td><span class="st ${esc((r.status || "").toLowerCase())}">${esc(r.status || "—")}</span></td>
+              <td class="msg" style="color:var(--danger)">${esc(r.error || "")}</td>
+            </tr>`;
+          }).join("");
+        } catch (e) { $("rows").innerHTML = `<tr><td colspan="8" class="empty">Error: ${esc(e.message)}</td></tr>`; toast(e.message, true); }
+      }
+      $("refresh").onclick = load; $("dir").onchange = load; $("limit").onchange = load;
+      load();
+    </script>
+  </body>
+</html>

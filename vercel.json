@@ -10,10 +10,19 @@
       "schedule": "30 4 * * *"
     }
   ],
+  "rewrites": [
+    { "source": "/webhooks/ghl/ghost/inbound", "destination": "/api/whatsapp/ghost-inbound" },
+    { "source": "/webhooks/ghl/ghost/status", "destination": "/api/whatsapp/status" },
+    { "source": "/webhooks/ghl/provider/outbound", "destination": "/api/whatsapp/provider-outbound" }
+  ],
   "functions": {
     "api/cron/sync-locations.js": { "maxDuration": 60 },
     "api/admin/resync-locations.js": { "maxDuration": 60 },
     "api/admin/recompute-tier.js": { "maxDuration": 60 },
-    "api/checkout/intent.js": { "maxDuration": 30 }
+    "api/checkout/intent.js": { "maxDuration": 30 },
+    "api/whatsapp/ghost-inbound.js": { "maxDuration": 30 },
+    "api/whatsapp/provider-outbound.js": { "maxDuration": 30 },
+    "api/whatsapp/status.js": { "maxDuration": 30 },
+    "api/whatsapp/test-connection.js": { "maxDuration": 30 }
   }
 }

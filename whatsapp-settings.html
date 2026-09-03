@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#155EEF" />
+    <title>Secondary WhatsApp · Settings</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    />
+    <style>
+      :root {
+        --blue: #155eef; --blue-600: #1148c7; --navy: #0f1e3d;
+        --gray-50: #f8fafc; --gray-100: #f1f5f9; --gray-200: #e2e8f0;
+        --gray-400: #94a3b8; --gray-500: #64748b; --gray-700: #334155; --gray-900: #0f172a;
+        --success: #16a34a; --success-bg: #ecfdf5; --danger: #dc2626; --danger-bg: #fef2f2;
+        --warn: #d97706; --warn-bg: #fffbeb;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; font-family: "Inter", system-ui, sans-serif; color: var(--gray-900);
+        background: var(--gray-50); font-size: 14px; line-height: 1.5;
+      }
+      .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 64px; }
+      header.page { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+      header.page .logo {
+        width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+        background: linear-gradient(135deg, #25d366, #128c7e); color: #fff; font-weight: 800; font-size: 18px;
+      }
+      h1 { font-size: 22px; margin: 0; font-weight: 800; letter-spacing: -0.02em; }
+      .sub { color: var(--gray-500); margin: 2px 0 24px; }
+      .card {
+        background: #fff; border: 1px solid var(--gray-200); border-radius: 14px;
+        padding: 22px; margin-bottom: 18px; box-shadow: 0 1px 2px rgba(15,23,42,.04);
+      }
+      .row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--gray-100); }
+      .row:last-child { border-bottom: 0; }
+      .row .k { color: var(--gray-500); font-weight: 500; }
+      .row .v { font-weight: 600; text-align: right; }
+      .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+      .pill.ok { background: var(--success-bg); color: var(--success); }
+      .pill.err { background: var(--danger-bg); color: var(--danger); }
+      .pill.warn { background: var(--warn-bg); color: var(--warn); }
+      .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+      button {
+        font: inherit; font-weight: 600; border-radius: 10px; padding: 10px 16px; cursor: pointer;
+        border: 1px solid var(--gray-200); background: #fff; color: var(--gray-700); transition: .15s;
+      }
+      button:hover { background: var(--gray-50); }
+      button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+      button.primary:hover { background: var(--blue-600); }
+      button.danger { color: var(--danger); border-color: #fecaca; }
+      button.danger:hover { background: var(--danger-bg); }
+      button:disabled { opacity: .5; cursor: not-allowed; }
+      label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-500); margin: 12px 0 5px; }
+      input {
+        width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--gray-200);
+        background: #fff; color: var(--gray-900);
+      }
+      input:focus { outline: 2px solid var(--blue); outline-offset: -1px; border-color: var(--blue); }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+      .muted { color: var(--gray-400); font-size: 12px; }
+      .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 10px; font-weight: 600; opacity: 0; transition: .25s; pointer-events: none; }
+      .toast.show { opacity: 1; }
+      .toast.err { background: var(--danger); }
+      .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--gray-400); font-weight: 700; margin: 6px 0 12px; }
+      details summary { cursor: pointer; font-weight: 600; color: var(--blue); }
+      @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="page">
+        <div class="logo">S</div>
+        <div>
+          <h1>Secondary WhatsApp</h1>
+          <div class="muted">Spark WhatsApp Provider · bridge Main ↔ Ghost</div>
+        </div>
+      </header>
+      <p class="sub">
+        Uma mesma operação com dois números de WhatsApp. A Ghost account é a camada de
+        transporte; toda a UX vive na Main. O atendente nunca precisa saber que ela existe.
+      </p>
+
+      <!-- Estado do provider (§14) -->
+      <div class="card" id="statusCard">
+        <div class="section-title">Provider</div>
+        <div class="row"><span class="k">Provider Status</span><span class="v" id="v-status">—</span></div>
+        <div class="row"><span class="k">Main Account</span><span class="v" id="v-main">—</span></div>
+        <div class="row"><span class="k">Secondary WhatsApp Account</span><span class="v" id="v-ghost">—</span></div>
+        <div class="row"><span class="k">WhatsApp Number</span><span class="v" id="v-number">—</span></div>
+        <div class="row"><span class="k">Provider</span><span class="v" id="v-provider">—</span></div>
+        <div class="row"><span class="k">Last checked</span><span class="v muted" id="v-checked">—</span></div>
+        <div class="actions" style="margin-top:16px">
+          <button id="btn-test" class="primary">Test Connection</button>
+          <button id="btn-reconnect">Reconnect</button>
+          <button id="btn-disable" class="danger">Disable Provider</button>
+        </div>
+        <div class="muted" id="lastError" style="margin-top:10px;color:var(--danger)"></div>
+      </div>
+
+      <!-- Configuração / instalação (§13) -->
+      <div class="card">
+        <div class="section-title">Installation</div>
+        <div class="grid2">
+          <div><label>Tenant ID *</label><input id="f-tenant" placeholder="tenant-uuid" /></div>
+          <div><label>Agency ID</label><input id="f-agency" placeholder="opcional" /></div>
+          <div><label>Main Location ID *</label><input id="f-main" placeholder="Main subaccount" /></div>
+          <div><label>Main Account Name</label><input id="f-main-name" placeholder="Motoro Automotive Group" /></div>
+          <div><label>Ghost Location ID *</label><input id="f-ghost" placeholder="Ghost subaccount" /></div>
+          <div><label>Ghost Account Name</label><input id="f-ghost-name" placeholder="Motoro WhatsApp Gateway" /></div>
+          <div><label>Conversation Provider ID *</label><input id="f-provider" placeholder="SPARK_PROVIDER_ID" /></div>
+          <div><label>Provider Alias</label><input id="f-alias" placeholder="Spark WhatsApp" /></div>
+          <div><label>WhatsApp Number (E.164)</label><input id="f-number" placeholder="+14075551234" /></div>
+          <div><label>Provider Logo URL</label><input id="f-logo" placeholder="https://…" /></div>
+        </div>
+        <details style="margin-top:14px">
+          <summary>Access tokens (opcional — só grava se preenchido)</summary>
+          <div class="grid2" style="margin-top:8px">
+            <div><label>Main Access Token</label><input id="f-main-token" type="password" placeholder="deixe vazio p/ usar app token" /></div>
+            <div><label>Ghost Access Token</label><input id="f-ghost-token" type="password" placeholder="deixe vazio p/ usar app token" /></div>
+          </div>
+          <div class="muted" style="margin-top:6px">Tokens são criptografados em repouso (AES-256-GCM) antes de gravar.</div>
+        </details>
+        <div class="actions" style="margin-top:16px">
+          <button id="btn-save" class="primary">Save Installation</button>
+        </div>
+      </div>
+
+      <div class="muted">
+        Webhooks: <code>/webhooks/ghl/ghost/inbound</code> · <code>/webhooks/ghl/provider/outbound</code> ·
+        <code>/webhooks/ghl/ghost/status</code>
+      </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let SECRET = sessionStorage.getItem("wa_admin_secret") || "";
+      function ensureSecret() {
+        if (!SECRET) {
+          SECRET = prompt("Admin secret (CRON_SECRET):") || "";
+          if (SECRET) sessionStorage.setItem("wa_admin_secret", SECRET);
+        }
+        return SECRET;
+      }
+      function headers(json) {
+        const h = { "x-cron-secret": ensureSecret() };
+        if (json) h["Content-Type"] = "application/json";
+        return h;
+      }
+      function toast(msg, err) {
+        const t = $("toast");
+        t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
+        setTimeout(() => (t.className = "toast" + (err ? " err" : "")), 2600);
+      }
+      const params = new URLSearchParams(location.search);
+      const mainId = params.get("main_location_id") || params.get("locationId") || "";
+
+      async function loadStatus() {
+        if (!mainId) return;
+        try {
+          const r = await fetch("/api/whatsapp/settings?main_location_id=" + encodeURIComponent(mainId), { headers: headers() });
+          const j = await r.json();
+          const inst = j.installation;
+          if (!inst) { $("v-status").textContent = "Not installed"; return; }
+          const connected = inst.provider_status === "Connected";
+          $("v-status").innerHTML = `<span class="pill ${connected ? "ok" : (inst.provider_status === "error" ? "err" : "warn")}"><span class="dot"></span>${connected ? "Connected" : inst.provider_status}</span>`;
+          $("v-main").textContent = inst.main_account || "—";
+          $("v-ghost").textContent = inst.secondary_account || "—";
+          $("v-number").textContent = inst.whatsapp_number || "—";
+          $("v-provider").textContent = inst.provider || "Spark WhatsApp";
+          $("v-checked").textContent = inst.last_checked_at ? new Date(inst.last_checked_at).toLocaleString() : "never";
+          $("lastError").textContent = inst.last_error || "";
+          // prefill form
+          $("f-tenant").value = inst.tenant_id || "";
+          $("f-main").value = inst.main_location_id || mainId;
+          $("f-main-name").value = inst.main_account || "";
+          $("f-ghost").value = inst.ghost_location_id || "";
+          $("f-ghost-name").value = inst.secondary_account || "";
+          $("f-provider").value = inst.conversation_provider_id || "";
+          $("f-alias").value = inst.provider || "";
+          $("f-number").value = inst.whatsapp_number || "";
+          $("f-logo").value = inst.provider_logo_url || "";
+        } catch (e) { toast("Load failed: " + e.message, true); }
+      }
+
+      $("btn-save").onclick = async () => {
+        const body = {
+          tenant_id: $("f-tenant").value.trim(),
+          agency_id: $("f-agency").value.trim() || null,
+          main_location_id: $("f-main").value.trim(),
+          main_location_name: $("f-main-name").value.trim() || null,
+          ghost_location_id: $("f-ghost").value.trim(),
+          ghost_location_name: $("f-ghost-name").value.trim() || null,
+          conversation_provider_id: $("f-provider").value.trim(),
+          provider_alias: $("f-alias").value.trim() || "Spark WhatsApp",
+          ghost_whatsapp_number: $("f-number").value.trim() || null,
+          provider_logo_url: $("f-logo").value.trim() || null,
+        };
+        if ($("f-main-token").value) body.main_access_token = $("f-main-token").value;
+        if ($("f-ghost-token").value) body.ghost_access_token = $("f-ghost-token").value;
+        try {
+          const r = await fetch("/api/whatsapp/settings", { method: "PUT", headers: headers(true), body: JSON.stringify(body) });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.error || "save_failed");
+          toast("Installation saved ✓"); loadStatus();
+        } catch (e) { toast("Save failed: " + e.message, true); }
+      };
+
+      $("btn-test").onclick = async () => {
+        const loc = $("f-main").value.trim() || mainId;
+        if (!loc) return toast("Main Location ID required", true);
+        $("btn-test").disabled = true; $("btn-test").textContent = "Testing…";
+        try {
+          const r = await fetch("/api/whatsapp/test-connection", { method: "POST", headers: headers(true), body: JSON.stringify({ main_location_id: loc }) });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.error || "test_failed");
+          toast(j.ok ? "Both accounts reachable ✓" : "Connection issue — see status", !j.ok);
+          loadStatus();
+        } catch (e) { toast("Test failed: " + e.message, true); }
+        finally { $("btn-test").disabled = false; $("btn-test").textContent = "Test Connection"; }
+      };
+
+      $("btn-reconnect").onclick = () => { $("f-main-token").focus(); toast("Cole os tokens e clique Save para reconectar"); };
+
+      $("btn-disable").onclick = async () => {
+        if (!confirm("Disable this provider? Inbound/outbound bridging para essa Main será pausado.")) return;
+        try {
+          const body = {
+            tenant_id: $("f-tenant").value.trim(),
+            main_location_id: $("f-main").value.trim() || mainId,
+            ghost_location_id: $("f-ghost").value.trim(),
+            conversation_provider_id: $("f-provider").value.trim(),
+            status: "disabled",
+          };
+          const r = await fetch("/api/whatsapp/settings", { method: "PUT", headers: headers(true), body: JSON.stringify(body) });
+          if (!r.ok) throw new Error((await r.json()).error || "disable_failed");
+          toast("Provider disabled"); loadStatus();
+        } catch (e) { toast("Disable failed: " + e.message, true); }
+      };
+
+      loadStatus();
+    </script>
+  </body>
+</html>

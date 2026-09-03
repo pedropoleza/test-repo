@@ -9,7 +9,7 @@ export default function handler(req, res) {
     ready: {
       db: !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
       token_encryption: !!process.env.TOKEN_ENCRYPTION_KEY,
-      webhook_verification: !!process.env.GHL_WEBHOOK_PUBLIC_KEY || process.env.WA_SKIP_WEBHOOK_VERIFY === "1",
+      webhook_verification: process.env.WA_SKIP_WEBHOOK_VERIFY === "1" ? "skipped" : "builtin_ed25519_key",
       app_token: !!process.env.GHL_APP_ACCESS_TOKEN,
     },
     endpoints: {

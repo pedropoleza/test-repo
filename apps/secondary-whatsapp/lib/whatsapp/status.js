@@ -37,7 +37,8 @@ export async function processStatusEvent(evt) {
   let reflected = false;
   if (bridge.main_message_id) {
     try {
-      await updateProviderMessageStatus(providerAppToken(), bridge.main_message_id, status, {
+      const appTok = await providerAppToken();
+      await updateProviderMessageStatus(appTok, bridge.main_message_id, status, {
         error: status === "failed" ? evt.error : undefined,
       });
       reflected = true;

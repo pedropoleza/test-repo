@@ -18,6 +18,7 @@
  */
 import { db } from "../server/db.js";
 import { decrypt } from "../server/crypto.js";
+import { getAppToken } from "./oauth-store.js";
 
 const GHL_BASE = process.env.GHL_API_BASE || "https://services.leadconnectorhq.com";
 const GHL_VERSION = process.env.GHL_API_VERSION || "2021-04-15";
@@ -93,7 +94,17 @@ export function ghostToken(inst) {
  * Token do Marketplace App — obrigatório pra atualizar status de mensagem no
  * provider da Main (§12). O provider "pertence" ao app, então status APIs
  * exigem o token do app, não o da location.
+ *
+ * Ordem: GHL_APP_ACCESS_TOKEN (env) → token capturado no OAuth install
+ * (wa_oauth_installs, preferindo a Main location / company desta instalação).
+ * É async porque pode consultar o store.
  */
-export function providerAppToken() {
-  return appToken();
+export async function providerAppToken(inst) {
+  if (process.env.GHL_APP_ACCESS_TOKEN) return process.env.GHL_APP_ACCESS_TOKEN;
+  const stored = await getAppToken({
+    locationId: inst?.main_location_id,
+    companyId: inst?.agency_id,
+  });
+  if (stored) return stored;
+  throw new Error("no_app_token_available");
 }

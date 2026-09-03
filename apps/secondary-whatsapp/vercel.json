@@ -11,6 +11,7 @@
     "api/whatsapp/ghost-inbound.js": { "maxDuration": 30 },
     "api/whatsapp/provider-outbound.js": { "maxDuration": 30 },
     "api/whatsapp/status.js": { "maxDuration": 30 },
-    "api/whatsapp/test-connection.js": { "maxDuration": 30 }
+    "api/whatsapp/test-connection.js": { "maxDuration": 30 },
+    "api/oauth/callback.js": { "maxDuration": 30 }
   }
 }

@@ -85,6 +85,7 @@ export function createContactPanel(host, { contactId } = {}) {
     frag.appendChild(secaoOportunidades());
     if (dados.documentos.length || dados.checklists.length || dados.arquivos.length) frag.appendChild(secaoDocumentos());
     if (dados.timeline.length) frag.appendChild(secaoLinhaDoTempo());
+    if (contactId) frag.appendChild(secaoPortal());
     frag.appendChild(secaoComentarios());
     host.replaceChildren(frag);
   }
@@ -667,6 +668,103 @@ export function createContactPanel(host, { contactId } = {}) {
   }
 
   /* ---------------- utilitários ---------------- */
+
+  /* ---------------- portal do cliente ---------------- */
+
+  function secaoPortal() {
+    const box = bloco("Portal do cliente");
+    const p = aviso("Um link (e QR) para o cliente acompanhar o andamento dos serviços "
+      + "dele, no idioma dele, sem login. Mande por WhatsApp ou imprima o QR.");
+    box.appendChild(p);
+
+    const area = document.createElement("div");
+    area.className = "ws-portal";
+    box.appendChild(area);
+
+    const gerar = document.createElement("button");
+    gerar.type = "button";
+    gerar.className = "ws-btn ws-btn--primary";
+    gerar.textContent = "Gerar link do portal";
+    gerar.addEventListener("click", () => carregarPortal(area, gerar));
+    area.appendChild(gerar);
+    return box;
+  }
+
+  async function carregarPortal(area, botao) {
+    botao.disabled = true;
+    const rotulo = botao.textContent;
+    botao.textContent = "Gerando…";
+    try {
+      const { url, qr } = await api.status.link(contactId);
+      area.replaceChildren(renderPortal(url, qr));
+    } catch {
+      toast("Não foi possível gerar o link agora.", { tone: "danger" });
+      botao.disabled = false; botao.textContent = rotulo;
+    }
+  }
+
+  function renderPortal(url, qr) {
+    const wrap = document.createElement("div");
+    wrap.className = "ws-portal__box";
+
+    if (qr) {
+      const quadro = document.createElement("div");
+      quadro.className = "ws-portal__qr";
+      const svg = new DOMParser().parseFromString(qr, "image/svg+xml").documentElement;
+      quadro.appendChild(svg);
+      wrap.appendChild(quadro);
+    }
+
+    const linha = document.createElement("div");
+    linha.className = "ws-portal__link";
+    const campo = document.createElement("input");
+    campo.type = "text"; campo.readOnly = true; campo.value = url;
+    campo.className = "ws-input";
+    campo.addEventListener("focus", () => campo.select());
+    const copiar = document.createElement("button");
+    copiar.type = "button"; copiar.className = "ws-btn ws-btn--ghost";
+    copiar.textContent = "Copiar";
+    copiar.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(url); toast("Link copiado.", { tone: "success" }); }
+      catch { campo.focus(); campo.select(); }
+    });
+    linha.append(campo, copiar);
+    wrap.appendChild(linha);
+
+    const acoes = document.createElement("div");
+    acoes.className = "ws-portal__acoes";
+    const abrir = document.createElement("a");
+    abrir.href = url; abrir.target = "_blank"; abrir.rel = "noopener";
+    abrir.className = "ws-btn ws-btn--ghost";
+    abrir.textContent = "Abrir";
+    const desativar = document.createElement("button");
+    desativar.type = "button"; desativar.className = "ws-btn ws-btn--ghost ws-portal__off";
+    desativar.textContent = "Desativar link";
+    desativar.addEventListener("click", () => desativarPortal(desativar));
+    acoes.append(abrir, desativar);
+    wrap.appendChild(acoes);
+    return wrap;
+  }
+
+  async function desativarPortal(botao) {
+    if (botao.dataset.confirm !== "sim") {
+      botao.dataset.confirm = "sim";
+      botao.textContent = "Confirmar?";
+      setTimeout(() => {
+        if (botao.isConnected) { botao.dataset.confirm = "nao"; botao.textContent = "Desativar link"; }
+      }, 3000);
+      return;
+    }
+    botao.disabled = true;
+    try {
+      await api.status.revoke(contactId);
+      toast("Link desativado. Gere um novo quando precisar.", { tone: "success" });
+      render();
+    } catch {
+      toast("Não foi possível desativar agora.", { tone: "danger" });
+      botao.disabled = false;
+    }
+  }
 
   /* ---------------- comentários ---------------- */
 

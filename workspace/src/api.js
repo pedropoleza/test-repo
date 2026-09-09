@@ -199,6 +199,12 @@ export const api = {
       request("POST", "/api/dossier", { query: { action: "revoke" }, body: { pageId } }),
   },
 
+  status: {
+    link: (contactId) => request("GET", "/api/status", { query: { action: "link", id: contactId } }),
+    revoke: (contactId) =>
+      request("POST", "/api/status", { query: { action: "revoke" }, body: { contactId } }),
+  },
+
   tasks: {
     list: (limit) => request("GET", "/api/tasks", { query: { limit } }),
   },

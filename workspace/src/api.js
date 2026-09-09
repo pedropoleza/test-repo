@@ -46,6 +46,21 @@ async function request(method, path, { query, body, keepalive = false } = {}) {
   return payload;
 }
 
+/**
+ * Baixa um binário (PDF) com os mesmos headers de auth, e devolve um
+ * Blob. Usado pela geração de documentos, que não é JSON.
+ */
+async function requestBlob(path, { query } = {}) {
+  const res = await fetch(buildUrl(path, query), { headers: authHeaders() });
+  if (!res.ok) {
+    const texto = await res.text();
+    let payload = null;
+    try { payload = texto ? JSON.parse(texto) : null; } catch { /* binário ou vazio */ }
+    throw new ApiError(res.status, payload?.error, payload);
+  }
+  return res.blob();
+}
+
 export const api = {
   bootstrap: () => request("GET", "/api/bootstrap"),
 
@@ -123,6 +138,8 @@ export const api = {
       }),
     contact: (id) => request("GET", "/api/crm", { query: { action: "contact", id } }),
     dossiers: () => request("GET", "/api/crm", { query: { action: "dossiers" } }),
+    gerarDocumento: (contactId, acordo, idioma = "en") =>
+      requestBlob("/api/crm", { query: { action: "document", id: contactId, acordo, idioma } }),
     contactOpportunities: (id) =>
       request("GET", "/api/crm", { query: { action: "contact-opportunities", id } }),
     moveStage: (opportunityId, pipelineId, stageId) =>

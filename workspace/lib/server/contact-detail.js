@@ -15,6 +15,10 @@ import { findDossier } from "./dossier.js";
 import { listRevisions } from "./revisions.js";
 import { buildTimeline } from "../../src/shared/timeline.js";
 import {
+  resolverCatalogo, servicoDaPipeline, ACORDOS, arquivoDoAcordo,
+} from "../../src/shared/catalog.js";
+import { MAPAS } from "./acordo-maps.js";
+import {
   STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS, OPPORTUNITY_STATUS,
   customFieldsToColumns, tagsToOptions, usersToOptions, stageOptions,
   contactToRecord, opportunityToRecord,
@@ -98,10 +102,29 @@ export async function loadContactDetail(contactId, ctx = null) {
     users: new Map(users.map((u) => [u.id, u.name])),
   });
 
+  // Documentos que dá para gerar para este contato: os acordos dos
+  // serviços dele (pela pipeline de cada oportunidade), filtrados aos que
+  // já têm mapa de preenchimento. Sem serviço identificado, oferece os
+  // que estão prontos — um walk-in de PO Box ou LLC gera na hora.
+  const catalogo = resolverCatalogo(pipelines, customFieldsToColumns(customFields));
+  const temMapa = (def) => (def.idiomas || ["en"]).some((i) => MAPAS[arquivoDoAcordo(def, i)]);
+  const idsRelevantes = new Set();
+  for (const o of opps) {
+    const nomePipe = pipelines.find((p) => p.id === o.pipelineId)?.name;
+    const servico = servicoDaPipeline(nomePipe, catalogo);
+    for (const a of servico?.documentos?.acordos || []) idsRelevantes.add(a.id);
+  }
+  let prontos = [...idsRelevantes].map((id) => ACORDOS[id]).filter((d) => d && temMapa(d));
+  if (!prontos.length) prontos = Object.values(ACORDOS).filter(temMapa);
+  const documentos = prontos.map((d) => ({
+    id: d.id, nome: d.nome, idiomas: d.idiomas || ["en"],
+  }));
+
   return {
     contactId,
     relations,
     timeline,
+    documentos,
     columns,
     record,
     notes,

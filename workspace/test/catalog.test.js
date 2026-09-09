@@ -106,16 +106,16 @@ test("cada serviço com acordo aponta para um PDF real", () => {
 });
 
 test("o acordo de divórcio existe nos três idiomas", () => {
-  assert.equal(arquivoDoAcordo(ACORDOS.divorce, "pt"), "Divorce Agreement- Portuguese.pdf");
-  assert.equal(arquivoDoAcordo(ACORDOS.divorce, "en"), "DIVORCE AGREEMENT- ENGLISH.pdf");
-  assert.equal(arquivoDoAcordo(ACORDOS.divorce, "es"), "Divorce Agreement-Spanish.pdf");
+  assert.equal(arquivoDoAcordo(ACORDOS.divorce, "pt"), "divorce-pt");
+  assert.equal(arquivoDoAcordo(ACORDOS.divorce, "en"), "divorce-en");
+  assert.equal(arquivoDoAcordo(ACORDOS.divorce, "es"), "divorce-es");
 });
 
 test("acordo só em inglês cai no inglês quando pedem outro idioma", () => {
   // O contrato de PO Box só existe em inglês; pedir em português devolve
   // o inglês, não um nulo que quebraria a geração.
-  assert.equal(arquivoDoAcordo(ACORDOS.pobox, "pt"), "PO Box Service Agreement.pdf");
-  assert.equal(arquivoDoAcordo(ACORDOS.pobox, "en"), "PO Box Service Agreement.pdf");
+  assert.equal(arquivoDoAcordo(ACORDOS.pobox, "pt"), "pobox");
+  assert.equal(arquivoDoAcordo(ACORDOS.pobox, "en"), "pobox");
 });
 
 test("a abertura de empresa planta o annual report", () => {

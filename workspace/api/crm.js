@@ -41,6 +41,7 @@ import {
   contactToRecord, opportunityToRecord, opportunityPatch, contactPatch,
 } from "../src/shared/crm.js";
 import { loadContactDetail } from "../lib/server/contact-detail.js";
+import { gerarDocumento } from "../lib/server/document-generate.js";
 import { linkContacts, unlinkContacts } from "../lib/server/relations.js";
 import { log } from "../lib/server/log.js";
 
@@ -97,6 +98,21 @@ export default async function handler(req, res) {
     }
 
     if (!isConfigured()) throw new WorkspaceError(503, "ghl_not_configured");
+
+    if (action === "document") {
+      const contactId = req.query?.id || body.contactId;
+      const acordo = req.query?.acordo || body.acordo;
+      const idioma = req.query?.idioma || body.idioma || "en";
+      const { bytes, filename } = await gerarDocumento(ctx, { contactId, acordo, idioma });
+      log.info("crm.document.generated", {
+        workspaceId: ctx.workspaceId, contactId, acordo, idioma,
+      });
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", String(bytes.length));
+      res.setHeader("Cache-Control", "no-store");
+      return res.end(Buffer.from(bytes));
+    }
 
     if (action === "contacts")      return res.status(200).json(await contacts(req));
     if (action === "opportunities") return res.status(200).json(await opportunities(req));

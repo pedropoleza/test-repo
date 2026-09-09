@@ -51,6 +51,7 @@ export function createContactPanel(host, { contactId } = {}) {
         oppColumns: (data.opportunityColumns || []).map(toField),
         relations: data.relations || [],
         timeline: data.timeline || [],
+        documentos: data.documentos || [],
         opportunities: data.opportunities || [],
         pipelines: data.pipelines || [],
       };
@@ -74,6 +75,7 @@ export function createContactPanel(host, { contactId } = {}) {
     frag.appendChild(secaoContato());
     if (dados.relations.length) frag.appendChild(secaoVinculos());
     frag.appendChild(secaoOportunidades());
+    if (dados.documentos.length) frag.appendChild(secaoDocumentos());
     if (dados.timeline.length) frag.appendChild(secaoLinhaDoTempo());
     host.replaceChildren(frag);
   }
@@ -268,6 +270,82 @@ export function createContactPanel(host, { contactId } = {}) {
 
     row.append(rotulo, valor);
     return row;
+  }
+
+  /* ---------------- documentos ---------------- */
+
+  /**
+   * Gera os acordos da Latino USA preenchidos com os dados deste
+   * contato. O documento sai do PDF real dela — o app só estampa os
+   * dados; a linguagem jurídica nunca é tocada.
+   */
+  function secaoDocumentos() {
+    const box = bloco("Documentos");
+    const lista = document.createElement("div");
+    lista.className = "ws-docs";
+
+    for (const doc of dados.documentos) {
+      const linha = document.createElement("div");
+      linha.className = "ws-docs__item";
+
+      const nome = document.createElement("span");
+      nome.className = "ws-docs__nome";
+      nome.textContent = doc.nome;
+      linha.appendChild(nome);
+
+      // Idioma só quando o acordo existe em mais de um — é o caso do
+      // divórcio (PT/EN/ES); o resto sai direto.
+      let idioma = doc.idiomas[0] || "en";
+      if (doc.idiomas.length > 1) {
+        const sel = document.createElement("select");
+        sel.className = "ws-select ws-docs__idioma";
+        for (const i of doc.idiomas) {
+          const opt = document.createElement("option");
+          opt.value = i;
+          opt.textContent = { pt: "Português", en: "English", es: "Español" }[i] || i;
+          sel.appendChild(opt);
+        }
+        sel.addEventListener("change", () => { idioma = sel.value; });
+        linha.appendChild(sel);
+      }
+
+      const gerar = document.createElement("button");
+      gerar.type = "button";
+      gerar.className = "ws-btn ws-btn--sm ws-docs__gerar";
+      gerar.textContent = "Gerar PDF";
+      gerar.addEventListener("click", () => baixarDocumento(doc, idioma, gerar));
+      linha.appendChild(gerar);
+
+      lista.appendChild(linha);
+    }
+    box.appendChild(lista);
+    return box;
+  }
+
+  async function baixarDocumento(doc, idioma, botao) {
+    const rotulo = botao.textContent;
+    botao.disabled = true;
+    botao.textContent = "Gerando…";
+    try {
+      const blob = await api.crm.gerarDocumento(dados.record.externalId, doc.id, idioma);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${doc.nome}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Revoga depois do clique: revogar antes cancelaria o download.
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      toast(`${doc.nome} gerado.`, { tone: "success" });
+    } catch (err) {
+      toast(err?.code === "acordo_sem_preenchimento"
+        ? "Este acordo ainda não está pronto para preenchimento."
+        : "Não foi possível gerar o documento.", { tone: "danger" });
+    } finally {
+      botao.disabled = false;
+      botao.textContent = rotulo;
+    }
   }
 
   /* ---------------- linha do tempo ---------------- */

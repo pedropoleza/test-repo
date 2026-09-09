@@ -47,28 +47,24 @@ const RE_VENCIMENTO = new RegExp(
 export const ACORDOS = {
   master: {
     id: "master", nome: "Master Client Service Agreement",
-    arquivo: "Latino USA Master Client Service Agreement.pdf",
-    idiomas: ["en"], guardaChuva: true,
+    arquivo: "master", idiomas: ["en"], guardaChuva: true,
   },
   pobox: {
     id: "pobox", nome: "Contrato de PO Box (PMB)",
-    arquivo: "PO Box Service Agreement.pdf", idiomas: ["en"],
+    arquivo: "pobox", idiomas: ["en"],
   },
   llc: {
     id: "llc", nome: "LLC Formation Service Agreement",
-    arquivo: "LLC FORMATION SERVICE AGREEMENT.pdf", idiomas: ["en"],
+    arquivo: "llc", idiomas: ["en"],
   },
   seguro: {
     id: "seguro", nome: "Insurance Service Client Agreement",
-    arquivo: "INSURANCE SERVICE CLIENT AGREEMENT.pdf", idiomas: ["en"],
+    arquivo: "seguro", idiomas: ["en"],
   },
   divorce: {
     id: "divorce", nome: "Divorce Agreement",
-    arquivo: {
-      pt: "Divorce Agreement- Portuguese.pdf",
-      en: "DIVORCE AGREEMENT- ENGLISH.pdf",
-      es: "Divorce Agreement-Spanish.pdf",
-    },
+    // Um PDF por idioma, cada um o documento oficial dela naquela língua.
+    arquivo: { pt: "divorce-pt", en: "divorce-en", es: "divorce-es" },
     idiomas: ["pt", "en", "es"],
   },
 };

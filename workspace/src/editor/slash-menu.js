@@ -33,6 +33,7 @@ export const SLASH_COMMANDS = [
   { id: "subpage",       group: "Estrutura", label: "Subpágina",    icon: "📄", keywords: "subpagina pagina nova page" },
   { id: "columns",       group: "Estrutura", label: "2 colunas",     icon: "◫",  keywords: "colunas duas lado a lado layout columns split" },
   { id: "columns3",      group: "Estrutura", label: "3 colunas",     icon: "⊞",  keywords: "colunas tres lado a lado layout columns" },
+  { id: "button",        group: "Estrutura", label: "Botão de modelo", icon: "▶", keywords: "botao button modelo template nova pagina criar caso" },
 
   { id: "database",      group: "Dados", label: "Tabela",           icon: "▦",  keywords: "tabela database base dados grade planilha table" },
   { id: "database_board",group: "Dados", label: "Quadro (kanban)",  icon: "▤",  keywords: "quadro kanban board colunas status" },

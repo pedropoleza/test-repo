@@ -46,6 +46,11 @@ export const BLOCK_TYPES = {
    */
   columns:        { group: "layout", rich: false, children: true },
   column:         { group: "layout", rich: false, children: true },
+  /**
+   * Botão de modelo (§Notion "button"): clicar cria uma PÁGINA nova
+   * semeada com um modelo de ficha. content: { label, template }.
+   */
+  button:         { group: "structure", rich: false, children: false, void: true },
   database:       { group: "data",      rich: false, children: false, void: true },
   /**
    * Painel do CRM ao vivo (content: { contactId }). É void porque o
@@ -181,6 +186,10 @@ export function normalizeBlockContent(type, rawContent) {
     case "subpage":
       out.pageId = clampString(content.pageId, 64);
       break;
+    case "button":
+      out.label = clampString(content.label, 200) || "Nova página";
+      out.template = clampString(content.template, 60) || "";
+      break;
     case "database":
       out.databaseId = clampString(content.databaseId, 64);
       out.viewId = clampString(content.viewId, 64) || null;
@@ -205,6 +214,7 @@ export function normalizeBlockContent(type, rawContent) {
 
 function plainTextFor(type, content) {
   if (type === "code") return content.text || "";
+  if (type === "button") return content.label || "";
   if (type === "bookmark" || type === "embed") {
     return [content.title, content.description, content.url].filter(Boolean).join(" ");
   }

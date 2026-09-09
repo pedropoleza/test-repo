@@ -494,6 +494,7 @@ export function createEditor(root) {
       if (cmd.id === "columns" || cmd.id === "columns3") {
         return insertColumns(block, cmd.id === "columns3" ? 3 : 2);
       }
+      if (cmd.id === "button") return insertButton(block, { replace: true });
       if (cmd.id === "database" || cmd.id === "database_board") {
         return insertDatabase(block, cmd.id === "database_board");
       }
@@ -511,6 +512,7 @@ export function createEditor(root) {
     if (cmd.id === "columns" || cmd.id === "columns3") {
       return insertColumns(block, cmd.id === "columns3" ? 3 : 2);
     }
+    if (cmd.id === "button") return insertButton(block, { replace: false });
     if (cmd.id === "database" || cmd.id === "database_board") {
       return insertDatabase(block, cmd.id === "database_board");
     }
@@ -527,6 +529,54 @@ export function createEditor(root) {
    * escrito seria usado uma vez só. Os blocos entram em sequência, cada
    * um depois do anterior, para manter a ordem do roteiro.
    */
+  /**
+   * Botão de modelo: escolhe o modelo e cria (ou converte) um bloco
+   * `button` que, ao ser clicado, gera uma PÁGINA nova a partir dele.
+   */
+  async function insertButton(block, { replace }) {
+    const escolhido = await openTemplatePicker({});
+    if (!escolhido) return null;
+    const tpl = getTemplate(escolhido);
+    const content = { template: escolhido, label: `Novo ${tpl?.nome || "documento"}` };
+    if (replace) {
+      await turnInto(block, "button");
+      const b = blockById(block.id);
+      const norm = normalizeBlockContent("button", content).content;
+      upsertBlock({ ...b, content: norm });
+      markDirty(block.id, { content: norm });
+      render();
+      return blockById(block.id);
+    }
+    return createBlockAfter(block, { type: "button", content, focus: false });
+  }
+
+  /**
+   * Roda um botão de modelo: cria uma página nova (irmã da atual) semeada
+   * com os blocos do modelo e navega para ela. É o "+ Novo caso PO Box".
+   */
+  async function runButton(block) {
+    const tplId = block.content?.template;
+    const tpl = tplId ? getTemplate(tplId) : null;
+    const parentId = getState().currentPageId;
+    try {
+      const { page } = await api.pages.create({
+        parentPageId: parentId, title: tpl?.nome || "Nova página",
+      });
+      let afterId = null;
+      for (const bloco of (tplId ? blocosDoModelo(tplId) : [])) {
+        const { block: criado } = await api.blocks.create({
+          pageId: page.id, type: bloco.type, content: bloco.content, afterId,
+        });
+        afterId = criado.id;
+      }
+      root.dispatchEvent(new CustomEvent("workspace:page-created", { bubbles: true, detail: { page } }));
+      root.dispatchEvent(new CustomEvent("workspace:navigate", { bubbles: true, detail: { pageId: page.id } }));
+      toast(`Página criada de "${tpl?.nome || "modelo"}".`, { tone: "success" });
+    } catch {
+      toast("Não foi possível criar a página do botão.", { tone: "danger" });
+    }
+  }
+
   /**
    * Insere um layout de colunas depois do bloco atual: a faixa `columns`,
    * `n` colunas dentro dela, e um parágrafo vazio em cada uma (o primeiro
@@ -1050,6 +1100,21 @@ export function createEditor(root) {
           type: "paragraph", parentBlockId: block.id, afterId: null, focus: true,
         });
         focusBlock(created.id);
+        return;
+      }
+      case "run-button":
+        await runButton(block);
+        return;
+      case "config-button": {
+        const escolhido = await openTemplatePicker({});
+        if (!escolhido) return;
+        const tpl = getTemplate(escolhido);
+        const norm = normalizeBlockContent("button", {
+          template: escolhido, label: `Novo ${tpl?.nome || "documento"}`,
+        }).content;
+        upsertBlock({ ...block, content: norm });
+        markDirty(block.id, { content: norm });
+        render();
         return;
       }
       case "block-menu":

@@ -671,6 +671,21 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
   .ws-columns { flex-direction: column; gap: 8px; }
 }
 
+/* Botão de modelo: clicar cria uma página nova a partir de um modelo. */
+.ws-button-block { display: inline-flex; align-items: stretch; gap: 0; }
+.ws-button-block__run {
+  border: 1px solid var(--ghl-300); background: var(--ghl-100); color: var(--ghl-800);
+  font: inherit; font-weight: 600; font-size: var(--fs-sm); cursor: pointer;
+  padding: 7px 14px; border-radius: var(--r-sm) 0 0 var(--r-sm);
+}
+.ws-button-block__run:hover { background: var(--ghl-200); }
+.ws-button-block__cfg {
+  border: 1px solid var(--ghl-300); border-left: 0; background: var(--ghl-50, #eef4ff);
+  color: var(--ghl-600); cursor: pointer; font-size: 12px;
+  padding: 0 8px; border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.ws-button-block__cfg:hover { color: var(--ghl-800); background: var(--ghl-100); }
+
 .ws-text {
   outline: none;
   line-height: 1.65;

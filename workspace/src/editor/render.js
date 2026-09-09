@@ -221,6 +221,25 @@ function renderBody(block, spec, ordinal) {
       return marker;
     }
 
+    case "button": {
+      const wrap = document.createElement("div");
+      wrap.className = "ws-button-block";
+      wrap.contentEditable = "false";
+      const run = document.createElement("button");
+      run.type = "button";
+      run.className = "ws-button-block__run";
+      run.dataset.action = "run-button";
+      run.textContent = block.content?.label || "Nova página";
+      const cfg = document.createElement("button");
+      cfg.type = "button";
+      cfg.className = "ws-button-block__cfg";
+      cfg.dataset.action = "config-button";
+      cfg.setAttribute("aria-label", "Escolher o modelo do botão");
+      cfg.textContent = "⚙";
+      wrap.append(run, cfg);
+      return wrap;
+    }
+
     case "subpage":
       return renderSubpageLink(block);
 

@@ -86,6 +86,17 @@ test("colunas e coluna são contêineres conhecidos, sem conteúdo próprio", ()
   assert.deepEqual(normalizeBlockContent("column", {}).content, {});
 });
 
+test("botão de modelo guarda label e template", () => {
+  assert.equal(isBlockType("button"), true);
+  const { content, plainText } = normalizeBlockContent("button", {
+    label: "Novo caso PO Box", template: "pobox", intruso: 1,
+  });
+  assert.deepEqual(content, { label: "Novo caso PO Box", template: "pobox" });
+  assert.equal(plainText, "Novo caso PO Box");
+  // Sem label, cai num padrão em vez de vazio.
+  assert.equal(normalizeBlockContent("button", {}).content.label, "Nova página");
+});
+
 test("unknown block types fall back to the unsupported spec", () => {
   assert.equal(isBlockType("nope"), false);
   assert.equal(blockSpec("nope").group, "system");

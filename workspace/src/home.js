@@ -61,22 +61,22 @@ export function createHomeView(host, handlers = {}) {
 
   function secaoModulos(s) {
     const modulos = [
-      { id: "contacts",      nome: "Leads",         icone: "👥", ds: "Os contatos da conta" },
-      { id: "opportunities", nome: "Oportunidades", icone: "💰", ds: "Os casos em andamento" },
-      { id: "renewals",      nome: "Renovações",    icone: "🔄", ds: "O que precisa renovar" },
+      { id: "contacts",      nome: "Leads",         ds: "Os contatos da conta" },
+      { id: "opportunities", nome: "Oportunidades", ds: "Os casos em andamento" },
+      { id: "renewals",      nome: "Renovações",    ds: "O que precisa renovar" },
     ];
     if (s.temServicos) {
-      modulos.push({ id: "aguardando", nome: "Aguardando", icone: "⏳", ds: "Casos parados agora" });
+      modulos.push({ id: "aguardando", nome: "Aguardando", ds: "Casos parados agora" });
     }
     if (s.temRecorrentes) {
-      modulos.push({ id: "vencimentos", nome: "Vencimentos", icone: "⏰", ds: "O que está para vencer" });
+      modulos.push({ id: "vencimentos", nome: "Vencimentos", ds: "O que está para vencer" });
     }
     if (s.temServicos || s.temRecorrentes) {
-      modulos.push({ id: "agenda", nome: "Agenda", icone: "🗒️", ds: "O plano da semana" });
+      modulos.push({ id: "agenda", nome: "Agenda", ds: "O plano da semana" });
     }
-    modulos.push({ id: "tasks", nome: "Tarefas", icone: "✓", ds: "As tarefas recebidas" });
+    modulos.push({ id: "tasks", nome: "Tarefas", ds: "As tarefas recebidas" });
     if (s.temServicos || s.temRecorrentes) {
-      modulos.push({ id: "relatorios", nome: "Relatórios", icone: "📊", ds: "A operação em números" });
+      modulos.push({ id: "relatorios", nome: "Relatórios", ds: "A operação em números" });
     }
 
     const bloco = document.createElement("section");
@@ -90,9 +90,10 @@ export function createHomeView(host, handlers = {}) {
       card.type = "button";
       card.className = "ws-home__card";
       card.dataset.atual = s.crmView === m.id ? "sim" : "nao";
+      // Monograma no lugar do emoji: a inicial do módulo, monocromática.
       const ic = document.createElement("span");
-      ic.className = "ws-home__card-icon";
-      ic.textContent = m.icone;
+      ic.className = "ws-home__card-icon ws-home__card-icon--mono";
+      ic.textContent = (m.nome[0] || "").toUpperCase();
       const corpo = document.createElement("span");
       corpo.className = "ws-home__card-body";
       const nome = document.createElement("span");

@@ -115,23 +115,24 @@ export function createSidebar(root, handlers) {
     // radar não faz sentido numa conta sem data de renovação. O flag vem
     // do catálogo, carregado em segundo plano no boot.
     const abas = [
-      ["contacts", "Leads", "👥"],
-      ["opportunities", "Oportunidades", "💰"],
-      ["renewals", "Renovações", "🔄"],
+      ["contacts", "Leads"],
+      ["opportunities", "Oportunidades"],
+      ["renewals", "Renovações"],
     ];
-    if (getState().temServicos) abas.push(["aguardando", "Aguardando", "⏳"]);
-    if (getState().temRecorrentes) abas.push(["vencimentos", "Vencimentos", "⏰"]);
-    if (getState().temServicos || getState().temRecorrentes) abas.push(["agenda", "Agenda", "🗒️"]);
-    abas.push(["tasks", "Tarefas", "✓"]);
-    if (getState().temServicos || getState().temRecorrentes) abas.push(["relatorios", "Relatórios", "📊"]);
-    for (const [id, label, icon] of abas) {
+    if (getState().temServicos) abas.push(["aguardando", "Aguardando"]);
+    if (getState().temRecorrentes) abas.push(["vencimentos", "Vencimentos"]);
+    if (getState().temServicos || getState().temRecorrentes) abas.push(["agenda", "Agenda"]);
+    abas.push(["tasks", "Tarefas"]);
+    if (getState().temServicos || getState().temRecorrentes) abas.push(["relatorios", "Relatórios"]);
+    for (const [id, label] of abas) {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = `ws-tree__row ws-tree__row--static${
+      btn.className = `ws-tree__row ws-tree__row--static ws-tree__row--mod${
         getState().crmView === id ? " is-current" : ""}`;
+      // Monograma no lugar do emoji: a inicial do módulo, monocromática.
       const ic = document.createElement("span");
-      ic.className = "ws-tree__icon";
-      ic.textContent = icon;
+      ic.className = "ws-tree__icon ws-tree__mono";
+      ic.textContent = (label[0] || "").toUpperCase();
       const lb = document.createElement("span");
       lb.className = "ws-tree__label";
       lb.textContent = label;

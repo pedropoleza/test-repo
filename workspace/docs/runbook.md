@@ -446,6 +446,37 @@ Estágio com nome fora do vocabulário aparece por último, sem cor — nunca
 some. Perder uma apólice porque o estágio tem nome desconhecido seria
 pior que mostrá-la sem destaque.
 
+## Serviços, documentos e acordos (conta Samantha)
+
+O engine encaixa na estrutura multisserviço dela pelo **código de
+serviço** — o mesmo do plano da conta. Três peças, em camadas:
+
+- **Catálogo** (`src/shared/catalog.js`): os serviços dela, autorados
+  como conteúdo de negócio, e resolvidos contra a conta viva (pipeline,
+  pasta de campos, campo de vencimento vêm do GHL). Serviço não é
+  pipeline — o PO Box existe sem funil, pelos campos. Numa conta de
+  outro negócio, resolve zero.
+- **Gerador de documentos** (`lib/server/document-fill.js` +
+  `acordo-maps.js`): preenche os PDFs reais da Latino USA com os dados do
+  contato, no idioma do cliente. Estampa sobre as linhas do PDF dela —
+  nunca recria texto jurídico (o Master diz "NOT A LAW FIRM"). As
+  coordenadas de cada campo saem em dev com o poppler; o runtime usa só o
+  pdf-lib. Os PDFs ficam em `assets/acordos/`.
+  - Prontos hoje: `pobox`, `llc`. Empacotados, à espera de mapa:
+    `seguro`, `divorce` (pt/en/es), `master`.
+  - Para preparar outro: `pdftotext -bbox-layout` no PDF, achar as
+    coordenadas dos rótulos (lembrar: y do pdf-lib = altura − y do
+    poppler), pôr o mapa em `MAPAS` e a origem dos dados em `dados`,
+    renderizar com `pdftoppm` e conferir a olho.
+- **Documentos na ficha** (F2, `lib/server/contact-documents.js`): os
+  arquivos do cliente na ficha, em quatro categorias (recebidos,
+  emitidos, contratos, recibos). Reaproveita `workspace_files` com
+  `source='contact_doc'` e o contato em `source_external_id`; a migration
+  0009 acrescentou `category` e `service_code`.
+
+Tudo isto só aparece onde o catálogo resolve — a conta da Daniely não
+mostra acordo nem seção de documentos.
+
 ## Nada de diálogo nativo do navegador
 
 `window.prompt/confirm/alert` não podem aparecer em nenhum campo. Eles

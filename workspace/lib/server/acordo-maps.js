@@ -80,6 +80,93 @@ export const MAPAS = {
       email:         { std: "email" },
     },
   },
+
+  /**
+   * Insurance Service Client Agreement — seção 1 (dados do cliente),
+   * página 1.
+   */
+  seguro: {
+    idiomas: ["en"],
+    mapa: [
+      { campo: "nome",     page: 0, x: 200, y: 507, max: 330 },
+      { campo: "endereco", page: 0, x: 200, y: 485, max: 330 },
+      { campo: "cidade",   page: 0, x: 200, y: 462, max: 330 },
+      { campo: "telefone", page: 0, x: 200, y: 440, max: 330 },
+      { campo: "email",    page: 0, x: 200, y: 417, max: 330 },
+    ],
+    dados: {
+      nome:     { std: "name" },
+      endereco: { std: "address1" },
+      cidade:   { join: ["city", "state", "postalCode"], sep: " / " },
+      telefone: { std: "phone" },
+      email:    { std: "email" },
+    },
+  },
+
+  /**
+   * Divorce Agreement — bloco de intake da PARTE A (o cliente). Só os
+   * quatro campos que temos no CRM; o resto (SSN, dados do cônjuge) é
+   * sensível ou desconhecido e fica em branco, para preencher à mão.
+   *
+   * Um mapa por idioma: os PDFs têm layouts diferentes (o inglês tem 4
+   * páginas, português e espanhol têm 6), então o bloco cai em páginas e
+   * alturas distintas.
+   */
+  "divorce-en": {
+    idiomas: ["en"],
+    mapa: [
+      { campo: "nome",     page: 1, x: 290, y: 191, max: 250 },
+      { campo: "endereco", page: 1, x: 290, y: 169, max: 250 },
+      { campo: "telefone", page: 1, x: 290, y: 148, max: 250 },
+      { campo: "email",    page: 1, x: 290, y: 126, max: 250 },
+    ],
+    dados: {
+      nome:     { std: "name" },
+      endereco: { std: "address1" },
+      cidade:   { join: ["city", "state", "postalCode"], sep: " / " },
+      telefone: { std: "phone" },
+      email:    { std: "email" },
+    },
+  },
+  "divorce-pt": {
+    idiomas: ["pt"],
+    mapa: [
+      { campo: "nome",     page: 3, x: 290, y: 562, max: 250 },
+      { campo: "endereco", page: 3, x: 290, y: 539, max: 250 },
+      { campo: "telefone", page: 3, x: 290, y: 516, max: 250 },
+      { campo: "email",    page: 3, x: 290, y: 493, max: 250 },
+    ],
+    dados: {
+      nome:     { std: "name" },
+      endereco: { std: "address1" },
+      cidade:   { join: ["city", "state", "postalCode"], sep: " / " },
+      telefone: { std: "phone" },
+      email:    { std: "email" },
+    },
+  },
+  "divorce-es": {
+    idiomas: ["es"],
+    mapa: [
+      { campo: "nome",     page: 3, x: 290, y: 562, max: 250 },
+      { campo: "endereco", page: 3, x: 290, y: 539, max: 250 },
+      { campo: "telefone", page: 3, x: 290, y: 516, max: 250 },
+      { campo: "email",    page: 3, x: 290, y: 493, max: 250 },
+    ],
+    dados: {
+      nome:     { std: "name" },
+      endereco: { std: "address1" },
+      cidade:   { join: ["city", "state", "postalCode"], sep: " / " },
+      telefone: { std: "phone" },
+      email:    { std: "email" },
+    },
+  },
+
+  /**
+   * Master — os termos gerais, iguais para todo cliente. Não tem campo
+   * para preencher: "gerar" é entregar o PDF dela como está. Mapa vazio,
+   * o motor devolve o documento intacto.
+   */
+  master: { idiomas: ["en"], mapa: [], dados: {} },
 };
 
 /**

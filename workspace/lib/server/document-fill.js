@@ -77,7 +77,12 @@ export async function preencherAcordo({ slug, valores = {}, mapa = [] }) {
     pagina.drawText(saida, { x: campo.x, y: campo.y, size, font: fonte, color: TINTA });
   }
 
-  return doc.save();
+  // useObjectStreams:false é obrigatório: com o default, o save do
+  // pdf-lib corrompe os PDFs de divórcio pt/es ("Couldn't find trailer
+  // dictionary"). Sem stream de objetos o arquivo fica um pouco maior e
+  // abre em todos os leitores — o certo para um documento que vai ser
+  // assinado.
+  return doc.save({ useObjectStreams: false });
 }
 
 /** Só para inspeção: quantas páginas o acordo tem. */

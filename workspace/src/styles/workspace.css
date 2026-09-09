@@ -1565,6 +1565,58 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 
 .ws-db__empty { padding: 14px; color: var(--gray-400); font-size: var(--fs-sm); }
 
+/* Alternador Tabela / Quadro. */
+.ws-db__seg {
+  display: inline-flex; border: 1px solid var(--gray-200);
+  border-radius: var(--r-sm); overflow: hidden; background: var(--gray-50);
+}
+.ws-db__seg-btn {
+  border: 0; background: none; cursor: pointer; font: inherit;
+  padding: 5px 12px; font-size: var(--fs-sm); color: var(--gray-600);
+}
+.ws-db__seg-btn + .ws-db__seg-btn { border-left: 1px solid var(--gray-200); }
+.ws-db__seg-btn[data-ativo="sim"] { background: var(--white); color: var(--gray-900); font-weight: 600; }
+
+/* Quadro (Kanban): colunas por estágio, com arrastar. */
+.ws-board__wrap { display: flex; flex-direction: column; gap: 10px; }
+.ws-board__pipe { align-self: flex-start; max-width: 280px; }
+.ws-board {
+  display: flex; gap: 10px; overflow-x: auto; padding: 4px 2px 8px;
+  align-items: flex-start;
+}
+.ws-board__col {
+  flex: 0 0 260px; display: flex; flex-direction: column; gap: 8px;
+  background: var(--gray-50); border: 1px solid var(--gray-200);
+  border-radius: var(--r-md); padding: 8px; min-height: 80px;
+}
+.ws-board__col.is-over { border-color: var(--ghl-400); background: var(--ghl-50, #eef4ff); }
+.ws-board__col[data-orfa="sim"] { border-style: dashed; }
+.ws-board__col-head { display: flex; align-items: center; gap: 6px; padding: 0 2px; }
+.ws-board__col-name { font-size: var(--fs-sm); font-weight: 600; color: var(--gray-800); flex: 1; }
+.ws-board__col-count {
+  min-width: 20px; padding: 0 6px; border-radius: var(--r-pill);
+  background: var(--gray-200); color: var(--gray-600);
+  font-size: var(--fs-xs); font-weight: 600; text-align: center;
+}
+.ws-board__col-total { font-size: var(--fs-xs); color: var(--gray-500); }
+.ws-board__cards { display: flex; flex-direction: column; gap: 6px; min-height: 24px; }
+.ws-board__card {
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--r-sm); padding: 8px 10px; cursor: grab;
+  box-shadow: 0 1px 0 rgba(0,0,0,.03);
+}
+.ws-board__card:hover { border-color: var(--gray-300); }
+.ws-board__card.is-dragging { opacity: .5; }
+.ws-board__card-title {
+  font-size: var(--fs-sm); font-weight: 500; color: var(--gray-900);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ws-board__card-meta {
+  display: flex; justify-content: space-between; gap: 8px; margin-top: 3px;
+  font-size: var(--fs-xs); color: var(--gray-500);
+}
+.ws-board__card-value { font-weight: 600; color: var(--gray-700); }
+
 .ws-db__foot {
   display: flex;
   align-items: center;

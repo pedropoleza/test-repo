@@ -23,6 +23,7 @@ import {
 } from "./editing.js";
 import { attachDragScroll } from "../database/drag-scroll.js";
 import { renderLoader } from "../ui/loader.js";
+import { pipelineDoQuadro, colunasDoQuadro, contagemPorPipeline, totalDaColuna } from "../shared/board.js";
 
 const PREFS_KEY = "workspace:crmPrefs";
 
@@ -70,6 +71,8 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
     filters: { op: "and", conditions: [] },
     groupBy: null,
     search: "",
+    viewMode: "table",    // "table" | "board" (quadro só para oportunidades)
+    boardPipeline: null,  // a pipeline escolhida no quadro
     ...loadPrefs(escopo),
   };
   if (!prefs.filters?.conditions) prefs.filters = { op: "and", conditions: [] };
@@ -200,6 +203,15 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
     host.appendChild(renderToolbar());
 
     const rows = filtered();
+
+    // Quadro (Kanban): outra leitura das mesmas oportunidades, em colunas
+    // por estágio, com arrastar entre elas. Só faz sentido em oportunidade.
+    if (ehQuadro()) {
+      host.appendChild(renderBoard(rows));
+      host.appendChild(renderFoot(rows));
+      return;
+    }
+
     const groupField = prefs.groupBy ? columns.find((c) => c.key === prefs.groupBy) : null;
 
     const scroll = document.createElement("div");
@@ -223,7 +235,10 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
       scroll.appendChild(renderGrid(rows));
     }
     host.appendChild(scroll);
+    host.appendChild(renderFoot(rows));
+  }
 
+  function renderFoot(rows) {
     const foot = document.createElement("div");
     foot.className = "ws-db__foot";
     const count = document.createElement("span");
@@ -238,12 +253,167 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
       warn.textContent = "Mostrando os primeiros 300 registros";
       foot.appendChild(warn);
     }
-    host.appendChild(foot);
+    return foot;
+  }
+
+  /* ---------------- quadro (Kanban) ---------------- */
+
+  function ehQuadro() {
+    return kind === "opportunities" && prefs.viewMode === "board";
+  }
+
+  function renderBoard(rows) {
+    const wrap = document.createElement("div");
+    wrap.className = "ws-board__wrap";
+
+    const pipeline = pipelineDoQuadro(rows, pipelines, prefs.boardPipeline);
+    if (!pipeline) {
+      const vazio = document.createElement("div");
+      vazio.className = "ws-db__empty";
+      vazio.textContent = "Nenhuma pipeline com oportunidades para montar o quadro.";
+      wrap.appendChild(vazio);
+      return wrap;
+    }
+
+    // Seletor de pipeline: só aparece quando há mais de uma com card.
+    const comCards = contagemPorPipeline(rows, pipelines).filter((p) => p.total);
+    if (comCards.length > 1) {
+      const sel = document.createElement("select");
+      sel.className = "ws-select ws-board__pipe";
+      sel.setAttribute("aria-label", "Pipeline do quadro");
+      for (const p of comCards) {
+        const o = document.createElement("option");
+        o.value = p.id; o.textContent = `${p.name} (${p.total})`;
+        o.selected = p.id === pipeline.id;
+        sel.appendChild(o);
+      }
+      sel.addEventListener("change", () => { prefs.boardPipeline = sel.value; persist(); render(); });
+      wrap.appendChild(sel);
+    }
+
+    const board = document.createElement("div");
+    board.className = "ws-board";
+    for (const coluna of colunasDoQuadro(pipeline, rows)) {
+      board.appendChild(renderColuna(coluna, pipeline));
+    }
+    wrap.appendChild(board);
+    return wrap;
+  }
+
+  function renderColuna(coluna, pipeline) {
+    const col = document.createElement("div");
+    col.className = "ws-board__col";
+    if (coluna.orfa) col.dataset.orfa = "sim";
+    col.dataset.stageId = coluna.stageId || "";
+
+    const head = document.createElement("div");
+    head.className = "ws-board__col-head";
+    const nome = document.createElement("span");
+    nome.className = "ws-board__col-name";
+    nome.textContent = coluna.nome;
+    const conta = document.createElement("span");
+    conta.className = "ws-board__col-count";
+    conta.textContent = coluna.cards.length;
+    head.append(nome, conta);
+    const total = totalDaColuna(coluna.cards);
+    if (total) {
+      const val = document.createElement("span");
+      val.className = "ws-board__col-total";
+      val.textContent = formatarValor(total);
+      head.appendChild(val);
+    }
+    col.appendChild(head);
+
+    const lista = document.createElement("div");
+    lista.className = "ws-board__cards";
+    // Soltar numa coluna sem estágio (órfã) não faz sentido: não há para
+    // onde mover. As demais recebem o card arrastado.
+    if (!coluna.orfa) armarSolta(lista, coluna, pipeline);
+    for (const card of coluna.cards) lista.appendChild(renderCard(card));
+    col.appendChild(lista);
+    return col;
+  }
+
+  function renderCard(record) {
+    const card = document.createElement("article");
+    card.className = "ws-board__card";
+    card.draggable = true;
+    card.dataset.id = record.externalId;
+
+    const titulo = document.createElement("div");
+    titulo.className = "ws-board__card-title";
+    titulo.textContent = record.title || "Sem nome";
+    card.appendChild(titulo);
+
+    const meta = document.createElement("div");
+    meta.className = "ws-board__card-meta";
+    if (record.properties?.contact) {
+      const c = document.createElement("span");
+      c.textContent = record.properties.contact;
+      meta.appendChild(c);
+    }
+    if (Number(record.properties?.value)) {
+      const v = document.createElement("span");
+      v.className = "ws-board__card-value";
+      v.textContent = formatarValor(Number(record.properties.value));
+      meta.appendChild(v);
+    }
+    if (meta.childNodes.length) card.appendChild(meta);
+
+    // Abrir a pasta do contato: o card é o mesmo elo da tabela.
+    if (record.contactId) {
+      card.addEventListener("dblclick", () => onOpenPage && abrirPasta(record.contactId));
+      card.title = "Arraste para mover · dois cliques para abrir a pasta";
+    }
+
+    card.addEventListener("dragstart", (e) => {
+      card.classList.add("is-dragging");
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", record.externalId);
+    });
+    card.addEventListener("dragend", () => card.classList.remove("is-dragging"));
+    return card;
+  }
+
+  function armarSolta(lista, coluna, pipeline) {
+    lista.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      lista.parentElement.classList.add("is-over");
+    });
+    lista.addEventListener("dragleave", (e) => {
+      if (!lista.contains(e.relatedTarget)) lista.parentElement.classList.remove("is-over");
+    });
+    lista.addEventListener("drop", (e) => {
+      e.preventDefault();
+      lista.parentElement.classList.remove("is-over");
+      const id = e.dataTransfer.getData("text/plain");
+      const record = records.find((r) => r.externalId === id);
+      if (!record) return;
+      if (record.stageId === coluna.stageId && record.pipelineId === pipeline.id) return;
+      commitMove({ record, pipelines, pipelineId: pipeline.id, stageId: coluna.stageId, repaint: render });
+    });
+  }
+
+  async function abrirPasta(contactId) {
+    try {
+      const { page } = await api.crm.openDossier(contactId);
+      onOpenPage?.(page.id);
+    } catch {
+      toast("Não foi possível abrir a pasta.", { tone: "danger" });
+    }
+  }
+
+  function formatarValor(n) {
+    return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
   }
 
   function renderToolbar() {
     const bar = document.createElement("div");
     bar.className = "ws-db__toolbar";
+
+    // Alternador Tabela / Quadro — só para oportunidades, que têm estágio.
+    if (kind === "opportunities") bar.appendChild(renderViewToggle());
 
     const search = document.createElement("input");
     search.type = "search";
@@ -279,14 +449,39 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
     actions.append(
       pill(nFiltros ? `Filtros · ${nFiltros}` : "Filtros", (a) => openFilterSummary(a)),
       pill(prefs.sorts.length ? `Ordenar · ${prefs.sorts.length}` : "Ordenar", openSort),
-      pill(prefs.groupBy
-        ? `Agrupar · ${columns.find((c) => c.key === prefs.groupBy)?.name || ""}`
-        : "Agrupar", openGroup),
-      pill(`Colunas · ${visibleColumns().length}`, openColumns),
-      pill("Atualizar", () => load()),
     );
+    // Agrupar e Colunas são da tabela: no quadro, o estágio já é a coluna.
+    if (!ehQuadro()) {
+      actions.append(
+        pill(prefs.groupBy
+          ? `Agrupar · ${columns.find((c) => c.key === prefs.groupBy)?.name || ""}`
+          : "Agrupar", openGroup),
+        pill(`Colunas · ${visibleColumns().length}`, openColumns),
+      );
+    }
+    actions.append(pill("Atualizar", () => load()));
     bar.appendChild(actions);
     return bar;
+  }
+
+  function renderViewToggle() {
+    const seg = document.createElement("div");
+    seg.className = "ws-db__seg";
+    for (const [modo, rotulo] of [["table", "Tabela"], ["board", "Quadro"]]) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ws-db__seg-btn";
+      b.dataset.ativo = (prefs.viewMode || "table") === modo ? "sim" : "nao";
+      b.textContent = rotulo;
+      b.addEventListener("click", () => {
+        if (prefs.viewMode === modo) return;
+        prefs.viewMode = modo;
+        persist();
+        render();
+      });
+      seg.appendChild(b);
+    }
+    return seg;
   }
 
   function pill(label, onClick) {

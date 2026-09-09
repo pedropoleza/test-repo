@@ -43,6 +43,7 @@ import {
 import { loadContactDetail } from "../lib/server/contact-detail.js";
 import { gerarDocumento } from "../lib/server/document-generate.js";
 import { listContactDocuments, deleteContactDocument } from "../lib/server/contact-documents.js";
+import { setChecklistItem } from "../lib/server/doc-checklist.js";
 import { resolverCatalogo, servicosRecorrentes } from "../src/shared/catalog.js";
 import { linkContacts, unlinkContacts } from "../lib/server/relations.js";
 import { log } from "../lib/server/log.js";
@@ -105,6 +106,15 @@ export default async function handler(req, res) {
       const contactId = req.query?.id || body.contactId;
       return res.status(200).json({ documentos: await listContactDocuments(ctx, contactId) });
     }
+    if (action === "checklist-set") {
+      requireRole(ctx, "editor");
+      const r = await setChecklistItem(ctx, {
+        contactId: body.contactId, serviceCode: body.serviceCode,
+        item: body.item, state: body.state,
+      });
+      return res.status(200).json(r);
+    }
+
     if (action === "contact-doc-delete") {
       requireRole(ctx, "editor");
       await deleteContactDocument(ctx, body.id || req.query?.id);

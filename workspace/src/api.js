@@ -145,6 +145,9 @@ export const api = {
       request("GET", "/api/crm", { query: { action: "contact-docs", id: contactId } }),
     deleteContactDoc: (id) =>
       request("POST", "/api/crm", { query: { action: "contact-doc-delete" }, body: { id } }),
+    setChecklistItem: (contactId, serviceCode, item, state) =>
+      request("POST", "/api/crm", { query: { action: "checklist-set" },
+        body: { contactId, serviceCode, item, state } }),
     contactOpportunities: (id) =>
       request("GET", "/api/crm", { query: { action: "contact-opportunities", id } }),
     moveStage: (opportunityId, pipelineId, stageId) =>

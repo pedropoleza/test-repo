@@ -24,3 +24,31 @@ export function normalizarCategoria(id) {
 export function nomeDaCategoria(id) {
   return CATEGORIAS.find((c) => c.id === id)?.nome || "Documento";
 }
+
+
+/**
+ * Estados de um documento no checklist, na ordem em que avançam. Um
+ * clique empurra para o próximo; o último volta ao começo (para desfazer
+ * um engano). Ausência = pendente.
+ */
+export const ESTADOS_DOC = [
+  { id: "pendente",  nome: "Pendente",  cor: "gray" },
+  { id: "recebido",  nome: "Recebido",  cor: "blue" },
+  { id: "enviado",   nome: "Enviado",   cor: "orange" },
+  { id: "devolvido", nome: "Devolvido", cor: "green" },
+];
+
+const ORDEM = ESTADOS_DOC.map((e) => e.id);
+
+export function proximoEstadoDoc(id) {
+  const i = ORDEM.indexOf(id);
+  return ORDEM[(i + 1) % ORDEM.length];
+}
+
+export function estadoDoc(id) {
+  return ESTADOS_DOC.find((e) => e.id === id) || ESTADOS_DOC[0];
+}
+
+export function estadoDocValido(id) {
+  return ORDEM.includes(id);
+}

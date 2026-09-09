@@ -19,6 +19,7 @@ import {
 } from "../../src/shared/catalog.js";
 import { MAPAS } from "./acordo-maps.js";
 import { listContactDocuments } from "./contact-documents.js";
+import { listChecklist } from "./doc-checklist.js";
 import {
   STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS, OPPORTUNITY_STATUS,
   customFieldsToColumns, tagsToOptions, usersToOptions, stageOptions,
@@ -115,6 +116,27 @@ export async function loadContactDetail(contactId, ctx = null) {
     const servico = servicoDaPipeline(nomePipe, catalogo);
     for (const a of servico?.documentos?.acordos || []) idsRelevantes.add(a.id);
   }
+  // Checklist de documentos: para cada serviço do contato, o que o
+  // cliente precisa trazer e em que estado está. Os itens vêm do
+  // catálogo; o estado, do que já foi marcado.
+  const servicosDoContato = [];
+  const vistos = new Set();
+  for (const o of opps) {
+    const nomePipe = pipelines.find((p) => p.id === o.pipelineId)?.name;
+    const servico = servicoDaPipeline(nomePipe, catalogo);
+    if (servico && !vistos.has(servico.code) && servico.documentos?.recebidos?.length) {
+      vistos.add(servico.code);
+      servicosDoContato.push(servico);
+    }
+  }
+  const estados = ctx ? await listChecklist(ctx, contactId).catch(() => ({})) : {};
+  const checklists = servicosDoContato.map((s) => ({
+    code: s.code, nome: s.nome, icone: s.icone,
+    itens: s.documentos.recebidos.map((item) => ({
+      item, state: estados[`${s.code}|${item}`] || "pendente",
+    })),
+  }));
+
   let prontos = [...idsRelevantes].map((id) => ACORDOS[id]).filter((d) => d && temMapa(d));
   // Fallback SÓ quando a conta tem catálogo: um walk-in de PO Box na
   // conta dela ainda gera na hora. Numa conta de outro negócio, sem
@@ -135,6 +157,7 @@ export async function loadContactDetail(contactId, ctx = null) {
     relations,
     timeline,
     documentos,
+    checklists,
     arquivos,
     columns,
     record,

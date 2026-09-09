@@ -482,6 +482,13 @@ serviço** — o mesmo do plano da conta. Três peças, em camadas:
   boot e o gate segue o resultado. É a feature de retenção — traz o
   cliente de volta antes de o serviço vencer.
 
+- **Checklist de documentos** (F2, `lib/server/doc-checklist.js`): por
+  serviço do contato, os documentos que o cliente precisa trazer, com
+  estado — pendente → recebido → enviado → devolvido. Os itens vêm do
+  catálogo (`documentos.recebidos`); o estado, da tabela
+  `workspace_doc_checklist` (migration 0010). Voltar a "pendente" apaga a
+  linha: o padrão não ocupa espaço.
+
 Tudo isto só aparece onde o catálogo resolve — a conta da Daniely não
 mostra acordo nem seção de documentos.
 

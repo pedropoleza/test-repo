@@ -19,7 +19,7 @@ import { renderAvatar } from "./photo.js";
 import { toast } from "../ui/toast.js";
 import { renderLoader } from "../ui/loader.js";
 import { agruparPorDia } from "../shared/timeline.js";
-import { CATEGORIAS, nomeDaCategoria } from "../shared/documents.js";
+import { CATEGORIAS, nomeDaCategoria, ESTADOS_DOC, proximoEstadoDoc, estadoDoc } from "../shared/documents.js";
 import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
 import { openModal } from "../ui/menu.js";
 
@@ -55,6 +55,7 @@ export function createContactPanel(host, { contactId } = {}) {
         relations: data.relations || [],
         timeline: data.timeline || [],
         documentos: data.documentos || [],
+        checklists: data.checklists || [],
         arquivos: data.arquivos || [],
         opportunities: data.opportunities || [],
         pipelines: data.pipelines || [],
@@ -79,7 +80,7 @@ export function createContactPanel(host, { contactId } = {}) {
     frag.appendChild(secaoContato());
     if (dados.relations.length) frag.appendChild(secaoVinculos());
     frag.appendChild(secaoOportunidades());
-    if (dados.documentos.length || dados.arquivos.length) frag.appendChild(secaoDocumentos());
+    if (dados.documentos.length || dados.checklists.length || dados.arquivos.length) frag.appendChild(secaoDocumentos());
     if (dados.timeline.length) frag.appendChild(secaoLinhaDoTempo());
     host.replaceChildren(frag);
   }
@@ -288,7 +289,9 @@ export function createContactPanel(host, { contactId } = {}) {
 
     // 1) Gerar: os acordos preenchidos com os dados do contato.
     if (dados.documentos.length) box.appendChild(blocoGerar());
-    // 2) Arquivos: o que já está guardado na ficha, por categoria.
+    // 2) Checklist: o que o cliente precisa trazer, por serviço.
+    if (dados.checklists.length) box.appendChild(blocoChecklist());
+    // 3) Arquivos: o que já está guardado na ficha, por categoria.
     box.appendChild(blocoArquivos());
     return box;
   }
@@ -339,6 +342,69 @@ export function createContactPanel(host, { contactId } = {}) {
     }
     wrap.appendChild(lista);
     return wrap;
+  }
+
+  /**
+   * O que o cliente precisa trazer, por serviço, com o estado de cada
+   * documento. Um clique avança o estado (pendente → recebido → enviado
+   * → devolvido) — é o "marcar documentos enviados", no lugar do caso.
+   */
+  function blocoChecklist() {
+    const wrap = document.createElement("div");
+    wrap.className = "ws-docs__checklist";
+    const rotulo = document.createElement("p");
+    rotulo.className = "ws-docs__rotulo";
+    rotulo.textContent = "Documentos do serviço";
+    wrap.appendChild(rotulo);
+
+    for (const servico of dados.checklists) {
+      const gaveta = document.createElement("div");
+      gaveta.className = "ws-docs__gaveta";
+      const gh = document.createElement("p");
+      gh.className = "ws-docs__gaveta-head";
+      const feitos = servico.itens.filter((i) => i.state !== "pendente").length;
+      gh.textContent = `${servico.icone} ${servico.nome} · ${feitos}/${servico.itens.length}`;
+      gaveta.appendChild(gh);
+      for (const it of servico.itens) gaveta.appendChild(linhaChecklist(servico, it));
+      wrap.appendChild(gaveta);
+    }
+    return wrap;
+  }
+
+  function linhaChecklist(servico, it) {
+    const linha = document.createElement("div");
+    linha.className = "ws-docs__chk";
+
+    const nome = document.createElement("span");
+    nome.className = "ws-docs__chk-item";
+    nome.textContent = it.item;
+
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "ws-chip ws-docs__chk-estado";
+    const pintar = (state) => {
+      const e = estadoDoc(state);
+      chip.dataset.color = e.cor;
+      chip.textContent = e.nome;
+    };
+    pintar(it.state);
+    chip.title = "Avançar o estado";
+    chip.addEventListener("click", async () => {
+      const anterior = it.state;
+      const proximo = proximoEstadoDoc(it.state);
+      it.state = proximo;
+      pintar(proximo);
+      try {
+        await api.crm.setChecklistItem(dados.record.externalId, servico.code, it.item, proximo);
+      } catch {
+        it.state = anterior;
+        pintar(anterior);
+        toast("Não foi possível salvar o estado.", { tone: "danger" });
+      }
+    });
+
+    linha.append(nome, chip);
+    return linha;
   }
 
   /**

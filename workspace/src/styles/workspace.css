@@ -2634,3 +2634,17 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 }
 .ws-docs__cat:hover { border-color: var(--ghl-300); background: var(--ghl-50); }
 .ws-docs__cat:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: 1px; }
+
+/* ---- checklist de documentos por serviço ---- */
+.ws-docs__checklist { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-200); }
+.ws-docs__chk {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px; margin-bottom: 3px;
+  border: 1px solid var(--gray-200); border-radius: var(--r-sm); background: var(--gray-50);
+}
+.ws-docs__chk-item { flex: 1; font-size: var(--fs-sm); color: var(--gray-700); }
+.ws-docs__chk-estado {
+  flex: none; border: 0; cursor: pointer; font: inherit;
+  font-size: var(--fs-xs); font-weight: 600;
+}
+.ws-docs__chk-estado:hover { box-shadow: 0 0 0 2px var(--gray-300); }

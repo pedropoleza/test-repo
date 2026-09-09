@@ -59,6 +59,21 @@ export function createSidebar(root, handlers) {
     const state = getState();
     root.replaceChildren();
 
+    // Início: o ponto de partida, sempre no topo.
+    const inicio = document.createElement("button");
+    inicio.type = "button";
+    inicio.className = `ws-tree__row ws-tree__row--static ws-tree__row--home${
+      state.crmView === "home" ? " is-current" : ""}`;
+    const iic = document.createElement("span");
+    iic.className = "ws-tree__icon";
+    iic.textContent = "🏠";
+    const ilb = document.createElement("span");
+    ilb.className = "ws-tree__label";
+    ilb.textContent = "Início";
+    inicio.append(iic, ilb);
+    inicio.addEventListener("click", () => handlers.onOpenHome?.());
+    root.appendChild(inicio);
+
     const favorites = state.favorites
       .map((f) => pageById(f.target_id))
       .filter((p) => p && !p.is_archived);

@@ -23,6 +23,7 @@ import { openSectionDialog } from "./section-dialog.js";
 import { createCrmView } from "./crm/crm-view.js";
 import { createRenewalsView } from "./crm/renewals-view.js";
 import { createVencimentosView } from "./crm/vencimentos-view.js";
+import { createHomeView } from "./home.js";
 import { openListDialog } from "./crm/list-dialog.js";
 import { openCopyLink } from "./ui/prompt.js";
 
@@ -96,7 +97,7 @@ async function bootstrap() {
       else await openInitialPage();
     } else if (crm) openCrm(crm);
     else if (initial) await openPage(initial, { push: false });
-    else await openInitialPage();
+    else openHome({ push: false });
   } catch (err) {
     if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
       renderGate(
@@ -305,6 +306,7 @@ function atualizarBotaoVoltar() {
 async function abrirDestino(destino) {
   if (!destino) return;
   if (destino.tipo === "page") return openPage(destino.id, { push: true, trilha: false });
+  if (destino.tipo === "crm" && destino.id === "home") return openHome({ trilha: false });
   if (destino.tipo === "crm") return openCrm(destino.id, null, { trilha: false });
   const lista = (getState().crmLists || []).find((l) => l.id === destino.id);
   // Lista removida enquanto estávamos fora: pular em vez de abrir nada.
@@ -334,9 +336,10 @@ window.addEventListener("popstate", async () => {
     const lista = (getState().crmLists || []).find((l) => l.id === listaId);
     if (lista) await openCrm(lista.kind, lista, { push: false, trilha: false });
     else await openInitialPage();
-  } else if (crm) await openCrm(crm, null, { push: false, trilha: false });
+  } else if (crm === "home") openHome({ push: false, trilha: false });
+  else if (crm) await openCrm(crm, null, { push: false, trilha: false });
   else if (pageId) await openPage(pageId, { push: false, trilha: false });
-  else await openInitialPage();
+  else openHome({ push: false, trilha: false });
 
   // Se o navegador nos levou ao destino anterior da trilha, o topo dela
   // deixou de valer; senão, este é um destino novo.
@@ -450,14 +453,54 @@ const sidebarHandlers = {
   },
   onPageAction: (action, page) => pageAction(action, page),
   onOpenTrash: () => openTrash(),
+  onOpenHome: () => openHome(),
   onOpenCrm: (kind) => openCrm(kind),
   onOpenCrmList: (listId) => openCrmList(listId),
   onCreateCrmList: () => createCrmList(),
   onCrmListAction: (action, list) => crmListAction(action, list),
 };
 
+/**
+ * A tela de partida. Não vai à rede: monta os módulos, as listas e os
+ * recentes a partir do que o boot já trouxe. Largura normal — é leitura,
+ * não uma tabela larga de CRM.
+ */
+function openHome({ push = true, trilha: registrar = true } = {}) {
+  editor?.flush();
+  setState({ currentPageId: null, page: null, blocks: [], crmView: "home", crmListId: null }, "page");
+  els.header.replaceChildren();
+  els.editor.replaceChildren();
+  els.editor.classList.remove("is-wide");
+  els.main.classList.remove("is-wide");
+  updatePageChrome();
+  sidebar.render();
+
+  const mount = document.createElement("div");
+  els.editor.appendChild(mount);
+  createHomeView(mount, {
+    onOpenCrm: (kind) => openCrm(kind),
+    onOpenCrmList: (id) => openCrmList(id),
+    onOpenPage: (id) => openPage(id),
+  });
+
+  if (push) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("p");
+    url.searchParams.delete("crm");
+    url.searchParams.delete("lista");
+    const repetido = window.location.search === url.search;
+    if (repetido) window.history.replaceState({ home: true }, "", url.toString());
+    else window.history.pushState({ home: true }, "", url.toString());
+  }
+  if (registrar) registrarNaTrilha();
+  else atualizarBotaoVoltar();
+  document.title = "Início · Spark";
+  closeMobileSidebar();
+}
+
 /** Abre Leads ou Oportunidades: dados do GHL, organização nossa. */
 function openCrm(kind, list = null, { push = true, trilha: registrar = true } = {}) {
+  if (kind === "home" && !list) return openHome({ push, trilha: registrar });
   editor?.flush();
   setState({
     currentPageId: null, page: null, blocks: [],

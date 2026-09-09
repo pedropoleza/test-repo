@@ -75,6 +75,17 @@ test("unsupported block preserves the original payload", () => {
   assert.equal(content.externalUrl, "https://notion.so/abc");
 });
 
+test("colunas e coluna são contêineres conhecidos, sem conteúdo próprio", () => {
+  assert.equal(isBlockType("columns"), true);
+  assert.equal(isBlockType("column"), true);
+  assert.equal(blockSpec("columns").children, true);
+  assert.equal(blockSpec("column").children, true);
+  assert.equal(blockSpec("columns").rich, false);
+  // Sem campos de conteúdo — o layout é a lista de filhos.
+  assert.deepEqual(normalizeBlockContent("columns", { rich: [{ s: "x" }] }).content, {});
+  assert.deepEqual(normalizeBlockContent("column", {}).content, {});
+});
+
 test("unknown block types fall back to the unsupported spec", () => {
   assert.equal(isBlockType("nope"), false);
   assert.equal(blockSpec("nope").group, "system");

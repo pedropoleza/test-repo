@@ -32,6 +32,9 @@ export function renderBlock(block, { childrenOf, ordinal = 1 }) {
     const children = childrenOf(block.id);
     const wrap = document.createElement("div");
     wrap.className = "ws-block__children";
+    // Colunas: os filhos ficam lado a lado; a coluna empilha os seus.
+    if (block.type === "columns") wrap.classList.add("ws-columns");
+    if (block.type === "column") wrap.classList.add("ws-column__stack");
     if (block.type === "toggle" && block.content?.expanded === false) {
       wrap.hidden = true;
     }
@@ -44,6 +47,18 @@ export function renderBlock(block, { childrenOf, ordinal = 1 }) {
         }),
       );
       if (child.type !== "numbered_list") n = 1;
+    }
+    // Coluna vazia precisa de um jeito de receber um bloco de volta (o
+    // último foi apagado ou arrastado para fora) — sem isto ela vira um
+    // espaço morto onde não dá para clicar.
+    if (block.type === "column" && !children.length) {
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "ws-column__add";
+      add.contentEditable = "false";
+      add.dataset.action = "add-in-column";
+      add.textContent = "+ bloco";
+      wrap.appendChild(add);
     }
     body.appendChild(wrap);
   }
@@ -196,6 +211,15 @@ function renderBody(block, spec, ordinal) {
     case "embed":
     case "bookmark":
       return renderLinkCard(block);
+
+    case "columns":
+    case "column": {
+      // Contêiner puro: sem corpo editável. O layout é a lista de filhos.
+      const marker = document.createElement("div");
+      marker.className = "ws-layout__marker";
+      marker.contentEditable = "false";
+      return marker;
+    }
 
     case "subpage":
       return renderSubpageLink(block);

@@ -644,6 +644,33 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 
 .ws-block__children { padding-left: 24px; }
 
+/* Layout em colunas. O contêiner não tem corpo (o marker é oculto); as
+   colunas ficam lado a lado, e cada uma empilha os seus blocos sem o
+   recuo de aninhamento. */
+.ws-layout__marker { display: none; }
+.ws-columns {
+  display: flex; gap: 20px; align-items: flex-start;
+  padding-left: 0;
+}
+.ws-columns > .ws-block--column { flex: 1 1 0; min-width: 0; }
+.ws-column__stack { padding-left: 0; min-height: 32px; }
+.ws-block--column > .ws-block__body {
+  border-left: 2px solid transparent; padding-left: 4px;
+}
+.ws-block--column.is-drop-target > .ws-block__body,
+.ws-block--column:hover > .ws-block__body { border-left-color: var(--gray-150); }
+.ws-column__add {
+  border: 1px dashed var(--gray-300); background: none; cursor: pointer;
+  color: var(--gray-400); font: inherit; font-size: var(--fs-sm);
+  padding: 4px 10px; border-radius: var(--r-sm); width: 100%;
+}
+.ws-column__add:hover { color: var(--ghl-600); border-color: var(--ghl-300); }
+
+@media (max-width: 640px) {
+  /* Colunas não cabem no celular: empilham. */
+  .ws-columns { flex-direction: column; gap: 8px; }
+}
+
 .ws-text {
   outline: none;
   line-height: 1.65;

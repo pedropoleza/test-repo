@@ -31,6 +31,8 @@ export const SLASH_COMMANDS = [
   { id: "bookmark",      group: "Mídia",  label: "Bookmark",        icon: "🔖", keywords: "bookmark link favorito url" },
 
   { id: "subpage",       group: "Estrutura", label: "Subpágina",    icon: "📄", keywords: "subpagina pagina nova page" },
+  { id: "columns",       group: "Estrutura", label: "2 colunas",     icon: "◫",  keywords: "colunas duas lado a lado layout columns split" },
+  { id: "columns3",      group: "Estrutura", label: "3 colunas",     icon: "⊞",  keywords: "colunas tres lado a lado layout columns" },
 
   { id: "database",      group: "Dados", label: "Tabela",           icon: "▦",  keywords: "tabela database base dados grade planilha table" },
   { id: "database_board",group: "Dados", label: "Quadro (kanban)",  icon: "▤",  keywords: "quadro kanban board colunas status" },

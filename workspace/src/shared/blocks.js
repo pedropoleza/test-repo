@@ -39,6 +39,13 @@ export const BLOCK_TYPES = {
   embed:          { group: "media", rich: false, children: false, void: true },
   bookmark:       { group: "media", rich: false, children: false, void: true },
   subpage:        { group: "structure", rich: false, children: false, void: true },
+  /**
+   * Layout em colunas (§Notion). `columns` é a faixa; cada filho é uma
+   * `column`, que empilha os blocos dela. Nenhum dos dois tem texto — são
+   * só contêineres, e por isso `children: true` e `rich: false`.
+   */
+  columns:        { group: "layout", rich: false, children: true },
+  column:         { group: "layout", rich: false, children: true },
   database:       { group: "data",      rich: false, children: false, void: true },
   /**
    * Painel do CRM ao vivo (content: { contactId }). É void porque o

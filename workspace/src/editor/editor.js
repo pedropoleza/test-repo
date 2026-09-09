@@ -217,9 +217,17 @@ export function createEditor(root) {
    * reconciliação. Cliente e servidor usam o mesmo fractional indexing,
    * então na prática as duas chaves coincidem.
    */
-  async function createBlockAfter(reference, { type = "paragraph", content = {}, focus = true }) {
+  async function createBlockAfter(reference, {
+    type = "paragraph", content = {}, focus = true,
+    parentBlockId: parentOverride, afterId: afterOverride,
+  } = {}) {
     const pageId = getState().currentPageId;
-    const parentBlockId = reference?.parent_block_id || null;
+    // Por padrão o novo bloco é irmão da referência; um parent explícito
+    // (usado para semear colunas) cria como filho de outro bloco.
+    const parentBlockId = parentOverride !== undefined
+      ? parentOverride
+      : (reference?.parent_block_id || null);
+    const afterId = afterOverride !== undefined ? afterOverride : reference?.id;
     const id = newId();
 
     const optimistic = {
@@ -230,7 +238,7 @@ export function createEditor(root) {
       type,
       content: normalizeBlockContent(type, content).content,
       props: {},
-      position: nextPosition(parentBlockId, reference),
+      position: nextPosition(parentBlockId, parentOverride !== undefined ? null : reference),
     };
     upsertBlock(optimistic);
     if (focus) focusAfterRender = { blockId: id, atEnd: false };
@@ -242,7 +250,7 @@ export function createEditor(root) {
         pageId,
         type,
         content,
-        afterId: reference?.id,
+        afterId,
         parentBlockId,
       });
       upsertBlock(block);
@@ -483,6 +491,9 @@ export function createEditor(root) {
       if (cmd.id === "subpage") return insertSubpage(block);
       if (cmd.id === "crm_contact") return insertContact(block);
       if (cmd.id === "template") return insertTemplate(block);
+      if (cmd.id === "columns" || cmd.id === "columns3") {
+        return insertColumns(block, cmd.id === "columns3" ? 3 : 2);
+      }
       if (cmd.id === "database" || cmd.id === "database_board") {
         return insertDatabase(block, cmd.id === "database_board");
       }
@@ -497,6 +508,9 @@ export function createEditor(root) {
     if (cmd.id === "subpage") return insertSubpage(block);
     if (cmd.id === "crm_contact") return insertContact(block);
     if (cmd.id === "template") return insertTemplate(block);
+    if (cmd.id === "columns" || cmd.id === "columns3") {
+      return insertColumns(block, cmd.id === "columns3" ? 3 : 2);
+    }
     if (cmd.id === "database" || cmd.id === "database_board") {
       return insertDatabase(block, cmd.id === "database_board");
     }
@@ -513,6 +527,30 @@ export function createEditor(root) {
    * escrito seria usado uma vez só. Os blocos entram em sequência, cada
    * um depois do anterior, para manter a ordem do roteiro.
    */
+  /**
+   * Insere um layout de colunas depois do bloco atual: a faixa `columns`,
+   * `n` colunas dentro dela, e um parágrafo vazio em cada uma (o primeiro
+   * recebe o caret). Arrastar blocos para dentro/entre colunas usa o dnd
+   * de aninhamento que já existe.
+   */
+  async function insertColumns(afterBlock, n = 2) {
+    try {
+      const cols = await createBlockAfter(afterBlock, { type: "columns", focus: false });
+      for (let i = 0; i < n; i += 1) {
+        const col = await createBlockAfter(null, {
+          type: "column", parentBlockId: cols.id, afterId: null, focus: false,
+        });
+        await createBlockAfter(null, {
+          type: "paragraph", parentBlockId: col.id, afterId: null, focus: i === 0,
+        });
+      }
+      render();
+    } catch {
+      render();
+      toast("Não foi possível criar as colunas. Tente de novo.", { tone: "danger" });
+    }
+  }
+
   async function insertTemplate(afterBlock) {
     const paginaDaFicha = getState().page?.source === "ghl_contact";
     const escolhido = await openTemplatePicker({
@@ -1004,6 +1042,14 @@ export function createEditor(root) {
         const created = await createBlockAfter(block, { type: "paragraph" });
         const el = focusBlock(created.id);
         if (el) setTimeout(() => openSlash(created.id, el), 0);
+        return;
+      }
+      case "add-in-column": {
+        // O bloco aqui é a própria coluna vazia: cria um parágrafo dentro.
+        const created = await createBlockAfter(null, {
+          type: "paragraph", parentBlockId: block.id, afterId: null, focus: true,
+        });
+        focusBlock(created.id);
         return;
       }
       case "block-menu":

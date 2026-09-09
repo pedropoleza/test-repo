@@ -8,6 +8,7 @@
  */
 import { getState, pageById, subscribe } from "./store.js";
 import { ehFichaDeContato, renderAvatar } from "./crm/photo.js";
+import { criarBotaoInfo } from "./ui/info.js";
 
 export function createHomeView(host, handlers = {}) {
   host.className = "ws-home";
@@ -40,6 +41,15 @@ export function createHomeView(host, handlers = {}) {
     const h = document.createElement("h1");
     h.className = "ws-home__title";
     h.textContent = "Início";
+    h.appendChild(criarBotaoInfo({
+      titulo: "Início",
+      paragrafos: [
+        "A tela de partida. Reúne os módulos do CRM, as listas salvas e as "
+          + "últimas páginas e fichas que você abriu.",
+        "É um atalho: cada card leva direto ao módulo. Abre na hora, sem esperar "
+          + "carregar — usa o que o app já trouxe.",
+      ],
+    }));
     const sub = document.createElement("p");
     sub.className = "ws-muted";
     sub.textContent = "Os módulos à mão e o que você mexeu por último.";

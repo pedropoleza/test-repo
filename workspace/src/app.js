@@ -25,6 +25,8 @@ import { createRenewalsView } from "./crm/renewals-view.js";
 import { createVencimentosView } from "./crm/vencimentos-view.js";
 import { createHomeView } from "./home.js";
 import { createAguardandoView } from "./crm/aguardando-view.js";
+import { criarBotaoInfo } from "./ui/info.js";
+import { DETALHES_MODULO } from "./modulos-info.js";
 import { openListDialog } from "./crm/list-dialog.js";
 import { openCopyLink } from "./ui/prompt.js";
 
@@ -526,6 +528,10 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
     tasks: "Tarefas", renewals: "Renovações", vencimentos: "Vencimentos", aguardando: "Aguardando",
   };
   h.textContent = list ? list.name : (TITULOS[kind] || "CRM");
+  // ⓘ ao lado do título: o contexto detalhado do módulo, para além do
+  // subtítulo de uma linha. Listas salvas herdam a explicação do tipo.
+  const info = DETALHES_MODULO[list ? "listas" : kind];
+  if (info) h.appendChild(criarBotaoInfo(info));
   const sub = document.createElement("p");
   sub.className = "ws-muted";
   sub.textContent = list

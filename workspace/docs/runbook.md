@@ -474,6 +474,14 @@ serviço** — o mesmo do plano da conta. Três peças, em camadas:
   `source='contact_doc'` e o contato em `source_external_id`; a migration
   0009 acrescentou `category` e `service_code`.
 
+- **Radar de vencimentos** (`src/crm/vencimentos-view.js` +
+  `src/shared/upcoming.js`): lê os campos de data dos serviços
+  recorrentes (que o catálogo detecta) em toda a base e mostra o que
+  vence, por urgência — vencido, 30, 60, 90 dias. A aba "Vencimentos" só
+  aparece onde a conta tem recorrente: o app pede `action=catalog` no
+  boot e o gate segue o resultado. É a feature de retenção — traz o
+  cliente de volta antes de o serviço vencer.
+
 Tudo isto só aparece onde o catálogo resolve — a conta da Daniely não
 mostra acordo nem seção de documentos.
 

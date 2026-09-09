@@ -148,6 +148,13 @@ export const api = {
     setChecklistItem: (contactId, serviceCode, item, state) =>
       request("POST", "/api/crm", { query: { action: "checklist-set" },
         body: { contactId, serviceCode, item, state } }),
+    comments: (contactId) =>
+      request("GET", "/api/crm", { query: { action: "comments", id: contactId } }),
+    addComment: (contactId, body, author) =>
+      request("POST", "/api/crm", { query: { action: "comment-add" },
+        body: { contactId, body, author } }),
+    deleteComment: (id) =>
+      request("POST", "/api/crm", { query: { action: "comment-delete" }, body: { id } }),
     contactOpportunities: (id) =>
       request("GET", "/api/crm", { query: { action: "contact-opportunities", id } }),
     moveStage: (opportunityId, pipelineId, stageId) =>

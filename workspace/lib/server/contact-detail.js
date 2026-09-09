@@ -19,6 +19,7 @@ import {
 } from "../../src/shared/catalog.js";
 import { MAPAS } from "./acordo-maps.js";
 import { listContactDocuments } from "./contact-documents.js";
+import { listComments } from "./comments.js";
 import { listChecklist } from "./doc-checklist.js";
 import {
   STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS, OPPORTUNITY_STATUS,
@@ -152,6 +153,11 @@ export async function loadContactDetail(contactId, ctx = null) {
   let arquivos = [];
   if (ctx) arquivos = await listContactDocuments(ctx, contactId).catch(() => []);
 
+  // Fio de comentários da ficha, e a equipe para as @menções. Falha aqui
+  // não derruba a ficha — a seção só não aparece.
+  let comentarios = [];
+  if (ctx) comentarios = await listComments(ctx, contactId).catch(() => []);
+
   return {
     contactId,
     relations,
@@ -159,6 +165,8 @@ export async function loadContactDetail(contactId, ctx = null) {
     documentos,
     checklists,
     arquivos,
+    comentarios,
+    equipe: users.map((u) => ({ id: u.id, name: u.name })),
     columns,
     record,
     notes,

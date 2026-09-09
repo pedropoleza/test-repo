@@ -44,6 +44,7 @@ import { loadContactDetail } from "../lib/server/contact-detail.js";
 import { gerarDocumento } from "../lib/server/document-generate.js";
 import { listContactDocuments, deleteContactDocument } from "../lib/server/contact-documents.js";
 import { setChecklistItem } from "../lib/server/doc-checklist.js";
+import { listComments, addComment, deleteComment } from "../lib/server/comments.js";
 import { resolverCatalogo, servicosRecorrentes } from "../src/shared/catalog.js";
 import { linkContacts, unlinkContacts } from "../lib/server/relations.js";
 import { log } from "../lib/server/log.js";
@@ -118,6 +119,29 @@ export default async function handler(req, res) {
     if (action === "contact-doc-delete") {
       requireRole(ctx, "editor");
       await deleteContactDocument(ctx, body.id || req.query?.id);
+      return res.status(200).json({ ok: true });
+    }
+
+    if (action === "comments") {
+      const contactId = req.query?.id || body.contactId;
+      return res.status(200).json({ comentarios: await listComments(ctx, contactId) });
+    }
+
+    if (action === "comment-add") {
+      requireRole(ctx, "editor");
+      // A equipe é resolvida no servidor (fonte de verdade das @menções),
+      // não confiando na lista que o cliente mandaria.
+      const equipe = (await listUsers().catch(() => [])).map((u) => ({ id: u.id, name: u.name }));
+      const comentario = await addComment(ctx, {
+        contactId: body.contactId, body: body.body, author: body.author, usuarios: equipe,
+      });
+      log.info("crm.comment.added", { workspaceId: ctx.workspaceId, contactId: body.contactId });
+      return res.status(200).json({ comentario });
+    }
+
+    if (action === "comment-delete") {
+      requireRole(ctx, "editor");
+      await deleteComment(ctx, body.id || req.query?.id);
       return res.status(200).json({ ok: true });
     }
 

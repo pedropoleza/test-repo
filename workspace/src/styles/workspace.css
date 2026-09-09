@@ -1810,6 +1810,65 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   color: var(--gray-500);
 }
 
+/* Comentários da ficha, com @menções. */
+.ws-comments { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.ws-comments__compose {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px; border: 1px solid var(--gray-200); border-radius: var(--r-md);
+  background: var(--gray-50);
+}
+.ws-comments__author { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); }
+.ws-comments__who { max-width: 220px; }
+.ws-comments__field { position: relative; }
+.ws-comments__input { width: 100%; resize: vertical; min-height: 44px; font: inherit; }
+.ws-comments__actions { display: flex; justify-content: flex-end; }
+
+/* Autocomplete de @menção, ancorado sob o campo. */
+.ws-mention-pop {
+  position: absolute; left: 0; top: 100%; z-index: 30;
+  min-width: 200px; max-height: 220px; overflow-y: auto;
+  margin-top: 4px; padding: 4px;
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--r-md); box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.12));
+}
+.ws-mention-pop__item {
+  display: block; width: 100%; padding: 6px 10px; border: 0; border-radius: var(--r-sm);
+  background: none; color: var(--gray-800); font: inherit; text-align: left; cursor: pointer;
+}
+.ws-mention-pop__item[data-ativo="sim"], .ws-mention-pop__item:hover {
+  background: var(--ghl-100); color: var(--ghl-800);
+}
+
+.ws-comments__item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px; border-radius: var(--r-md);
+}
+.ws-comments__item:hover { background: var(--gray-50); }
+.ws-comments__item:hover .ws-comments__del { opacity: 1; }
+.ws-comments__avatar {
+  flex: none; width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--ghl-100); color: var(--ghl-700);
+  font-size: var(--fs-xs); font-weight: 700;
+}
+.ws-comments__body { flex: 1; min-width: 0; }
+.ws-comments__meta { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-sm); }
+.ws-comments__meta .ws-muted { font-size: var(--fs-xs); }
+.ws-comments__text { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--gray-800); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ws-comments__del {
+  flex: none; border: 0; background: none; cursor: pointer;
+  color: var(--gray-400); font-size: 18px; line-height: 1; padding: 0 4px;
+  opacity: 0; transition: opacity .12s;
+}
+.ws-comments__del:hover { color: var(--danger); }
+.ws-comments__del.is-confirm {
+  opacity: 1; font-size: var(--fs-xs); font-weight: 600; color: var(--danger);
+}
+.ws-mention {
+  color: var(--ghl-700); font-weight: 600;
+  background: var(--ghl-100); border-radius: var(--r-sm); padding: 0 3px;
+}
+
 .ws-crm-panel__props {
   display: grid;
   grid-template-columns: minmax(120px, 190px) 1fr;

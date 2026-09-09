@@ -19,6 +19,7 @@ import { renderAvatar } from "./photo.js";
 import { toast } from "../ui/toast.js";
 import { renderLoader } from "../ui/loader.js";
 import { agruparPorDia } from "../shared/timeline.js";
+import { segmentar, mencaoEmDigitacao, sugerir } from "../shared/mentions.js";
 import { CATEGORIAS, nomeDaCategoria, ESTADOS_DOC, proximoEstadoDoc, estadoDoc } from "../shared/documents.js";
 import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
 import { openModal } from "../ui/menu.js";
@@ -59,6 +60,8 @@ export function createContactPanel(host, { contactId } = {}) {
         arquivos: data.arquivos || [],
         opportunities: data.opportunities || [],
         pipelines: data.pipelines || [],
+        comentarios: data.comentarios || [],
+        equipe: data.equipe || [],
       };
       erro = null;
     } catch (err) {
@@ -82,6 +85,7 @@ export function createContactPanel(host, { contactId } = {}) {
     frag.appendChild(secaoOportunidades());
     if (dados.documentos.length || dados.checklists.length || dados.arquivos.length) frag.appendChild(secaoDocumentos());
     if (dados.timeline.length) frag.appendChild(secaoLinhaDoTempo());
+    frag.appendChild(secaoComentarios());
     host.replaceChildren(frag);
   }
 
@@ -663,6 +667,231 @@ export function createContactPanel(host, { contactId } = {}) {
   }
 
   /* ---------------- utilitários ---------------- */
+
+  /* ---------------- comentários ---------------- */
+
+  const CHAVE_AUTOR = "ws:comment-author";
+  function autorLembrado() { try { return localStorage.getItem(CHAVE_AUTOR) || ""; } catch { return ""; } }
+  function lembrarAutor(nome) { try { if (nome) localStorage.setItem(CHAVE_AUTOR, nome); } catch { /* modo privado */ } }
+
+  function secaoComentarios() {
+    const box = bloco(`Comentários${dados.comentarios.length ? ` (${dados.comentarios.length})` : ""}`);
+    box.appendChild(comporComentario());
+
+    const lista = document.createElement("div");
+    lista.className = "ws-comments";
+    if (!dados.comentarios.length) {
+      lista.appendChild(aviso("Nenhum comentário ainda. Deixe uma nota para o time — use @ para citar alguém."));
+    } else {
+      for (const c of dados.comentarios) lista.appendChild(renderComentario(c));
+    }
+    box.appendChild(lista);
+    return box;
+  }
+
+  function comporComentario() {
+    const wrap = document.createElement("div");
+    wrap.className = "ws-comments__compose";
+
+    // Sem login: o autor é escolhido uma vez e lembrado no dispositivo.
+    const autorBar = document.createElement("div");
+    autorBar.className = "ws-comments__author";
+    const rot = document.createElement("span");
+    rot.className = "ws-muted"; rot.textContent = "Você é:";
+    const sel = document.createElement("select");
+    sel.className = "ws-select ws-comments__who";
+    const vazio = document.createElement("option");
+    vazio.value = ""; vazio.textContent = "Escolha seu nome";
+    sel.appendChild(vazio);
+    for (const u of dados.equipe) {
+      const o = document.createElement("option");
+      o.value = u.name; o.textContent = u.name;
+      sel.appendChild(o);
+    }
+    sel.value = autorLembrado();
+    sel.addEventListener("change", () => lembrarAutor(sel.value));
+    autorBar.append(rot, sel);
+
+    const area = document.createElement("div");
+    area.className = "ws-comments__field";
+    const ta = document.createElement("textarea");
+    ta.className = "ws-input ws-comments__input";
+    ta.rows = 2;
+    ta.placeholder = "Escreva um comentário… use @ para citar alguém";
+    const drop = document.createElement("div");
+    drop.className = "ws-mention-pop"; drop.hidden = true;
+    area.append(ta, drop);
+
+    ta.addEventListener("input", () => atualizarSugestoes(ta, drop));
+    ta.addEventListener("keydown", (e) => navegarSugestoes(e, ta, drop));
+    ta.addEventListener("blur", () => setTimeout(() => { drop.hidden = true; }, 150));
+
+    const acoes = document.createElement("div");
+    acoes.className = "ws-comments__actions";
+    const enviar = document.createElement("button");
+    enviar.type = "button"; enviar.className = "ws-btn ws-btn--primary";
+    enviar.textContent = "Comentar";
+    enviar.addEventListener("click", () => postar(ta, sel, enviar));
+    acoes.appendChild(enviar);
+
+    wrap.append(autorBar, area, acoes);
+    return wrap;
+  }
+
+  function atualizarSugestoes(ta, drop) {
+    const m = mencaoEmDigitacao(ta.value, ta.selectionStart);
+    if (!m || !dados.equipe.length) { drop.hidden = true; return; }
+    const achados = sugerir(m.termo, dados.equipe);
+    if (!achados.length) { drop.hidden = true; return; }
+    drop.replaceChildren();
+    achados.forEach((u) => {
+      const it = document.createElement("button");
+      it.type = "button"; it.className = "ws-mention-pop__item";
+      it.textContent = u.name;
+      it.addEventListener("mousedown", (e) => { e.preventDefault(); escolherMencao(ta, drop, u.name); });
+      drop.appendChild(it);
+    });
+    drop.dataset.sel = "0";
+    marcarSel(drop);
+    drop.hidden = false;
+  }
+
+  function marcarSel(drop) {
+    const s = Number(drop.dataset.sel || 0);
+    [...drop.children].forEach((c, i) => { c.dataset.ativo = i === s ? "sim" : "nao"; });
+  }
+
+  function navegarSugestoes(e, ta, drop) {
+    if (drop.hidden) return;
+    const itens = [...drop.children];
+    if (!itens.length) return;
+    let s = Number(drop.dataset.sel || 0);
+    if (e.key === "ArrowDown") { e.preventDefault(); s = (s + 1) % itens.length; drop.dataset.sel = s; marcarSel(drop); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); s = (s - 1 + itens.length) % itens.length; drop.dataset.sel = s; marcarSel(drop); }
+    else if (e.key === "Enter" || e.key === "Tab") {
+      const m = mencaoEmDigitacao(ta.value, ta.selectionStart);
+      if (m) { e.preventDefault(); escolherMencao(ta, drop, itens[s].textContent); }
+    } else if (e.key === "Escape") { drop.hidden = true; }
+  }
+
+  function escolherMencao(ta, drop, nome) {
+    const m = mencaoEmDigitacao(ta.value, ta.selectionStart);
+    if (!m) { drop.hidden = true; return; }
+    const antes = ta.value.slice(0, m.inicio);
+    const depois = ta.value.slice(ta.selectionStart);
+    const inserir = `@${nome} `;
+    ta.value = antes + inserir + depois;
+    const pos = (antes + inserir).length;
+    ta.setSelectionRange(pos, pos);
+    drop.hidden = true;
+    ta.focus();
+  }
+
+  async function postar(ta, sel, botao) {
+    const texto = ta.value.trim();
+    if (!texto) return;
+    const autor = sel.value || autorLembrado();
+    if (!autor) { toast("Escolha seu nome antes de comentar.", { tone: "warn" }); sel.focus(); return; }
+    lembrarAutor(autor);
+    botao.disabled = true;
+    const rotulo = botao.textContent; botao.textContent = "Enviando…";
+    try {
+      const { comentario } = await api.crm.addComment(contactId, texto, autor);
+      dados.comentarios.push(comentario);
+      render();
+    } catch {
+      toast("Não foi possível comentar agora.", { tone: "danger" });
+      botao.disabled = false; botao.textContent = rotulo;
+    }
+  }
+
+  function renderComentario(c) {
+    const item = document.createElement("article");
+    item.className = "ws-comments__item";
+
+    const av = document.createElement("span");
+    av.className = "ws-comments__avatar";
+    av.textContent = iniciais(c.author);
+
+    const corpo = document.createElement("div");
+    corpo.className = "ws-comments__body";
+    const cab = document.createElement("div");
+    cab.className = "ws-comments__meta";
+    const nome = document.createElement("strong");
+    nome.textContent = c.author;
+    const quando = document.createElement("span");
+    quando.className = "ws-muted";
+    quando.textContent = tempoRelativo(c.createdAt);
+    cab.append(nome, quando);
+
+    const texto = document.createElement("p");
+    texto.className = "ws-comments__text";
+    const nomes = dados.equipe.map((u) => u.name);
+    for (const seg of segmentar(c.body, nomes)) {
+      if (seg.tipo === "mencao") {
+        const m = document.createElement("span");
+        m.className = "ws-mention";
+        m.textContent = `@${seg.valor}`;
+        texto.appendChild(m);
+      } else {
+        texto.appendChild(document.createTextNode(seg.valor));
+      }
+    }
+    corpo.append(cab, texto);
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "ws-comments__del";
+    del.setAttribute("aria-label", "Excluir comentário");
+    del.textContent = "×";
+    del.addEventListener("click", () => excluirComentario(c, del));
+
+    item.append(av, corpo, del);
+    return item;
+  }
+
+  async function excluirComentario(c, botao) {
+    // Confirma no próprio botão (sem diálogo nativo): primeiro clique
+    // pergunta, segundo exclui; volta sozinho depois de alguns segundos.
+    if (botao.dataset.confirm !== "sim") {
+      botao.dataset.confirm = "sim";
+      botao.textContent = "Excluir?";
+      botao.classList.add("is-confirm");
+      setTimeout(() => {
+        if (botao.isConnected) {
+          botao.dataset.confirm = "nao"; botao.textContent = "×"; botao.classList.remove("is-confirm");
+        }
+      }, 3000);
+      return;
+    }
+    botao.disabled = true;
+    try {
+      await api.crm.deleteComment(c.id);
+      dados.comentarios = dados.comentarios.filter((x) => x.id !== c.id);
+      render();
+    } catch {
+      toast("Não foi possível excluir agora.", { tone: "danger" });
+      botao.disabled = false;
+    }
+  }
+
+  function iniciais(nome) {
+    return String(nome || "?").trim().split(/\s+/).slice(0, 2).map((p) => p[0] || "").join("").toUpperCase() || "?";
+  }
+
+  function tempoRelativo(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const s = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (s < 60) return "agora";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `há ${m} min`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `há ${h} h`;
+    const dd = Math.floor(h / 24);
+    if (dd < 7) return `há ${dd} d`;
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  }
 
   function bloco(titulo) {
     const box = document.createElement("section");

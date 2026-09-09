@@ -43,6 +43,18 @@ export const DETALHES_MODULO = {
         + "voltar em vez de sumir. Vencido vem primeiro; depois 30, 60 e 90 dias.",
     ],
   },
+  calendario: {
+    titulo: "Calendário",
+    paragrafos: [
+      "Os mesmos vencimentos do radar, só que plotados no mês — cada renovação "
+        + "cai no dia em que vence. Serve para bater o olho na forma do mês: a "
+        + "semana carregada, o dia com três renovações juntas, o começo vazio.",
+      "Use ‹ e › para andar pelos meses e “Hoje” para voltar. Clique num "
+        + "vencimento para abrir a pasta do contato. Vencido aparece em vermelho; "
+        + "o dia de hoje fica destacado. Para a lista longa por urgência, use o "
+        + "Vencimentos.",
+    ],
+  },
   aguardando: {
     titulo: "Aguardando",
     paragrafos: [

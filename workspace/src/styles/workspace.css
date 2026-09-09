@@ -2489,6 +2489,87 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 .ws-renew__foot { margin: 0; }
 
 /* ------------------------------------------------------------------ */
+/* Calendário de vencimentos                                          */
+/* ------------------------------------------------------------------ */
+/*
+ * A mesma fonte do radar, plotada no mês. A grade é sete colunas iguais;
+ * cada célula é um dia, e os vencimentos entram como chips pequenos. O
+ * dia de hoje ganha anel; os dias do mês vizinho ficam esmaecidos para a
+ * grade ter forma sem confundir onde o mês começa e termina.
+ */
+.ws-cal { display: flex; flex-direction: column; gap: 14px; }
+
+.ws-cal__bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+}
+.ws-cal__nav { display: flex; align-items: center; gap: 8px; }
+.ws-cal__arrow {
+  width: 30px; height: 30px; padding: 0;
+  border: 1px solid var(--gray-200); border-radius: var(--r-sm);
+  background: var(--white); color: var(--gray-700);
+  font-size: 18px; line-height: 1; cursor: pointer;
+}
+.ws-cal__arrow:hover { background: var(--gray-50); border-color: var(--gray-300); }
+.ws-cal__month {
+  margin: 0; min-width: 168px; text-align: center;
+  font-size: 15px; font-weight: 600; color: var(--gray-900);
+}
+.ws-cal__today { padding: 5px 12px; font-size: var(--fs-sm); }
+
+.ws-cal__week-head {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+}
+.ws-cal__week-day {
+  padding: 0 6px 2px; font-size: var(--fs-xs); font-weight: 600;
+  color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.ws-cal__grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+}
+.ws-cal__day {
+  display: flex; flex-direction: column; gap: 4px;
+  min-height: 96px; padding: 6px;
+  border: 1px solid var(--gray-200); border-radius: var(--r-sm);
+  background: var(--white);
+}
+/* Dias do mês vizinho: presentes para fechar a semana, mas recuados. */
+.ws-cal__day[data-fora="sim"] { background: var(--gray-50); opacity: 0.66; }
+.ws-cal__day[data-hoje="sim"] { box-shadow: inset 0 0 0 2px var(--ghl-500); }
+
+.ws-cal__day-num {
+  font-size: var(--fs-sm); font-weight: 600; color: var(--gray-600);
+}
+.ws-cal__day[data-hoje="sim"] .ws-cal__day-num { color: var(--ghl-700); }
+
+.ws-cal__events { display: flex; flex-direction: column; gap: 3px; }
+.ws-cal__event {
+  display: flex; align-items: center; gap: 5px;
+  width: 100%; padding: 2px 5px; border: 0; border-radius: var(--r-sm);
+  background: var(--ghl-100); color: var(--ghl-800);
+  font: inherit; font-size: var(--fs-xs); text-align: left; cursor: pointer;
+}
+.ws-cal__event:hover { box-shadow: 0 0 0 2px var(--ghl-200); }
+.ws-cal__event:disabled { cursor: default; opacity: 0.7; box-shadow: none; }
+.ws-cal__event[data-tom="vencido"] { background: #fee2e2; color: #991b1b; }
+.ws-cal__event[data-tom="vencido"]:hover { box-shadow: 0 0 0 2px #fecaca; }
+.ws-cal__event-ic { flex: none; }
+.ws-cal__event-txt {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ws-cal__more { font-size: var(--fs-xs); color: var(--gray-500); padding: 0 5px; }
+.ws-cal__foot { margin: 0; }
+
+@media (max-width: 720px) {
+  /* No celular a grade de 7 colunas fica ilegível; a barra e os dias
+     encolhem, mas mantemos as sete colunas: um calendário empilhado
+     deixa de ser calendário. Rola na horizontal se precisar. */
+  .ws-cal__grid, .ws-cal__week-head { min-width: 640px; }
+  .ws-cal { overflow-x: auto; }
+}
+
+/* ------------------------------------------------------------------ */
 /* Linha do tempo do contato                                          */
 /* ------------------------------------------------------------------ */
 

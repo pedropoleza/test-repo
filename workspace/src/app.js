@@ -26,6 +26,7 @@ import { createVencimentosView } from "./crm/vencimentos-view.js";
 import { createHomeView } from "./home.js";
 import { createAguardandoView } from "./crm/aguardando-view.js";
 import { createAgendaView } from "./crm/agenda-view.js";
+import { createReportsView } from "./crm/reports-view.js";
 import { criarBotaoInfo } from "./ui/info.js";
 import { DETALHES_MODULO } from "./modulos-info.js";
 import { openListDialog } from "./crm/list-dialog.js";
@@ -527,7 +528,7 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
   const TITULOS = {
     contacts: "Leads", opportunities: "Oportunidades",
     tasks: "Tarefas", renewals: "Renovações", vencimentos: "Vencimentos", aguardando: "Aguardando",
-    agenda: "Agenda",
+    agenda: "Agenda", relatorios: "Relatórios",
   };
   h.textContent = list ? list.name : (TITULOS[kind] || "CRM");
   // ⓘ ao lado do título: o contexto detalhado do módulo, para além do
@@ -553,6 +554,9 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
     : kind === "agenda"
     ? "O plano da semana num lugar só: o que vence, o que tem prazo de "
       + "tarefa e o que está parado esperando alguém."
+    : kind === "relatorios"
+    ? "O retrato da operação em números, por serviço: faturamento, casos "
+      + "abertos e fechados, ticket médio e tempo parado."
     : kind === "tasks"
     // Tarefas vêm do Spark Tasks e são editadas lá: aqui é a réplica que
     // permite filtrar e agrupar junto do resto.
@@ -582,6 +586,8 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
     createAguardandoView(mount, { onOpenPage: abrirFicha });
   } else if (kind === "agenda" && !list) {
     createAgendaView(mount, { onOpenPage: abrirFicha });
+  } else if (kind === "relatorios" && !list) {
+    createReportsView(mount);
   } else {
     createCrmView(mount, { kind, list, onOpenPage: abrirFicha });
   }

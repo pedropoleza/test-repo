@@ -75,6 +75,9 @@ export function createHomeView(host, handlers = {}) {
       modulos.push({ id: "agenda", nome: "Agenda", icone: "🗒️", ds: "O plano da semana" });
     }
     modulos.push({ id: "tasks", nome: "Tarefas", icone: "✓", ds: "As tarefas recebidas" });
+    if (s.temServicos || s.temRecorrentes) {
+      modulos.push({ id: "relatorios", nome: "Relatórios", icone: "📊", ds: "A operação em números" });
+    }
 
     const bloco = document.createElement("section");
     bloco.className = "ws-home__section";

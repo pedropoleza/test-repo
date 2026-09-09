@@ -65,6 +65,18 @@ export const DETALHES_MODULO = {
         + "tempo. É o painel de “não perder caso no meio do caminho”.",
     ],
   },
+  relatorios: {
+    titulo: "Relatórios por serviço",
+    paragrafos: [
+      "O retrato da operação em números, por serviço (pipeline): quanto entrou "
+        + "(faturamento dos casos ganhos), quantos casos estão abertos, quantos "
+        + "ganharam ou perderam, o ticket médio e há quanto tempo os abertos estão "
+        + "de pé.",
+      "Tudo deduzido das mesmas oportunidades que a tabela e o quadro mostram caso "
+        + "a caso — nenhum cadastro a mais. A taxa de ganho é sobre o que já foi "
+        + "decidido (ganhos + perdidos).",
+    ],
+  },
   tasks: {
     titulo: "Tarefas",
     paragrafos: [

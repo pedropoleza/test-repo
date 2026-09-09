@@ -1330,6 +1330,36 @@ button.ws-breadcrumbs__crumb:hover { background: var(--gray-150); color: var(--g
 .ws-db__title:hover  { background: var(--gray-100); }
 .ws-db__title:focus  { outline: none; background: var(--gray-100); }
 
+/* Views salvas: a faixa de abas acima da barra de ferramentas. */
+.ws-views {
+  display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+  padding: 6px 12px 0;
+}
+.ws-views__tab {
+  display: inline-flex; align-items: center;
+  border-bottom: 2px solid transparent;
+}
+.ws-views__tab[data-ativo="sim"] { border-bottom-color: var(--ghl-600); }
+.ws-views__label {
+  border: 0; background: none; cursor: pointer; font: inherit;
+  padding: 5px 8px; font-size: var(--fs-sm); color: var(--gray-500);
+}
+.ws-views__tab[data-ativo="sim"] .ws-views__label { color: var(--gray-900); font-weight: 600; }
+.ws-views__menu {
+  border: 0; background: none; cursor: pointer; color: var(--gray-400);
+  padding: 0 4px; font-size: 12px; line-height: 1;
+}
+.ws-views__menu:hover { color: var(--gray-700); }
+.ws-views__add {
+  border: 0; background: none; cursor: pointer; color: var(--gray-400);
+  padding: 4px 8px; font-size: 15px; line-height: 1;
+}
+.ws-views__add:hover { color: var(--ghl-600); }
+.ws-views__rename {
+  font: inherit; font-size: var(--fs-sm); padding: 3px 6px;
+  border: 1px solid var(--ghl-400); border-radius: var(--r-sm); max-width: 160px;
+}
+
 .ws-db__toolbar {
   display: flex;
   align-items: center;

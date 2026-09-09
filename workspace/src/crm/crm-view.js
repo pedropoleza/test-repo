@@ -24,21 +24,34 @@ import {
 import { attachDragScroll } from "../database/drag-scroll.js";
 import { renderLoader } from "../ui/loader.js";
 import { pipelineDoQuadro, colunasDoQuadro, contagemPorPipeline, totalDaColuna } from "../shared/board.js";
+import {
+  normalizarEstado, viewAtiva, trocar, adicionar, renomear, remover,
+} from "../shared/views.js";
 
 const PREFS_KEY = "workspace:crmPrefs";
+const VIEWS_KEY = "workspace:crmViews";
 
-function loadPrefs(kind) {
+// Preferências do modelo antigo (uma só por lista): servem para migrar a
+// primeira view, para ninguém perder o filtro que já tinha montado.
+function loadPrefsLegado(escopo) {
   try {
-    return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}")[kind] || {};
+    return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}")[escopo] || null;
   } catch {
-    return {};
+    return null;
   }
 }
-function savePrefs(kind, prefs) {
+function loadViews(escopo) {
   try {
-    const all = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
-    all[kind] = prefs;
-    localStorage.setItem(PREFS_KEY, JSON.stringify(all));
+    return JSON.parse(localStorage.getItem(VIEWS_KEY) || "{}")[escopo] || null;
+  } catch {
+    return null;
+  }
+}
+function saveViews(escopo, estado) {
+  try {
+    const all = JSON.parse(localStorage.getItem(VIEWS_KEY) || "{}");
+    all[escopo] = estado;
+    localStorage.setItem(VIEWS_KEY, JSON.stringify(all));
   } catch { /* storage bloqueado: a sessão segue sem lembrar */ }
 }
 
@@ -65,20 +78,22 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
   // "Setembro" não pode mexer no que a aba de Oportunidades mostra.
   const escopo = list ? `list:${list.id}` : kind;
   const widths = loadWidths(`crm:${escopo}`);
-  let prefs = {
-    visible: null,        // null = só os padrão
-    sorts: [],
-    filters: { op: "and", conditions: [] },
-    groupBy: null,
-    search: "",
-    viewMode: "table",    // "table" | "board" (quadro só para oportunidades)
-    boardPipeline: null,  // a pipeline escolhida no quadro
-    ...loadPrefs(escopo),
-  };
-  if (!prefs.filters?.conditions) prefs.filters = { op: "and", conditions: [] };
+
+  // Várias views nomeadas por lista, à la Notion. Migra as prefs antigas
+  // (uma só) para a primeira view na primeira vez.
+  let viewsState = normalizarEstado(loadViews(escopo), loadPrefsLegado(escopo));
+  let prefs = viewAtiva(viewsState).prefs;
 
   function persist() {
-    savePrefs(escopo, prefs);
+    // A view ativa É o objeto prefs (por referência); só guardamos.
+    saveViews(escopo, viewsState);
+  }
+
+  function usarView(id) {
+    viewsState = trocar(viewsState, id);
+    prefs = viewAtiva(viewsState).prefs;
+    persist();
+    render();
   }
 
   async function load() {
@@ -200,6 +215,7 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
   function render() {
     host.replaceChildren();
     host.className = "ws-db ws-crm";
+    host.appendChild(renderViewTabs());
     host.appendChild(renderToolbar());
 
     const rows = filtered();
@@ -406,6 +422,105 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
 
   function formatarValor(n) {
     return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  }
+
+  /* ---------------- views salvas ---------------- */
+
+  function nomeUnico(base) {
+    const nomes = new Set(viewsState.views.map((v) => v.name));
+    if (!nomes.has(base)) return base;
+    let i = 2;
+    while (nomes.has(`${base} ${i}`)) i += 1;
+    return `${base} ${i}`;
+  }
+
+  function renderViewTabs() {
+    const bar = document.createElement("div");
+    bar.className = "ws-views";
+
+    for (const v of viewsState.views) {
+      const tab = document.createElement("div");
+      tab.className = "ws-views__tab";
+      tab.dataset.ativo = v.id === viewsState.activeId ? "sim" : "nao";
+
+      const label = document.createElement("button");
+      label.type = "button";
+      label.className = "ws-views__label";
+      label.textContent = v.name;
+      label.addEventListener("click", () => { if (v.id !== viewsState.activeId) usarView(v.id); });
+      label.addEventListener("dblclick", () => renomearInline(tab, v));
+      tab.appendChild(label);
+
+      if (v.id === viewsState.activeId) {
+        const menu = document.createElement("button");
+        menu.type = "button";
+        menu.className = "ws-views__menu";
+        menu.textContent = "⌄";
+        menu.setAttribute("aria-label", `Ações da view ${v.name}`);
+        menu.addEventListener("click", (e) => abrirMenuView(e.currentTarget, v));
+        tab.appendChild(menu);
+      }
+      bar.appendChild(tab);
+    }
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "ws-views__add";
+    add.textContent = "+";
+    add.title = "Nova visão (a partir desta)";
+    add.addEventListener("click", () => {
+      viewsState = adicionar(viewsState, { name: nomeUnico("Nova visão") });
+      prefs = viewAtiva(viewsState).prefs;
+      persist();
+      render();
+    });
+    bar.appendChild(add);
+    return bar;
+  }
+
+  function abrirMenuView(anchor, v) {
+    openMenu({
+      anchor, width: 200,
+      items: [
+        { id: "rename", label: "Renomear", icon: "✎" },
+        { id: "dup", label: "Duplicar", icon: "⧉" },
+        ...(viewsState.views.length > 1
+          ? [{ separator: true }, { id: "del", label: "Excluir view", icon: "🗑", danger: true }]
+          : []),
+      ],
+      onSelect: (id) => {
+        if (id === "rename") renomearInline(anchor.closest(".ws-views__tab"), v);
+        else if (id === "dup") {
+          viewsState = adicionar(viewsState, { name: nomeUnico(`${v.name} (cópia)`), base: v.prefs });
+          prefs = viewAtiva(viewsState).prefs; persist(); render();
+        } else if (id === "del") {
+          viewsState = remover(viewsState, v.id);
+          prefs = viewAtiva(viewsState).prefs; persist(); render();
+        }
+      },
+    });
+  }
+
+  function renomearInline(tab, v) {
+    const input = document.createElement("input");
+    input.className = "ws-views__rename";
+    input.value = v.name;
+    tab.replaceChildren(input);
+    input.focus();
+    input.select();
+    let feito = false;
+    const salvar = () => {
+      if (feito) return;
+      feito = true;
+      viewsState = renomear(viewsState, v.id, input.value.trim() || v.name);
+      persist();
+      render();
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); salvar(); }
+      else if (e.key === "Escape") { feito = true; render(); }
+    });
+    input.addEventListener("blur", salvar);
   }
 
   function renderToolbar() {

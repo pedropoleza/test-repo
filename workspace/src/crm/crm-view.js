@@ -27,6 +27,7 @@ import { pipelineDoQuadro, colunasDoQuadro, contagemPorPipeline, totalDaColuna }
 import {
   normalizarEstado, viewAtiva, trocar, adicionar, renomear, remover,
 } from "../shared/views.js";
+import { colunasCalculadas, aplicarCalculados } from "../shared/computed.js";
 
 const PREFS_KEY = "workspace:crmPrefs";
 const VIEWS_KEY = "workspace:crmViews";
@@ -103,11 +104,13 @@ export function createCrmView(host, { kind = "contacts", onOpenPage, list = null
         carregarDados(),
         kind === "contacts" ? api.crm.dossiers().catch(() => ({ dossiers: [] })) : null,
       ]);
-      columns = (data.columns || []).map(toField);
+      // Colunas do CRM + as calculadas (dias no estágio, idade): deduzidas
+      // do que já veio, ordenáveis e filtráveis como qualquer outra.
+      columns = [...(data.columns || []).map(toField), ...colunasCalculadas(kind)];
       // A busca do CRM leva mais de um minuto para enxergar um estágio
       // que acabamos de gravar; sem isto a lista traria o valor antigo
       // de volta e a alteração pareceria perdida.
-      records = aplicarMovimentosRecentes(data.records || []);
+      records = aplicarCalculados(aplicarMovimentosRecentes(data.records || []), kind);
       pipelines = data.pipelines || [];
       meta = { total: data.total, truncated: data.truncated, connected: data.connected !== false };
       dossiers = new Map((fichas?.dossiers || []).map((d) => [d.contactId, d.pageId]));

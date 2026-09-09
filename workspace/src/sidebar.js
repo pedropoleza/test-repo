@@ -121,7 +121,7 @@ export function createSidebar(root, handlers) {
     ];
     if (getState().temServicos) abas.push(["aguardando", "Aguardando", "⏳"]);
     if (getState().temRecorrentes) abas.push(["vencimentos", "Vencimentos", "⏰"]);
-    if (getState().temRecorrentes) abas.push(["calendario", "Calendário", "📅"]);
+    if (getState().temServicos || getState().temRecorrentes) abas.push(["agenda", "Agenda", "🗒️"]);
     abas.push(["tasks", "Tarefas", "✓"]);
     for (const [id, label, icon] of abas) {
       const btn = document.createElement("button");

@@ -43,16 +43,17 @@ export const DETALHES_MODULO = {
         + "voltar em vez de sumir. Vencido vem primeiro; depois 30, 60 e 90 dias.",
     ],
   },
-  calendario: {
-    titulo: "Calendário",
+  agenda: {
+    titulo: "Agenda operacional",
     paragrafos: [
-      "Os mesmos vencimentos do radar, só que plotados no mês — cada renovação "
-        + "cai no dia em que vence. Serve para bater o olho na forma do mês: a "
-        + "semana carregada, o dia com três renovações juntas, o começo vazio.",
-      "Use ‹ e › para andar pelos meses e “Hoje” para voltar. Clique num "
-        + "vencimento para abrir a pasta do contato. Vencido aparece em vermelho; "
-        + "o dia de hoje fica destacado. Para a lista longa por urgência, use o "
-        + "Vencimentos.",
+      "O plano da semana num lugar só. Junta três coisas que hoje vivem em "
+        + "telas separadas: as renovações que vencem, as tarefas com prazo e os "
+        + "casos parados no Aguardando. Não é o calendário de agendamentos do CRM "
+        + "— é “o que preciso entregar e cobrar esta semana”.",
+      "Atrasados no topo (o que já venceu e segue aberto), depois Parados agora "
+        + "(casos esperando cliente ou terceiro, sem data) e A semana, com os sete "
+        + "dias. Use ‹ e › para trocar de semana e clique num item para abrir a "
+        + "pasta do contato.",
     ],
   },
   aguardando: {

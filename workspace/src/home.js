@@ -70,7 +70,9 @@ export function createHomeView(host, handlers = {}) {
     }
     if (s.temRecorrentes) {
       modulos.push({ id: "vencimentos", nome: "Vencimentos", icone: "⏰", ds: "O que está para vencer" });
-      modulos.push({ id: "calendario", nome: "Calendário", icone: "📅", ds: "Os vencimentos no mês" });
+    }
+    if (s.temServicos || s.temRecorrentes) {
+      modulos.push({ id: "agenda", nome: "Agenda", icone: "🗒️", ds: "O plano da semana" });
     }
     modulos.push({ id: "tasks", nome: "Tarefas", icone: "✓", ds: "As tarefas recebidas" });
 

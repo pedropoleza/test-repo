@@ -115,7 +115,11 @@ export async function loadContactDetail(contactId, ctx = null) {
     for (const a of servico?.documentos?.acordos || []) idsRelevantes.add(a.id);
   }
   let prontos = [...idsRelevantes].map((id) => ACORDOS[id]).filter((d) => d && temMapa(d));
-  if (!prontos.length) prontos = Object.values(ACORDOS).filter(temMapa);
+  // Fallback SÓ quando a conta tem catálogo: um walk-in de PO Box na
+  // conta dela ainda gera na hora. Numa conta de outro negócio, sem
+  // serviço resolvido, não se oferece nada — os acordos da Latino USA
+  // não podem aparecer na ficha de outra cliente.
+  if (!prontos.length && catalogo.length) prontos = Object.values(ACORDOS).filter(temMapa);
   const documentos = prontos.map((d) => ({
     id: d.id, nome: d.nome, idiomas: d.idiomas || ["en"],
   }));

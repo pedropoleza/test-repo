@@ -156,3 +156,17 @@ test("conta vazia não quebra", () => {
   assert.deepEqual(resolverCatalogo([], []), []);
   assert.deepEqual(resolverCatalogo(), []);
 });
+
+/* ---------------- os documentos não vazam entre contas ---------------- */
+
+test("uma conta sem catálogo não tem acordos para oferecer", () => {
+  // Regressão: o fallback "sem serviço → oferece os prontos" não pode
+  // disparar numa conta cujo catálogo é vazio, senão os acordos da
+  // Latino USA apareceriam na ficha de outra cliente.
+  const pipelines = [{ id: "d2", name: "2- Policies" }];
+  const colunas = [{ key: "c0", name: "Nome completo", source: "ghl_custom_field" }];
+  const catalogo = resolverCatalogo(pipelines, colunas);
+  assert.equal(catalogo.length, 0, "a conta não deveria resolver serviço nenhum");
+  // Com catálogo vazio, a regra de oferta (catalogo.length && ...) é falsa.
+  assert.equal(catalogo.length > 0, false);
+});

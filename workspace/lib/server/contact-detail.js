@@ -18,6 +18,7 @@ import {
   resolverCatalogo, servicoDaPipeline, ACORDOS, arquivoDoAcordo,
 } from "../../src/shared/catalog.js";
 import { MAPAS } from "./acordo-maps.js";
+import { listContactDocuments } from "./contact-documents.js";
 import {
   STANDARD_CONTACT_FIELDS, OPPORTUNITY_FIELDS, OPPORTUNITY_STATUS,
   customFieldsToColumns, tagsToOptions, usersToOptions, stageOptions,
@@ -124,11 +125,17 @@ export async function loadContactDetail(contactId, ctx = null) {
     id: d.id, nome: d.nome, idiomas: d.idiomas || ["en"],
   }));
 
+  // Arquivos já guardados na ficha deste contato (só na sessão real; o
+  // caminho do PDF roda sem ctx).
+  let arquivos = [];
+  if (ctx) arquivos = await listContactDocuments(ctx, contactId).catch(() => []);
+
   return {
     contactId,
     relations,
     timeline,
     documentos,
+    arquivos,
     columns,
     record,
     notes,

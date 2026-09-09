@@ -140,6 +140,10 @@ export const api = {
     dossiers: () => request("GET", "/api/crm", { query: { action: "dossiers" } }),
     gerarDocumento: (contactId, acordo, idioma = "en") =>
       requestBlob("/api/crm", { query: { action: "document", id: contactId, acordo, idioma } }),
+    contactDocs: (contactId) =>
+      request("GET", "/api/crm", { query: { action: "contact-docs", id: contactId } }),
+    deleteContactDoc: (id) =>
+      request("POST", "/api/crm", { query: { action: "contact-doc-delete" }, body: { id } }),
     contactOpportunities: (id) =>
       request("GET", "/api/crm", { query: { action: "contact-opportunities", id } }),
     moveStage: (opportunityId, pipelineId, stageId) =>

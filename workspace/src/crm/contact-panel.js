@@ -19,6 +19,9 @@ import { renderAvatar } from "./photo.js";
 import { toast } from "../ui/toast.js";
 import { renderLoader } from "../ui/loader.js";
 import { agruparPorDia } from "../shared/timeline.js";
+import { CATEGORIAS, nomeDaCategoria } from "../shared/documents.js";
+import { uploadFile, MAX_UPLOAD_BYTES } from "../cover.js";
+import { openModal } from "../ui/menu.js";
 
 /** Campos do contato sempre visíveis, mesmo vazios: são os que se preenche. */
 const SEMPRE_VISIVEIS = new Set(["email", "phone", "tags", "company", "city"]);
@@ -52,6 +55,7 @@ export function createContactPanel(host, { contactId } = {}) {
         relations: data.relations || [],
         timeline: data.timeline || [],
         documentos: data.documentos || [],
+        arquivos: data.arquivos || [],
         opportunities: data.opportunities || [],
         pipelines: data.pipelines || [],
       };
@@ -75,7 +79,7 @@ export function createContactPanel(host, { contactId } = {}) {
     frag.appendChild(secaoContato());
     if (dados.relations.length) frag.appendChild(secaoVinculos());
     frag.appendChild(secaoOportunidades());
-    if (dados.documentos.length) frag.appendChild(secaoDocumentos());
+    if (dados.documentos.length || dados.arquivos.length) frag.appendChild(secaoDocumentos());
     if (dados.timeline.length) frag.appendChild(secaoLinhaDoTempo());
     host.replaceChildren(frag);
   }
@@ -281,6 +285,21 @@ export function createContactPanel(host, { contactId } = {}) {
    */
   function secaoDocumentos() {
     const box = bloco("Documentos");
+
+    // 1) Gerar: os acordos preenchidos com os dados do contato.
+    if (dados.documentos.length) box.appendChild(blocoGerar());
+    // 2) Arquivos: o que já está guardado na ficha, por categoria.
+    box.appendChild(blocoArquivos());
+    return box;
+  }
+
+  function blocoGerar() {
+    const wrap = document.createElement("div");
+    const rotulo = document.createElement("p");
+    rotulo.className = "ws-docs__rotulo";
+    rotulo.textContent = "Gerar";
+    wrap.appendChild(rotulo);
+
     const lista = document.createElement("div");
     lista.className = "ws-docs";
 
@@ -318,8 +337,140 @@ export function createContactPanel(host, { contactId } = {}) {
 
       lista.appendChild(linha);
     }
-    box.appendChild(lista);
-    return box;
+    wrap.appendChild(lista);
+    return wrap;
+  }
+
+  /**
+   * Os arquivos da ficha, agrupados por categoria. É a resposta à dor
+   * dela: em vez de garimpar em quatro computadores, o documento do
+   * cliente está aqui, a um clique de reenviar.
+   */
+  function blocoArquivos() {
+    const wrap = document.createElement("div");
+    wrap.className = "ws-docs__arquivos";
+
+    const cabecalho = document.createElement("div");
+    cabecalho.className = "ws-docs__arq-head";
+    const rotulo = document.createElement("p");
+    rotulo.className = "ws-docs__rotulo";
+    rotulo.textContent = "Arquivos";
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "ws-btn ws-btn--sm";
+    add.textContent = "+ Adicionar";
+    add.addEventListener("click", adicionarArquivo);
+    cabecalho.append(rotulo, add);
+    wrap.appendChild(cabecalho);
+
+    if (!dados.arquivos.length) {
+      const vazio = document.createElement("p");
+      vazio.className = "ws-muted ws-docs__vazio";
+      vazio.textContent = "Nenhum arquivo ainda. Guarde aqui os documentos do cliente, "
+        + "contratos e recibos — todos ficam na ficha.";
+      wrap.appendChild(vazio);
+      return wrap;
+    }
+
+    // Uma gaveta por categoria que tem arquivo, na ordem da taxonomia.
+    for (const cat of CATEGORIAS) {
+      const doCat = dados.arquivos.filter((a) => a.categoria === cat.id);
+      if (!doCat.length) continue;
+      const gaveta = document.createElement("div");
+      gaveta.className = "ws-docs__gaveta";
+      const gh = document.createElement("p");
+      gh.className = "ws-docs__gaveta-head";
+      gh.textContent = `${cat.icone} ${cat.nome}`;
+      gaveta.appendChild(gh);
+      for (const arq of doCat) gaveta.appendChild(linhaArquivo(arq));
+      wrap.appendChild(gaveta);
+    }
+    return wrap;
+  }
+
+  function linhaArquivo(arq) {
+    const linha = document.createElement("div");
+    linha.className = "ws-docs__arq";
+
+    const nome = document.createElement("a");
+    nome.className = "ws-docs__arq-nome";
+    nome.href = arq.url || "#";
+    nome.target = "_blank";
+    nome.rel = "noopener";
+    nome.textContent = arq.nome || "arquivo";
+    nome.title = "Abrir / baixar";
+    linha.appendChild(nome);
+
+    const remover = document.createElement("button");
+    remover.type = "button";
+    remover.className = "ws-docs__arq-remover";
+    remover.textContent = "✕";
+    remover.setAttribute("aria-label", `Remover ${arq.nome}`);
+    remover.addEventListener("click", () => removerArquivo(arq, remover));
+    linha.appendChild(remover);
+    return linha;
+  }
+
+  /** Fluxo de anexar: escolhe o arquivo, depois a categoria, e envia. */
+  function adicionarArquivo() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".pdf,image/*";
+    input.addEventListener("change", async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size > MAX_UPLOAD_BYTES) {
+        toast(`Arquivo grande demais (máximo ${Math.round(MAX_UPLOAD_BYTES / 1048576)} MB).`,
+          { tone: "warn" });
+        return;
+      }
+      const categoria = await escolherCategoria();
+      if (!categoria) return;
+      try {
+        await uploadFile(file, { contactId: dados.record.externalId, category: categoria });
+        toast("Documento guardado na ficha.", { tone: "success" });
+        await load();
+      } catch (err) {
+        toast(err?.code === "storage_unavailable"
+          ? "O armazenamento não está configurado. Nada foi enviado."
+          : "Não foi possível guardar o documento.", { tone: "danger" });
+      }
+    });
+    input.click();
+  }
+
+  /** Diálogo nosso para escolher a categoria — nunca um prompt do navegador. */
+  function escolherCategoria() {
+    return openModal({
+      title: "Que tipo de documento?",
+      width: 420,
+      render: (body, close) => {
+        const lista = document.createElement("div");
+        lista.className = "ws-docs__cats";
+        for (const cat of CATEGORIAS) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "ws-docs__cat";
+          b.textContent = `${cat.icone}  ${cat.nome}`;
+          b.addEventListener("click", () => close(cat.id));
+          lista.appendChild(b);
+        }
+        body.appendChild(lista);
+        lista.firstElementChild?.focus();
+      },
+    });
+  }
+
+  async function removerArquivo(arq, botao) {
+    botao.disabled = true;
+    try {
+      await api.crm.deleteContactDoc(arq.id);
+      toast("Documento removido.", { tone: "success" });
+      await load();
+    } catch {
+      toast("Não foi possível remover.", { tone: "danger" });
+      botao.disabled = false;
+    }
   }
 
   async function baixarDocumento(doc, idioma, botao) {

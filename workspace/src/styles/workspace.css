@@ -2597,3 +2597,40 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 .ws-docs__nome { flex: 1; font-size: var(--fs-sm); font-weight: 500; color: var(--gray-800); }
 .ws-docs__idioma { flex: none; padding: 3px 6px; font-size: var(--fs-sm); }
 .ws-docs__gerar { flex: none; }
+
+/* ---- documentos: bloco de arquivos da ficha ---- */
+.ws-docs__rotulo {
+  margin: 0 0 6px; font-size: var(--fs-xs); font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--gray-500);
+}
+.ws-docs__arquivos { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-200); }
+.ws-docs__arq-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ws-docs__vazio { margin: 6px 0 0; font-size: var(--fs-sm); }
+.ws-docs__gaveta { margin-top: 10px; }
+.ws-docs__gaveta-head {
+  margin: 0 0 4px; font-size: var(--fs-sm); font-weight: 600; color: var(--gray-700);
+}
+.ws-docs__arq {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: var(--r-sm);
+  background: var(--gray-50); margin-bottom: 4px;
+}
+.ws-docs__arq-nome {
+  flex: 1; font-size: var(--fs-sm); color: var(--ghl-700);
+  text-decoration: none; overflow-wrap: anywhere;
+}
+.ws-docs__arq-nome:hover { text-decoration: underline; }
+.ws-docs__arq-remover {
+  flex: none; border: 0; background: none; cursor: pointer;
+  color: var(--gray-400); font-size: 13px; padding: 2px 4px;
+}
+.ws-docs__arq-remover:hover { color: var(--danger); }
+.ws-docs__cats { display: flex; flex-direction: column; gap: 6px; }
+.ws-docs__cat {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 12px 14px; border: 1px solid var(--gray-200); border-radius: var(--r-sm);
+  background: var(--white); cursor: pointer; font: inherit; font-size: 14px;
+  text-align: left;
+}
+.ws-docs__cat:hover { border-color: var(--ghl-300); background: var(--ghl-50); }
+.ws-docs__cat:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: 1px; }

@@ -18,6 +18,7 @@ import {
   WorkspaceError,
 } from "../lib/server/context.js";
 import { log } from "../lib/server/log.js";
+import { normalizarCategoria } from "../src/shared/documents.js";
 
 const BUCKET = "workspace-files";
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -38,7 +39,7 @@ export default async function handler(req, res) {
     requireRole(ctx, "editor");
 
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
-    const { name, mimeType, dataUrl } = body;
+    const { name, mimeType, dataUrl, contactId, category, serviceCode } = body;
 
     if (!dataUrl || typeof dataUrl !== "string") {
       throw new WorkspaceError(400, "missing_file");
@@ -81,10 +82,17 @@ export default async function handler(req, res) {
         mime_type: mimeType,
         byte_size: buffer.length,
         original_name: safeName,
-        source: "upload",
+        // Anexado a um contato: vira documento da ficha, com categoria e
+        // serviço. Sem contato, é upload comum (capa, imagem de bloco).
+        ...(contactId ? {
+          source: "contact_doc",
+          source_external_id: String(contactId).slice(0, 120),
+          category: normalizarCategoria(category),
+          service_code: serviceCode ? String(serviceCode).slice(0, 60) : null,
+        } : { source: "upload" }),
         created_by: ctx.userKey,
       })
-      .select("id,public_url,mime_type,byte_size,original_name")
+      .select("id,public_url,mime_type,byte_size,original_name,category,service_code,created_at")
       .maybeSingle();
     if (error) throw new WorkspaceError(500, "db_error", { detail: error.message });
 

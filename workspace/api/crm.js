@@ -42,6 +42,7 @@ import {
 } from "../src/shared/crm.js";
 import { loadContactDetail } from "../lib/server/contact-detail.js";
 import { gerarDocumento } from "../lib/server/document-generate.js";
+import { listContactDocuments, deleteContactDocument } from "../lib/server/contact-documents.js";
 import { linkContacts, unlinkContacts } from "../lib/server/relations.js";
 import { log } from "../lib/server/log.js";
 
@@ -98,6 +99,16 @@ export default async function handler(req, res) {
     }
 
     if (!isConfigured()) throw new WorkspaceError(503, "ghl_not_configured");
+
+    if (action === "contact-docs") {
+      const contactId = req.query?.id || body.contactId;
+      return res.status(200).json({ documentos: await listContactDocuments(ctx, contactId) });
+    }
+    if (action === "contact-doc-delete") {
+      requireRole(ctx, "editor");
+      await deleteContactDocument(ctx, body.id || req.query?.id);
+      return res.status(200).json({ ok: true });
+    }
 
     if (action === "document") {
       const contactId = req.query?.id || body.contactId;

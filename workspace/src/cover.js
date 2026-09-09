@@ -195,7 +195,7 @@ function renderUpload(close) {
 }
 
 /** Lê o arquivo como data URL e envia para /api/files. */
-export async function uploadFile(file) {
+export async function uploadFile(file, extra = {}) {
   const dataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -206,6 +206,7 @@ export async function uploadFile(file) {
     name: file.name,
     mimeType: file.type,
     dataUrl,
+    ...extra,
   });
   return saved;
 }

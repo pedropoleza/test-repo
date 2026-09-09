@@ -119,6 +119,7 @@ export function createSidebar(root, handlers) {
       ["opportunities", "Oportunidades", "💰"],
       ["renewals", "Renovações", "🔄"],
     ];
+    if (getState().temServicos) abas.push(["aguardando", "Aguardando", "⏳"]);
     if (getState().temRecorrentes) abas.push(["vencimentos", "Vencimentos", "⏰"]);
     abas.push(["tasks", "Tarefas", "✓"]);
     for (const [id, label, icon] of abas) {

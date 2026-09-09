@@ -55,6 +55,9 @@ export function createHomeView(host, handlers = {}) {
       { id: "opportunities", nome: "Oportunidades", icone: "💰", ds: "Os casos em andamento" },
       { id: "renewals",      nome: "Renovações",    icone: "🔄", ds: "O que precisa renovar" },
     ];
+    if (s.temServicos) {
+      modulos.push({ id: "aguardando", nome: "Aguardando", icone: "⏳", ds: "Casos parados agora" });
+    }
     if (s.temRecorrentes) {
       modulos.push({ id: "vencimentos", nome: "Vencimentos", icone: "⏰", ds: "O que está para vencer" });
     }

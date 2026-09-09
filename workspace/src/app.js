@@ -24,6 +24,7 @@ import { createCrmView } from "./crm/crm-view.js";
 import { createRenewalsView } from "./crm/renewals-view.js";
 import { createVencimentosView } from "./crm/vencimentos-view.js";
 import { createHomeView } from "./home.js";
+import { createAguardandoView } from "./crm/aguardando-view.js";
 import { openListDialog } from "./crm/list-dialog.js";
 import { openCopyLink } from "./ui/prompt.js";
 
@@ -522,7 +523,7 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
   h.className = "ws-page__title ws-crm__title";
   const TITULOS = {
     contacts: "Leads", opportunities: "Oportunidades",
-    tasks: "Tarefas", renewals: "Renovações", vencimentos: "Vencimentos",
+    tasks: "Tarefas", renewals: "Renovações", vencimentos: "Vencimentos", aguardando: "Aguardando",
   };
   h.textContent = list ? list.name : (TITULOS[kind] || "CRM");
   const sub = document.createElement("p");
@@ -538,6 +539,9 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
     : kind === "vencimentos"
     ? "Os serviços recorrentes que estão para vencer, primeiro os mais "
       + "urgentes. É o que traz o cliente de volta antes de ele sumir."
+    : kind === "aguardando"
+    ? "O que está parado agora — esperando o cliente ou um terceiro — "
+      + "primeiro o que espera há mais tempo."
     : kind === "tasks"
     // Tarefas vêm do Spark Tasks e são editadas lá: aqui é a réplica que
     // permite filtrar e agrupar junto do resto.
@@ -563,6 +567,8 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
     createRenewalsView(mount, { onOpenPage: abrirFicha });
   } else if (kind === "vencimentos" && !list) {
     createVencimentosView(mount, { onOpenPage: abrirFicha });
+  } else if (kind === "aguardando" && !list) {
+    createAguardandoView(mount, { onOpenPage: abrirFicha });
   } else {
     createCrmView(mount, { kind, list, onOpenPage: abrirFicha });
   }
@@ -608,8 +614,11 @@ async function carregarCrmLists() {
  */
 async function carregarCatalogo() {
   try {
-    const { recorrentes } = await api.crm.catalog();
-    setState({ temRecorrentes: (recorrentes || []).length > 0 }, "catalog");
+    const { recorrentes, servicos } = await api.crm.catalog();
+    setState({
+      temRecorrentes: (recorrentes || []).length > 0,
+      temServicos: (servicos || []).length > 0,
+    }, "catalog");
     sidebar?.render();
   } catch {
     // Sem CRM ou sem catálogo: a aba simplesmente não aparece.

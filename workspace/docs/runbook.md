@@ -492,6 +492,21 @@ serviço** — o mesmo do plano da conta. Três peças, em camadas:
 Tudo isto só aparece onde o catálogo resolve — a conta da Daniely não
 mostra acordo nem seção de documentos.
 
+## Página inicial (home)
+
+`src/home.js` — a tela de partida do app. É a inicial (no lugar de cair
+na primeira página); um item "Início" fica no topo da navegação. Mostra:
+
+- **Módulos**: Leads, Oportunidades, Renovações, Vencimentos (só onde a
+  conta tem recorrente) e Tarefas.
+- **Listas**: as abas salvas, como atalho.
+- **Continuar de onde parou**: as últimas páginas e fichas abertas
+  (`workspace_recent_items`).
+
+Não vai à rede: monta do que o boot já trouxe e se redesenha quando o
+catálogo, as listas e os recentes chegam. Um deep-link (`?p=`, `?crm=`,
+`?lista=`) ainda abre direto no destino.
+
 ## Nada de diálogo nativo do navegador
 
 `window.prompt/confirm/alert` não podem aparecer em nenhum campo. Eles

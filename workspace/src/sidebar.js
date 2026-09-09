@@ -96,12 +96,17 @@ export function createSidebar(root, handlers) {
     // própria, sem menu de página, porque não é conteúdo editável aqui.
     const crm = document.createElement("div");
     crm.className = "ws-tree__section";
-    for (const [id, label, icon] of [
+    // "Vencimentos" só entra onde a conta tem serviços recorrentes — o
+    // radar não faz sentido numa conta sem data de renovação. O flag vem
+    // do catálogo, carregado em segundo plano no boot.
+    const abas = [
       ["contacts", "Leads", "👥"],
       ["opportunities", "Oportunidades", "💰"],
       ["renewals", "Renovações", "🔄"],
-      ["tasks", "Tarefas", "✓"],
-    ]) {
+    ];
+    if (getState().temRecorrentes) abas.push(["vencimentos", "Vencimentos", "⏰"]);
+    abas.push(["tasks", "Tarefas", "✓"]);
+    for (const [id, label, icon] of abas) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = `ws-tree__row ws-tree__row--static${

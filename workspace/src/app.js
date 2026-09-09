@@ -22,6 +22,7 @@ import { renderIcon } from "./icon-picker.js";
 import { openSectionDialog } from "./section-dialog.js";
 import { createCrmView } from "./crm/crm-view.js";
 import { createRenewalsView } from "./crm/renewals-view.js";
+import { createVencimentosView } from "./crm/vencimentos-view.js";
 import { openListDialog } from "./crm/list-dialog.js";
 import { openCopyLink } from "./ui/prompt.js";
 
@@ -86,6 +87,7 @@ async function bootstrap() {
     // conta), então chegam depois: fazer o bootstrap esperar por elas
     // atrasaria a navegação inteira por causa de uma seção.
     const listasPromise = carregarCrmLists();
+    carregarCatalogo();
 
     if (lista) {
       await listasPromise;
@@ -477,7 +479,7 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
   h.className = "ws-page__title ws-crm__title";
   const TITULOS = {
     contacts: "Leads", opportunities: "Oportunidades",
-    tasks: "Tarefas", renewals: "Renovações",
+    tasks: "Tarefas", renewals: "Renovações", vencimentos: "Vencimentos",
   };
   h.textContent = list ? list.name : (TITULOS[kind] || "CRM");
   const sub = document.createElement("p");
@@ -490,6 +492,9 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
     // uma tela que ela não está vendo.
     ? "O que precisa ser renovado, primeiro o mais urgente — "
       + "e há quanto tempo cada apólice não é tocada."
+    : kind === "vencimentos"
+    ? "Os serviços recorrentes que estão para vencer, primeiro os mais "
+      + "urgentes. É o que traz o cliente de volta antes de ele sumir."
     : kind === "tasks"
     // Tarefas vêm do Spark Tasks e são editadas lá: aqui é a réplica que
     // permite filtrar e agrupar junto do resto.
@@ -513,6 +518,8 @@ function openCrm(kind, list = null, { push = true, trilha: registrar = true } = 
   // mesmos dados, em faixas de prazo. Por isso tem view própria.
   if (kind === "renewals" && !list) {
     createRenewalsView(mount, { onOpenPage: abrirFicha });
+  } else if (kind === "vencimentos" && !list) {
+    createVencimentosView(mount, { onOpenPage: abrirFicha });
   } else {
     createCrmView(mount, { kind, list, onOpenPage: abrirFicha });
   }
@@ -548,6 +555,21 @@ async function carregarCrmLists() {
     sidebar?.render();
   } catch {
     // Sem CRM, a seção fica só com as abas fixas — que é o certo.
+  }
+}
+
+/**
+ * Descobre se a conta tem serviços recorrentes — é o que decide se a aba
+ * "Vencimentos" existe. Numa conta sem catálogo (a da Daniely), não
+ * aparece. Roda em segundo plano: a navegação não espera por ela.
+ */
+async function carregarCatalogo() {
+  try {
+    const { recorrentes } = await api.crm.catalog();
+    setState({ temRecorrentes: (recorrentes || []).length > 0 }, "catalog");
+    sidebar?.render();
+  } catch {
+    // Sem CRM ou sem catálogo: a aba simplesmente não aparece.
   }
 }
 

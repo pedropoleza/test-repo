@@ -138,6 +138,7 @@ export const api = {
       }),
     contact: (id) => request("GET", "/api/crm", { query: { action: "contact", id } }),
     dossiers: () => request("GET", "/api/crm", { query: { action: "dossiers" } }),
+    catalog: () => request("GET", "/api/crm", { query: { action: "catalog" } }),
     gerarDocumento: (contactId, acordo, idioma = "en") =>
       requestBlob("/api/crm", { query: { action: "document", id: contactId, acordo, idioma } }),
     contactDocs: (contactId) =>

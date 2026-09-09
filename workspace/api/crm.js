@@ -43,6 +43,7 @@ import {
 import { loadContactDetail } from "../lib/server/contact-detail.js";
 import { gerarDocumento } from "../lib/server/document-generate.js";
 import { listContactDocuments, deleteContactDocument } from "../lib/server/contact-documents.js";
+import { resolverCatalogo, servicosRecorrentes } from "../src/shared/catalog.js";
 import { linkContacts, unlinkContacts } from "../lib/server/relations.js";
 import { log } from "../lib/server/log.js";
 
@@ -123,6 +124,24 @@ export default async function handler(req, res) {
       res.setHeader("Content-Length", String(bytes.length));
       res.setHeader("Cache-Control", "no-store");
       return res.end(Buffer.from(bytes));
+    }
+
+    if (action === "catalog") {
+      const [pipelines, customFields] = await Promise.all([
+        listPipelines().catch(() => []),
+        listCustomFields().catch(() => []),
+      ]);
+      const servicos = resolverCatalogo(pipelines, customFieldsToColumns(customFields));
+      // Só o que a tela e o gate precisam — os campos de vencimento de
+      // cada recorrente, para o radar cruzar com os contatos.
+      const recorrentes = servicosRecorrentes(servicos).map((s) => ({
+        code: s.code, nome: s.nome, icone: s.icone,
+        vencimentos: s.vencimentos,
+      }));
+      return res.status(200).json({
+        servicos: servicos.map((s) => ({ code: s.code, nome: s.nome, icone: s.icone })),
+        recorrentes,
+      });
     }
 
     if (action === "contacts")      return res.status(200).json(await contacts(req));

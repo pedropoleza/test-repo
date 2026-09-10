@@ -42,13 +42,20 @@ export function createContactPanel(host, { contactId } = {}) {
   let dados = null;
   let erro = null;
   let linhaAberta = false;
+  // O link do último pedido criado, para mostrar o QR logo depois de enviar.
+  let linkRecente = null;
 
   host.classList.add("ws-crm-panel");
 
   async function load() {
     host.replaceChildren(renderLoader("Carregando os dados do CRM…", { compact: true }));
     try {
-      const data = await api.crm.contact(contactId);
+      const [data, pedidos] = await Promise.all([
+        api.crm.contact(contactId),
+        // Pedidos de assinatura vivem noutra tabela; falha aqui não pode
+        // derrubar a ficha inteira.
+        api.docs.list(contactId).catch(() => ({ pedidos: [] })),
+      ]);
       dados = {
         columns: (data.columns || []).map(toField),
         record: data.record,
@@ -62,6 +69,7 @@ export function createContactPanel(host, { contactId } = {}) {
         pipelines: data.pipelines || [],
         comentarios: data.comentarios || [],
         equipe: data.equipe || [],
+        pedidos: pedidos.pedidos || [],
       };
       erro = null;
     } catch (err) {
@@ -83,7 +91,8 @@ export function createContactPanel(host, { contactId } = {}) {
     frag.appendChild(secaoContato());
     if (dados.relations.length) frag.appendChild(secaoVinculos());
     frag.appendChild(secaoOportunidades());
-    if (dados.documentos.length || dados.checklists.length || dados.arquivos.length) frag.appendChild(secaoDocumentos());
+    if (dados.documentos.length || dados.checklists.length || dados.arquivos.length
+      || dados.pedidos.length) frag.appendChild(secaoDocumentos());
     if (dados.timeline.length) frag.appendChild(secaoLinhaDoTempo());
     if (contactId) frag.appendChild(secaoPortal());
     frag.appendChild(secaoComentarios());
@@ -295,6 +304,7 @@ export function createContactPanel(host, { contactId } = {}) {
     // 1) Gerar: os acordos preenchidos com os dados do contato.
     if (dados.documentos.length) box.appendChild(blocoGerar());
     // 2) Checklist: o que o cliente precisa trazer, por serviço.
+    if (dados.pedidos.length) box.appendChild(blocoPedidos());
     if (dados.checklists.length) box.appendChild(blocoChecklist());
     // 3) Arquivos: o que já está guardado na ficha, por categoria.
     box.appendChild(blocoArquivos());
@@ -342,6 +352,16 @@ export function createContactPanel(host, { contactId } = {}) {
       gerar.textContent = "Gerar PDF";
       gerar.addEventListener("click", () => baixarDocumento(doc, idioma, gerar));
       linha.appendChild(gerar);
+
+      // A outra saída do mesmo documento: em vez de baixar preenchido,
+      // manda o cliente preencher e assinar pelo link.
+      const enviar = document.createElement("button");
+      enviar.type = "button";
+      enviar.className = "ws-btn ws-btn--sm ws-btn--primary ws-docs__enviar";
+      enviar.textContent = "Enviar para assinar";
+      enviar.title = "Cria um link único para o cliente conferir, preencher e assinar";
+      enviar.addEventListener("click", () => enviarParaAssinar(doc, enviar));
+      linha.appendChild(enviar);
 
       lista.appendChild(linha);
     }
@@ -668,6 +688,162 @@ export function createContactPanel(host, { contactId } = {}) {
   }
 
   /* ---------------- utilitários ---------------- */
+
+  /* ---------------- documentos para assinar ---------------- */
+
+  const STATUS_DOC = {
+    pendente:  { texto: "Enviado",   cor: "blue"   },
+    aberto:    { texto: "Aberto",    cor: "yellow" },
+    assinado:  { texto: "Assinado",  cor: "green"  },
+    cancelado: { texto: "Cancelado", cor: "gray"   },
+  };
+
+  async function enviarParaAssinar(doc, botao) {
+    const rotuloOriginal = botao.textContent;
+    botao.disabled = true;
+    botao.textContent = "Criando link…";
+    try {
+      // Sem idioma explícito: o servidor usa o do contato, que é o certo
+      // na esmagadora maioria dos envios.
+      const { pedido, url, qr } = await api.docs.send(contactId, doc.id);
+      linkRecente = { url, qr, id: pedido.id };
+      dados.pedidos = [pedido, ...dados.pedidos];
+      toast("Link criado. Mande para o cliente.", { tone: "success" });
+      render();
+    } catch (err) {
+      toast(err?.code === "acordo_sem_preenchimento"
+        ? "Este documento ainda não está preparado para preenchimento."
+        : "Não foi possível criar o link agora.", { tone: "danger" });
+      botao.disabled = false;
+      botao.textContent = rotuloOriginal;
+    }
+  }
+
+  function blocoPedidos() {
+    const wrap = document.createElement("div");
+    const rotulo = document.createElement("p");
+    rotulo.className = "ws-docs__rotulo";
+    rotulo.textContent = "Para o cliente assinar";
+    wrap.appendChild(rotulo);
+
+    if (linkRecente) wrap.appendChild(caixaDoLink(linkRecente));
+
+    const lista = document.createElement("div");
+    lista.className = "ws-pedidos";
+    for (const p of dados.pedidos) lista.appendChild(linhaDoPedido(p));
+    wrap.appendChild(lista);
+    return wrap;
+  }
+
+  function caixaDoLink({ url, qr }) {
+    const box = document.createElement("div");
+    box.className = "ws-pedidos__link";
+
+    if (qr) {
+      const quadro = document.createElement("div");
+      quadro.className = "ws-pedidos__qr";
+      quadro.appendChild(new DOMParser().parseFromString(qr, "image/svg+xml").documentElement);
+      box.appendChild(quadro);
+    }
+
+    const dir = document.createElement("div");
+    dir.className = "ws-pedidos__link-corpo";
+    const campo = document.createElement("input");
+    campo.type = "text"; campo.readOnly = true; campo.value = url;
+    campo.className = "ws-input";
+    campo.addEventListener("focus", () => campo.select());
+    const acoes = document.createElement("div");
+    acoes.className = "ws-pedidos__acoes";
+    const copiar = document.createElement("button");
+    copiar.type = "button"; copiar.className = "ws-btn ws-btn--sm ws-btn--primary";
+    copiar.textContent = "Copiar link";
+    copiar.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(url); toast("Link copiado.", { tone: "success" }); }
+      catch { campo.focus(); campo.select(); }
+    });
+    const abrir = document.createElement("a");
+    abrir.href = url; abrir.target = "_blank"; abrir.rel = "noopener";
+    abrir.className = "ws-btn ws-btn--sm ws-btn--ghost";
+    abrir.textContent = "Pré-visualizar";
+    const fechar = document.createElement("button");
+    fechar.type = "button"; fechar.className = "ws-btn ws-btn--sm ws-btn--ghost";
+    fechar.textContent = "Ocultar";
+    fechar.addEventListener("click", () => { linkRecente = null; render(); });
+    acoes.append(copiar, abrir, fechar);
+    dir.append(campo, acoes);
+    box.appendChild(dir);
+    return box;
+  }
+
+  function linhaDoPedido(p) {
+    const linha = document.createElement("div");
+    linha.className = "ws-pedidos__item";
+
+    const corpo = document.createElement("div");
+    corpo.className = "ws-pedidos__corpo";
+    const nome = document.createElement("span");
+    nome.className = "ws-pedidos__nome";
+    nome.textContent = p.nome;
+    const meta = document.createElement("span");
+    meta.className = "ws-pedidos__meta";
+    meta.textContent = p.status === "assinado" && p.assinadoEm
+      ? `Assinado por ${p.assinadoPor || "cliente"} · ${dataCurta(p.assinadoEm)}`
+      : `Enviado ${dataCurta(p.criadoEm)}${p.idioma ? ` · ${p.idioma.toUpperCase()}` : ""}`;
+    corpo.append(nome, meta);
+
+    const marca = document.createElement("span");
+    const st = STATUS_DOC[p.status] || STATUS_DOC.pendente;
+    marca.className = "ws-chip ws-pedidos__status";
+    marca.dataset.color = st.cor;
+    marca.textContent = st.texto;
+
+    linha.append(corpo, marca);
+
+    // Assinado: o PDF está nos arquivos da ficha, logo abaixo.
+    if (p.status === "pendente" || p.status === "aberto") {
+      const cancelar = document.createElement("button");
+      cancelar.type = "button";
+      cancelar.className = "ws-pedidos__cancelar";
+      cancelar.textContent = "×";
+      cancelar.title = "Invalidar este link";
+      cancelar.setAttribute("aria-label", `Invalidar o link de ${p.nome}`);
+      cancelar.addEventListener("click", () => cancelarPedidoDoc(p, cancelar));
+      linha.appendChild(cancelar);
+    }
+    return linha;
+  }
+
+  async function cancelarPedidoDoc(pedido, botao) {
+    if (botao.dataset.confirm !== "sim") {
+      botao.dataset.confirm = "sim";
+      botao.textContent = "Invalidar?";
+      botao.classList.add("is-confirm");
+      setTimeout(() => {
+        if (botao.isConnected) {
+          botao.dataset.confirm = "nao"; botao.textContent = "×"; botao.classList.remove("is-confirm");
+        }
+      }, 3000);
+      return;
+    }
+    botao.disabled = true;
+    try {
+      await api.docs.cancel(pedido.id);
+      dados.pedidos = dados.pedidos.map((p) => (
+        p.id === pedido.id ? { ...p, status: "cancelado" } : p));
+      if (linkRecente?.id === pedido.id) linkRecente = null;
+      toast("Link invalidado.", { tone: "success" });
+      render();
+    } catch {
+      toast("Não foi possível invalidar agora.", { tone: "danger" });
+      botao.disabled = false;
+    }
+  }
+
+  function dataCurta(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  }
 
   /* ---------------- portal do cliente ---------------- */
 

@@ -123,6 +123,7 @@ export function createSidebar(root, handlers) {
     if (getState().temRecorrentes) abas.push(["vencimentos", "Vencimentos"]);
     if (getState().temServicos || getState().temRecorrentes) abas.push(["agenda", "Agenda"]);
     abas.push(["tasks", "Tarefas"]);
+    if (getState().temServicos) abas.push(["documentos", "Documentos"]);
     if (getState().temServicos || getState().temRecorrentes) abas.push(["relatorios", "Relatórios"]);
     for (const [id, label] of abas) {
       const btn = document.createElement("button");

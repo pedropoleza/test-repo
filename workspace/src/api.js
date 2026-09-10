@@ -205,6 +205,15 @@ export const api = {
       request("POST", "/api/status", { query: { action: "revoke" }, body: { contactId } }),
   },
 
+  /** Documentos que o cliente assina pelo link. */
+  docs: {
+    list: (contactId) => request("GET", "/api/doc", { query: { action: "list", id: contactId } }),
+    all: () => request("GET", "/api/doc", { query: { action: "all" } }),
+    send: (contactId, acordo, idioma) =>
+      request("POST", "/api/doc", { query: { action: "send" }, body: { contactId, acordo, idioma } }),
+    cancel: (id) => request("POST", "/api/doc", { query: { action: "cancel" }, body: { id } }),
+  },
+
   tasks: {
     list: (limit) => request("GET", "/api/tasks", { query: { limit } }),
   },

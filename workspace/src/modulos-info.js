@@ -65,6 +65,17 @@ export const DETALHES_MODULO = {
         + "tempo. É o painel de “não perder caso no meio do caminho”.",
     ],
   },
+  documentos: {
+    titulo: "Documentos para assinar",
+    paragrafos: [
+      "A fila de documentos que foram mandados para os clientes assinarem pelo "
+        + "link. Cada um mostra em que pé está: enviado e ainda não aberto, aberto "
+        + "mas sem assinar, ou já assinado.",
+      "O bloco “aberto pelo cliente, sem assinar” é o que mais merece atenção — "
+        + "é quem se interessou e parou no meio. Para mandar um documento novo, "
+        + "use a ficha do contato.",
+    ],
+  },
   relatorios: {
     titulo: "Relatórios por serviço",
     paragrafos: [

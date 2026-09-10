@@ -75,6 +75,9 @@ export function createHomeView(host, handlers = {}) {
       modulos.push({ id: "agenda", nome: "Agenda", ds: "O plano da semana" });
     }
     modulos.push({ id: "tasks", nome: "Tarefas", ds: "As tarefas recebidas" });
+    if (s.temServicos) {
+      modulos.push({ id: "documentos", nome: "Documentos", ds: "Enviados para assinar" });
+    }
     if (s.temServicos || s.temRecorrentes) {
       modulos.push({ id: "relatorios", nome: "Relatórios", ds: "A operação em números" });
     }

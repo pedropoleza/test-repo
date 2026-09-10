@@ -6,8 +6,9 @@
  *   POST ?action=revoke {id}    → invalida o link daquele contato
  *
  * O token no endereço é a credencial de quem lê: dá acesso somente ao
- * status daquele contato, em leitura, e pode ser revogado. O idioma sai
- * do seletor na própria página (PT/EN/ES), sem depender de campo no CRM.
+ * status daquele contato, em leitura, e pode ser revogado. A página abre
+ * no idioma do contato (campo Idioma do CRM); o seletor PT/EN/ES em cima
+ * sobrepõe, para quem prefere outra língua na hora.
  */
 import QRCode from "qrcode";
 import {
@@ -62,15 +63,17 @@ async function paginaPorToken(req, res, token) {
   if (!registro) return paginaErro(res, 404);
   if (!isConfigured()) return paginaErro(res, 503);
 
-  const lang = idiomaDoCliente(req.query?.lang);
+  // O seletor de idioma da página sobrepõe; sem ele, vale o do contato.
+  const escolhido = req.query?.lang ? idiomaDoCliente(req.query.lang) : null;
   let dados;
   try {
-    dados = await buildStatusData(registro.contact_external_id, lang);
+    dados = await buildStatusData(registro.contact_external_id, escolhido);
   } catch (err) {
     if (err?.code === "contact_not_found") return paginaErro(res, 404);
     return paginaErro(res, 503);
   }
 
+  const lang = dados.idioma || "pt";
   recordStatusUse(registro.id, registro.use_count).catch(() => {});
   log.info("status.page.viewed", { workspaceId: registro.workspace_id });
 

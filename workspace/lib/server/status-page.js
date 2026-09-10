@@ -8,6 +8,7 @@
  */
 import { loadContactDetail } from "./contact-detail.js";
 import { statusDoCaso } from "../../src/shared/client-status.js";
+import { idiomaDoContato } from "../../src/shared/idioma.js";
 
 /** Só o primeiro nome, para a saudação — sem expor o nome completo. */
 function primeiroNome(nome) {
@@ -15,15 +16,20 @@ function primeiroNome(nome) {
 }
 
 /**
- * `{ nome, servicos: [{ nome, status, acaoCliente }] }` para o idioma
- * dado. Serviço = a oportunidade; o nome amigável é o da pipeline.
+ * `{ nome, servicos: [...], idioma }`. Sem `lang`, o idioma sai do campo
+ * Idioma do contato. Serviço = a oportunidade; o nome amigável é o da
+ * pipeline.
  */
-export async function buildStatusData(contactId, lang = "pt") {
+export async function buildStatusData(contactId, lang = null) {
   const detail = await loadContactDetail(contactId, null);
+  // Sem idioma explícito (o seletor da página), manda o do contato — a
+  // mesma regra que decide a língua do documento e do lembrete.
+  const idioma = lang
+    || idiomaDoContato({ record: detail.record, columns: detail.columns || [] });
   const servicos = (detail.opportunities || [])
     .filter((o) => (o.properties?.status || "open") !== "lost")
     .map((o) => {
-      const st = statusDoCaso(o.properties?.stage || "", lang);
+      const st = statusDoCaso(o.properties?.stage || "", idioma);
       return {
         nome: o.properties?.pipeline || o.title || "Serviço",
         status: st.titulo,
@@ -31,5 +37,5 @@ export async function buildStatusData(contactId, lang = "pt") {
         acaoCliente: st.acaoCliente,
       };
     });
-  return { nome: primeiroNome(detail.record?.title), servicos };
+  return { nome: primeiroNome(detail.record?.title), servicos, idioma };
 }

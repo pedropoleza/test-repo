@@ -55,11 +55,32 @@ const CHROME = {
                  es: "Actualizado automáticamente. Si tiene dudas, contáctenos." },
 };
 
-/** O idioma do cliente a partir do campo Idioma (PT por padrão). */
+/**
+ * O idioma do cliente a partir do campo Idioma (PT por padrão).
+ *
+ * O campo é um dropdown, então o valor é o RÓTULO que a conta escolheu —
+ * "Português", "Portugues", "PT", "pt-BR", "Español", "English"…
+ *
+ * A ordem e o casamento aqui não são acidentais: comparar código curto por
+ * substring quebrava feio. "portugues" (sem acento) termina em "es" e caía
+ * em espanhol — um cliente brasileiro receberia a página em espanhol sem
+ * ninguém perceber. Por isso o código curto é comparado inteiro, e o nome
+ * por extenso testa português primeiro.
+ */
 export function idiomaDoCliente(valor) {
-  const v = String(valor || "").toLowerCase();
-  if (/ingl|english|en\b/.test(v)) return "en";
-  if (/espa|spanish|es\b/.test(v)) return "es";
+  const v = String(valor ?? "").trim().toLowerCase();
+  if (!v) return "pt";
+
+  // Código curto: "pt", "pt-BR", "es_MX", "en (US)" — só o primeiro pedaço.
+  const codigo = v.split(/[-_\s/(]/)[0];
+  if (["pt", "por", "ptbr"].includes(codigo)) return "pt";
+  if (["en", "eng"].includes(codigo)) return "en";
+  if (["es", "esp", "spa"].includes(codigo)) return "es";
+
+  // Nome por extenso.
+  if (/portug/.test(v)) return "pt";
+  if (/ingl|english/.test(v)) return "en";
+  if (/espan|españ|spanish|castell/.test(v)) return "es";
   return "pt";
 }
 

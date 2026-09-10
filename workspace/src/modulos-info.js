@@ -36,11 +36,15 @@ export const DETALHES_MODULO = {
   vencimentos: {
     titulo: "Vencimentos",
     paragrafos: [
-      "O radar dos serviços recorrentes — PO Box, registration, annual report, "
-        + "licença, passaporte. Lê a data de vencimento de cada contato e mostra o "
-        + "que está para vencer.",
+      "O radar dos serviços recorrentes — PO Box, registration (o Expiration Date "
+        + "do Motor Vehicle), annual report, licença, apólice, passaporte. Lê a "
+        + "data de vencimento de cada contato e mostra o que está para vencer.",
       "É a ferramenta de retenção: avisa antes de o serviço vencer, para o cliente "
         + "voltar em vez de sumir. Vencido vem primeiro; depois 30, 60 e 90 dias.",
+      "Leia de cima para baixo: a régua mostra quanto tem em cada urgência (e "
+        + "clicar numa faixa filtra por ela), a barra “Por serviço” mostra quem "
+        + "está puxando o vermelho, e cada cartão traz a barra do prazo e quantos "
+        + "dias faltam. Clique num serviço da barra para ver só ele.",
     ],
   },
   agenda: {

@@ -134,3 +134,77 @@ test("sem recorrentes, nada sai (conta de outro negócio)", () => {
   assert.deepEqual(vencimentosDosContatos([contato("c1", "X", { cf_pobox: "2026-12-31" })], [], HOJE), []);
   assert.deepEqual(vencimentosDosContatos([], RECORRENTES, HOJE), []);
 });
+
+/* ---------------- o retrato do radar ---------------- */
+
+import { resumoVencimentos, progressoDoPrazo } from "../src/shared/upcoming.js";
+
+/** Itens sintéticos: `[dias, code]`. */
+function itensDe(pares) {
+  return pares.map(([dias, code], i) => ({
+    contactId: `c${i}`,
+    nome: `Contato ${i}`,
+    servico: { code, nome: code, icone: "" },
+    campo: "Vencimento",
+    data: "2026-01-01",
+    dias,
+  }));
+}
+
+test("o resumo conta por faixa e as proporções fecham em 100%", () => {
+  const resumo = resumoVencimentos(itensDe([
+    [-5, "pobox"], [-1, "registration"], [10, "pobox"], [45, "apolice"], [200, "apolice"],
+  ]));
+  assert.equal(resumo.total, 5);
+  const porId = Object.fromEntries(resumo.faixas.map((f) => [f.id, f.total]));
+  assert.deepEqual(porId, { vencido: 2, mes: 1, sessenta: 1, noventa: 0, depois: 1 });
+  const soma = resumo.faixas.reduce((n, f) => n + f.pct, 0);
+  assert.ok(Math.abs(soma - 100) < 1e-9, `as fatias somam ${soma}`);
+});
+
+test("a régua mantém as cinco faixas mesmo zeradas", () => {
+  // Se a faixa vazia sumisse, a régua dançaria embaixo do cursor a cada
+  // filtro e ela clicaria na posição errada.
+  const resumo = resumoVencimentos(itensDe([[10, "pobox"]]));
+  assert.equal(resumo.faixas.length, 5);
+  assert.equal(resumo.faixas.filter((f) => f.total === 0).length, 4);
+});
+
+test("resumo de lista vazia não divide por zero", () => {
+  const resumo = resumoVencimentos([]);
+  assert.equal(resumo.total, 0);
+  assert.deepEqual(resumo.servicos, []);
+  assert.ok(resumo.faixas.every((f) => f.pct === 0));
+});
+
+test("a distribuição põe na frente o serviço com mais vencidos", () => {
+  // Volume não é urgência: um serviço com 1 vencido pesa mais que outro
+  // com 4 tranquilos, e é o que ela precisa ver primeiro.
+  const resumo = resumoVencimentos(itensDe([
+    [40, "apolice"], [41, "apolice"], [42, "apolice"], [43, "apolice"],
+    [-3, "registration"],
+  ]));
+  assert.equal(resumo.servicos[0].code, "registration");
+  assert.equal(resumo.servicos[0].vencidos, 1);
+  assert.equal(resumo.servicos[1].total, 4);
+});
+
+test("cada serviço traz a própria quebra por faixa", () => {
+  const resumo = resumoVencimentos(itensDe([
+    [-2, "registration"], [15, "registration"], [70, "registration"],
+  ]));
+  const mv = resumo.servicos.find((s) => s.code === "registration");
+  assert.equal(mv.total, 3);
+  assert.equal(mv.faixas.vencido, 1);
+  assert.equal(mv.faixas.mes, 1);
+  assert.equal(mv.faixas.noventa, 1);
+});
+
+test("a barra do prazo enche conforme o vencimento chega", () => {
+  assert.equal(progressoDoPrazo(-1), 1, "vencido é barra cheia");
+  assert.equal(progressoDoPrazo(0), 1);
+  assert.equal(progressoDoPrazo(90), 0, "no limite da janela, vazia");
+  assert.equal(progressoDoPrazo(300), 0, "além da janela não fica negativa");
+  assert.equal(progressoDoPrazo(45), 0.5);
+  assert.equal(progressoDoPrazo(null), 0);
+});

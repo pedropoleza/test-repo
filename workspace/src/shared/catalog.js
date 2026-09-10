@@ -29,11 +29,20 @@
  * Numa conta que não casa com nada disto (a da Daniely), a resolução
  * devolve zero serviços ativos e nenhuma tela muda.
  */
-import { detectarGrupos, gruposDaPipeline, chavesDosGrupos } from "./field-groups.js";
+import { detectarGrupos, chavesDosGrupos } from "./field-groups.js";
 
-/** Campos de data cujo nome indica um vencimento que dispara renovação. */
+/**
+ * Campos de data cujo NOME indica um vencimento, em qualquer das línguas
+ * em que a conta pode estar nomeada.
+ *
+ * Serve de rede: o padrão específico de cada serviço (abaixo) é escrito
+ * a partir do rótulo que a conta usava quando foi medida, e rótulo muda
+ * — "MV · Vencimento do Registration" virou "MV · Expiration Date" e o
+ * radar emudeceu sem avisar. Quando o padrão específico não acha nada na
+ * pasta do serviço, esta rede acha.
+ */
 const RE_VENCIMENTO = new RegExp(
-  "vencimento|validade|vig[êe]ncia|anniversary|expir|renova", "i",
+  "vencimento|validade|vig[êe]ncia|anniversary|expir|renova|renew|due date", "i",
 );
 
 /**
@@ -141,7 +150,10 @@ export const CATALOGO = [
   {
     code: "registration", nome: "Emplacamento / Registration", icone: "🚗",
     familia: "Serviços", pipeline: /registro|vehicle|motor/i, grupo: /^mv/i,
-    vencimento: /registration/i, recorrencia: "anual",
+    // A conta nomeia este campo ora em português ("Vencimento do
+    // Registration"), ora em inglês ("Expiration Date") — os dois valem.
+    vencimento: /registration|expira|expiration|vencimento|validade/i,
+    recorrencia: "anual",
     documentos: {
       recebidos: ["Título do veículo", "Identificação do proprietário"],
       acordos: ["master"],
@@ -182,6 +194,18 @@ const normal = (s) => String(s || "").toLowerCase().normalize("NFD")
 export function resolverCatalogo(pipelines = [], colunas = [], { catalogo = CATALOGO } = {}) {
   const { grupos } = detectarGrupos(colunas);
 
+  // Quantos serviços que renovam dividem cada pasta. A rede genérica
+  // (RE_VENCIMENTO) só pode ser usada onde o serviço é o único que
+  // renova naquela pasta — em "Emp ·" moram o annual report E a
+  // licença, e deixar os dois pescarem qualquer data faria cada
+  // vencimento aparecer duas vezes, com o nome errado numa delas.
+  const donosDaPasta = new Map();
+  for (const s of catalogo) {
+    if (s.recorrencia === "unica" || !s.grupo) continue;
+    const chave = s.grupo.source;
+    donosDaPasta.set(chave, (donosDaPasta.get(chave) || 0) + 1);
+  }
+
   const resolvido = [];
   for (const servico of catalogo) {
     const pipeline = servico.pipeline
@@ -195,16 +219,25 @@ export function resolverCatalogo(pipelines = [], colunas = [], { catalogo = CATA
       : null;
     const campos = grupo ? grupo.campos : [];
 
-    // Um serviço sem pipeline PRECISA de pasta de campos para existir na
-    // conta (é como o PO Box aparece); um com pipeline existe se a
-    // pipeline existe.
-    const existe = servico.pipeline ? !!pipeline : !!grupo;
+    // Serviço não é pipeline: qualquer um dos dois sinais basta. O PO
+    // Box existe só pelos campos (nunca teve funil), e o Motor Vehicle
+    // precisa existir mesmo numa conta que trabalha os registros pelos
+    // campos do contato, sem funil próprio. Sem nenhum dos dois, o
+    // serviço não existe naquela conta e fica de fora.
+    const existe = !!pipeline || !!grupo;
     if (!existe) continue;
 
-    const vencimentos = servico.vencimento
-      ? campos.filter((c) => servico.vencimento.test(c.name || c.curto || ""))
-          .map((c) => ({ key: c.key, name: c.name }))
-      : [];
+    const achar = (re) => campos.filter((c) => re.test(c.name || c.curto || ""))
+      .map((c) => ({ key: c.key, name: c.name }));
+
+    let vencimentos = servico.vencimento ? achar(servico.vencimento) : [];
+    // Rede: o rótulo mudou (ou está noutra língua) e o padrão específico
+    // não achou nada. Vale só onde este é o único serviço que renova na
+    // pasta — aí não há a quem confundir.
+    if (servico.vencimento && !vencimentos.length
+        && donosDaPasta.get(servico.grupo?.source) === 1) {
+      vencimentos = achar(RE_VENCIMENTO);
+    }
 
     resolvido.push({
       code: servico.code,

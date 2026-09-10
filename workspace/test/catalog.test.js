@@ -91,6 +91,61 @@ test("os recorrentes são exatamente os que têm campo de vencimento", () => {
     ["annual-report", "apolice", "licenca-contratista", "passaporte", "pobox", "registration"]);
 });
 
+/* ---------------- o rótulo do campo muda; o radar não pode emudecer ---------------- */
+
+test("Motor Vehicle: o campo em inglês vale tanto quanto o em português", () => {
+  // Regressão real: a conta renomeou "MV · Vencimento do Registration"
+  // para "MV · Expiration Date" e o vencimento sumiu do radar sem erro
+  // nenhum — o serviço seguia resolvendo, só que sem data.
+  const { pipelines } = contaSamantha();
+  const colunas = ["MV · Placa", "MV · Expiration Date", "MV · VIN",
+    "Seg · Carrier", "Seg · Vigência", "Seg · Nº da Apólice"]
+    .map((name, i) => ({ key: `cf_${i}`, name, source: "ghl_custom_field" }));
+
+  const mv = resolverCatalogo(pipelines, colunas).find((s) => s.code === "registration");
+  assert.ok(mv, "registration não resolveu");
+  assert.ok(mv.vencimentos.some((v) => /expiration/i.test(v.name)),
+    "o Expiration Date tinha que ser detectado");
+  assert.equal(mv.recorrente, true, "sem data detectada ele não entra no radar");
+});
+
+test("Motor Vehicle resolve pelos campos mesmo sem funil próprio", () => {
+  // Uma conta que trabalha os registros pelos campos do contato, como o
+  // PO Box: sem pipeline de Motor Vehicle, o serviço tem que existir.
+  const pipelines = [{ id: "p2", name: "2 · Apólices Ativas" }];
+  const colunas = ["MV · Placa", "MV · Expiration Date", "MV · VIN",
+    "Seg · Carrier", "Seg · Vigência"]
+    .map((name, i) => ({ key: `cf_${i}`, name, source: "ghl_custom_field" }));
+
+  const mv = resolverCatalogo(pipelines, colunas).find((s) => s.code === "registration");
+  assert.ok(mv, "registration tinha que resolver pela pasta MV");
+  assert.equal(mv.pipelineId, null);
+  assert.equal(mv.recorrente, true);
+});
+
+test("a rede genérica não deixa dois serviços da mesma pasta pescarem a mesma data", () => {
+  // "Emp ·" hospeda o annual report E a licença. Com um campo de data
+  // genérico, nenhum dos dois pode reivindicá-lo: apareceria duas vezes
+  // no radar, com o nome errado numa delas.
+  const pipelines = [{ id: "p3", name: "3 · Empresas e Fiscal" }];
+  const colunas = ["Emp · EIN", "Emp · Nome Legal", "Emp · Vencimento",
+    "MV · Placa", "MV · VIN"]
+    .map((name, i) => ({ key: `cf_${i}`, name, source: "ghl_custom_field" }));
+
+  const cat = resolverCatalogo(pipelines, colunas);
+  for (const code of ["annual-report", "licenca-contratista"]) {
+    const s = cat.find((x) => x.code === code);
+    assert.deepEqual(s?.vencimentos ?? [], [], `${code} não podia reivindicar a data genérica`);
+  }
+});
+
+test("uma conta sem pasta nem funil do serviço segue sem ele", () => {
+  // A regra afrouxou (pipeline OU pasta), mas não pode passar a
+  // inventar serviço onde não há sinal nenhum.
+  const cat = resolverCatalogo([{ id: "x", name: "Funil Qualquer" }], []);
+  assert.deepEqual(cat, []);
+});
+
 /* ---------------- documentos e acordos ---------------- */
 
 test("cada serviço com acordo aponta para um PDF real", () => {

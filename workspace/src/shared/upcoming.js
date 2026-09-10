@@ -98,3 +98,73 @@ export function vencimentosDosContatos(contatos = [], recorrentes = [], agora = 
   }
   return itens;
 }
+
+/**
+ * O retrato do radar: quanto tem em cada faixa, e como cada serviço
+ * contribui.
+ *
+ * A tela precisava ser lida antes de ser lida item a item — "quão ruim
+ * está a semana" é uma pergunta de proporção, não de lista. Daqui saem
+ * as duas leituras: o total por faixa de urgência (a régua do topo) e o
+ * total por serviço, já quebrado por faixa (qual serviço está puxando o
+ * vermelho). O PO Box vencido e o registration vencido são problemas
+ * diferentes e cobram de gente diferente.
+ *
+ * Devolve `{ total, faixas, servicos }`. `faixas` traz TODAS as faixas,
+ * inclusive as zeradas — a régua do topo tem que manter as mesmas
+ * cinco posições enquanto o filtro muda, senão ela dança embaixo do
+ * cursor. `servicos` só traz quem tem item, ordenado pelo mais urgente
+ * (vencidos primeiro, depois volume).
+ */
+export function resumoVencimentos(itens = []) {
+  const comFaixa = itens
+    .map((it) => ({ ...it, faixa: faixaVencimento(it.dias) }))
+    .filter((it) => it.faixa !== null);
+  const total = comFaixa.length;
+
+  const faixas = FAIXAS.map((faixa) => {
+    const n = comFaixa.filter((it) => it.faixa === faixa.id).length;
+    return { ...faixa, total: n, pct: total ? (n / total) * 100 : 0 };
+  });
+
+  const porCodigo = new Map();
+  for (const it of comFaixa) {
+    const code = it.servico?.code || "__sem__";
+    if (!porCodigo.has(code)) {
+      porCodigo.set(code, {
+        code,
+        nome: it.servico?.nome || "Sem serviço",
+        icone: it.servico?.icone || "",
+        total: 0,
+        vencidos: 0,
+        faixas: Object.fromEntries(FAIXAS.map((f) => [f.id, 0])),
+      });
+    }
+    const linha = porCodigo.get(code);
+    linha.total += 1;
+    linha.faixas[it.faixa] += 1;
+    if (it.faixa === "vencido") linha.vencidos += 1;
+  }
+
+  const servicos = [...porCodigo.values()].sort((a, b) =>
+    b.vencidos - a.vencidos || b.total - a.total || a.nome.localeCompare(b.nome));
+
+  return { total, faixas, servicos };
+}
+
+/**
+ * Quanto do caminho até o vencimento já foi andado, de 0 a 1, numa
+ * janela de 90 dias.
+ *
+ * É o que a barrinha do cartão desenha. A janela é 90 porque é o
+ * horizonte que o radar cobre: além disso a barra ficaria sempre vazia
+ * e não diria nada. Vencido é 1 — a barra cheia, e a cor conta o resto.
+ */
+export const JANELA_RADAR = 90;
+
+export function progressoDoPrazo(dias, janela = JANELA_RADAR) {
+  if (dias === null || dias === undefined) return 0;
+  if (dias < 0) return 1;
+  if (dias >= janela) return 0;
+  return (janela - dias) / janela;
+}

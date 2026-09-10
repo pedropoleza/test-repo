@@ -42,6 +42,9 @@
   --warn-bg: #fffbeb;
   --danger:  #dc2626;
   --danger-bg: #fef2f2;
+  /* Um degrau abaixo do danger, para o que JÁ passou do prazo: os dois
+     precisam se separar quando ficam encostados numa barra. */
+  --vencido: #991b1b;
   --info:    var(--ghl-600);
   --info-bg: var(--ghl-50);
 

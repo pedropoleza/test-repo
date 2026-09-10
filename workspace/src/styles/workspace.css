@@ -2737,6 +2737,251 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 .ws-renew__foot { margin: 0; }
 
 /* ------------------------------------------------------------------ */
+/* Radar de vencimentos                                               */
+/* ------------------------------------------------------------------ */
+/*
+ * A tela é lida de cima para baixo em três golpes: a régua (quanto tem
+ * em cada urgência), a distribuição (qual serviço puxa o vermelho) e os
+ * cartões (quem, exatamente). A cor é sempre acompanhada de número e
+ * rótulo — quem não distingue vermelho de âmbar ainda lê a tela.
+ */
+.ws-radar { display: flex; flex-direction: column; gap: 20px; }
+
+.ws-radar__bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ws-radar__search { flex: 1; min-width: 200px; max-width: 380px; }
+
+/* --- régua de urgência --- */
+.ws-radar__resumo {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-xs);
+}
+.ws-radar__tiles {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+.ws-radar__tile {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 14px; text-align: left; font: inherit; cursor: pointer;
+  border: 1px solid var(--gray-200);
+  border-top: 3px solid var(--gray-300);
+  border-radius: var(--r-md);
+  background: var(--gray-50);
+  transition: background var(--d-fast) var(--bezier),
+              border-color var(--d-fast) var(--bezier),
+              transform var(--d-fast) var(--bezier),
+              box-shadow var(--d-fast) var(--bezier);
+}
+.ws-radar__tile:hover { background: var(--white); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.ws-radar__tile:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: 2px; }
+.ws-radar__tile[data-ativo="sim"] {
+  background: var(--white); border-color: var(--gray-300); box-shadow: var(--shadow-blue-soft);
+}
+/* Faixa vazia continua ocupando o lugar, para a régua não dançar — só
+   recua para o fundo. */
+.ws-radar__tile[data-zero="sim"] { opacity: .5; }
+.ws-radar__tile[data-zero="sim"]:hover { opacity: 1; }
+
+.ws-radar__tile[data-tom="danger"]  { border-top-color: var(--danger); }
+.ws-radar__tile[data-faixa="vencido"] { border-top-color: var(--vencido); }
+.ws-radar__tile[data-tom="warn"]    { border-top-color: var(--warn); }
+.ws-radar__tile[data-tom="info"]    { border-top-color: var(--ghl-500); }
+.ws-radar__tile[data-tom="neutral"] { border-top-color: var(--gray-300); }
+
+.ws-radar__tile-num {
+  font-size: var(--fs-2xl); font-weight: 700; line-height: 1.1; color: var(--gray-900);
+  font-variant-numeric: tabular-nums;
+}
+.ws-radar__tile[data-tom="danger"] .ws-radar__tile-num { color: var(--danger); }
+.ws-radar__tile[data-faixa="vencido"] .ws-radar__tile-num { color: var(--vencido); }
+.ws-radar__tile[data-tom="warn"]   .ws-radar__tile-num { color: var(--warn); }
+.ws-radar__tile[data-zero="sim"] .ws-radar__tile-num { color: var(--gray-400); }
+.ws-radar__tile-lbl {
+  font-size: var(--fs-xs); font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--gray-500);
+}
+
+.ws-radar__stack {
+  display: flex; height: 10px; width: 100%;
+  border-radius: var(--r-pill); overflow: hidden; background: var(--gray-100);
+}
+.ws-radar__stack-part {
+  display: block; height: 100%;
+  transition: width var(--d) var(--bezier-out);
+}
+.ws-radar__stack-part[data-tom="danger"]  { background: var(--danger); }
+/* Vencido e "vence em 30 dias" são os dois vermelhos, e encostados na
+   barra viravam um bloco só — a distinção mais importante da tela
+   sumia justamente onde ela é lida primeiro. O vencido escurece. */
+.ws-radar__stack-part[data-faixa="vencido"] { background: var(--vencido); }
+.ws-radar__stack-part[data-tom="warn"]    { background: var(--warn); }
+.ws-radar__stack-part[data-tom="info"]    { background: var(--ghl-500); }
+.ws-radar__stack-part[data-tom="neutral"] { background: var(--gray-300); }
+
+.ws-radar__limpar { align-self: flex-start; padding: 4px 10px; font-size: var(--fs-sm); }
+
+/* --- distribuição por serviço --- */
+.ws-radar__dist {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-lg);
+  background: var(--white);
+  box-shadow: var(--shadow-xs);
+}
+.ws-radar__dist-title {
+  margin: 0 0 4px; font-size: var(--fs-xs); font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--gray-500);
+}
+.ws-radar__dist-row {
+  display: grid; align-items: center; gap: 12px;
+  grid-template-columns: minmax(120px, 200px) 1fr auto;
+  width: 100%; padding: 6px 8px; margin: 0 -8px;
+  border: 0; border-radius: var(--r-sm);
+  background: none; font: inherit; text-align: left; cursor: pointer;
+  transition: background var(--d-fast) var(--bezier);
+}
+.ws-radar__dist-row:hover { background: var(--gray-50); }
+.ws-radar__dist-row:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: -2px; }
+.ws-radar__dist-row[data-ativo="sim"] { background: var(--ghl-50); }
+.ws-radar__dist-name {
+  font-size: var(--fs-base); font-weight: 500; color: var(--gray-800);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ws-radar__dist-track {
+  display: block; height: 14px; width: 100%;
+  border-radius: var(--r-sm); background: var(--gray-100); overflow: hidden;
+}
+.ws-radar__dist-bar {
+  display: flex; height: 100%; border-radius: var(--r-sm); overflow: hidden;
+  transition: width var(--d) var(--bezier-out);
+}
+.ws-radar__dist-num {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  min-width: 56px; line-height: 1.15;
+  font-size: var(--fs-md); font-weight: 700; color: var(--gray-900);
+  font-variant-numeric: tabular-nums;
+}
+.ws-radar__dist-venc {
+  font-size: var(--fs-xs); font-weight: 600; color: var(--danger); white-space: nowrap;
+}
+
+/* --- faixas e cartões --- */
+.ws-radar__band {
+  border: 1px solid var(--gray-200);
+  border-left: 3px solid var(--gray-300);
+  border-radius: var(--r-md);
+  background: var(--white);
+  padding: 14px 16px 16px;
+}
+.ws-radar__band[data-tom="danger"] { border-left-color: var(--danger); }
+.ws-radar__band[data-faixa="vencido"] { border-left-color: var(--vencido); }
+.ws-radar__band[data-tom="warn"]   { border-left-color: var(--warn); }
+.ws-radar__band[data-tom="info"]   { border-left-color: var(--ghl-500); }
+
+.ws-radar__band-head {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 12px;
+}
+.ws-radar__band-head h2 {
+  margin: 0; font-size: 14px; font-weight: 600; color: var(--gray-800);
+}
+.ws-radar__band-count {
+  min-width: 22px; padding: 1px 8px;
+  border-radius: var(--r-pill);
+  background: var(--gray-100); color: var(--gray-600);
+  font-size: var(--fs-sm); font-weight: 600; text-align: center;
+}
+
+.ws-radar__grid {
+  display: grid; gap: 10px;
+  /* auto-fill e não auto-fit: com dois vencimentos na faixa, auto-fit os
+     estica pela linha inteira e o cartão vira um banner. */
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+.ws-radar__card {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--r-sm);
+  background: var(--gray-50);
+  transition: background var(--d-fast) var(--bezier),
+              border-color var(--d-fast) var(--bezier),
+              box-shadow var(--d-fast) var(--bezier);
+}
+.ws-radar__card:hover {
+  background: var(--white); border-color: var(--gray-300); box-shadow: var(--shadow-sm);
+}
+.ws-radar__card-top {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+}
+.ws-radar__name {
+  margin: 0; font-size: 13px; font-weight: 600; color: var(--gray-900);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ws-radar__count {
+  flex: none; display: flex; flex-direction: column; align-items: flex-end;
+  line-height: 1.05; color: var(--gray-500);
+}
+.ws-radar__count b {
+  font-size: var(--fs-lg); font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--gray-700);
+}
+.ws-radar__count small { font-size: 10px; letter-spacing: .03em; }
+.ws-radar__card[data-tom="danger"] .ws-radar__count b { color: var(--danger); }
+.ws-radar__card[data-tom="warn"]   .ws-radar__count b { color: var(--warn); }
+.ws-radar__card[data-tom="info"]   .ws-radar__count b { color: var(--ghl-600); }
+
+.ws-radar__svc { margin: 0; font-size: var(--fs-sm); color: var(--gray-600); }
+
+.ws-radar__prazo {
+  height: 6px; width: 100%; border-radius: var(--r-pill);
+  background: var(--gray-200); overflow: hidden;
+}
+.ws-radar__prazo-fill {
+  display: block; height: 100%; background: var(--gray-400);
+  transition: width var(--d) var(--bezier-out);
+}
+.ws-radar__card[data-tom="danger"] .ws-radar__prazo-fill { background: var(--danger); }
+.ws-radar__card[data-faixa="vencido"] .ws-radar__prazo-fill { background: var(--vencido); }
+.ws-radar__card[data-faixa="vencido"] .ws-radar__count b,
+.ws-radar__card[data-faixa="vencido"] .ws-radar__quando { color: var(--vencido); }
+.ws-radar__card[data-tom="warn"]   .ws-radar__prazo-fill { background: var(--warn); }
+.ws-radar__card[data-tom="info"]   .ws-radar__prazo-fill { background: var(--ghl-500); }
+
+.ws-radar__quando { margin: 0; font-size: var(--fs-xs); color: var(--gray-500); }
+.ws-radar__card[data-tom="danger"] .ws-radar__quando { color: var(--danger); font-weight: 500; }
+
+.ws-radar__open { align-self: flex-start; padding: 4px 8px; font-size: var(--fs-sm); }
+.ws-radar__foot { margin: 0; }
+
+/* No celular a coluna do nome come a barra e sobra um comprimido de
+   10px, que não compara nada. O nome sobe para a própria linha e a
+   barra fica com a largura toda. */
+@media (max-width: 640px) {
+  .ws-radar__dist-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "nome num" "barra num";
+    row-gap: 4px; column-gap: 10px;
+  }
+  .ws-radar__dist-name  { grid-area: nome; white-space: normal; }
+  .ws-radar__dist-track { grid-area: barra; }
+  .ws-radar__dist-num   { grid-area: num; align-self: center; }
+  .ws-radar__tile { padding: 10px 12px; }
+  .ws-radar__tile-num { font-size: var(--fs-xl); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-radar__tile, .ws-radar__card, .ws-radar__stack-part,
+  .ws-radar__dist-bar, .ws-radar__prazo-fill { transition: none; }
+  .ws-radar__tile:hover { transform: none; }
+}
+
+/* ------------------------------------------------------------------ */
 /* Relatórios por serviço                                             */
 /* ------------------------------------------------------------------ */
 .ws-reports { display: flex; flex-direction: column; gap: 16px; }

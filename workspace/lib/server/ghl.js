@@ -352,6 +352,43 @@ export async function listContactTasks(contactId) {
   return data?.tasks || [];
 }
 
+/** Cria uma nota no contato — o registro que a equipe lê no GHL. */
+export async function criarNotaNoContato(contactId, body) {
+  if (!contactId) throw new GhlError(400, "missing_contact");
+  const texto = String(body || "").trim();
+  if (!texto) throw new GhlError(400, "nota_vazia");
+  const data = await ghlFetch(`/contacts/${contactId}/notes`, {
+    method: "POST", body: { body: texto },
+  });
+  return data?.note || null;
+}
+
+/** Cria uma tarefa no contato, para alguém conferir o que chegou. */
+export async function criarTarefaNoContato(contactId, { titulo, corpo = "", vence } = {}) {
+  if (!contactId) throw new GhlError(400, "missing_contact");
+  if (!titulo) throw new GhlError(400, "tarefa_sem_titulo");
+  const dueDate = vence ? new Date(vence).toISOString() : new Date(Date.now() + 864e5).toISOString();
+  const data = await ghlFetch(`/contacts/${contactId}/tasks`, {
+    method: "POST",
+    body: { title: String(titulo).slice(0, 200), body: String(corpo).slice(0, 2000), dueDate, completed: false },
+  });
+  return data?.task || null;
+}
+
+/**
+ * Manda uma mensagem por um canal da conversa do contato (WhatsApp/SMS).
+ * Só funciona com o canal conectado na subconta — por isso quem chama
+ * trata a falha como "não avisou por aqui", nunca como erro do fluxo.
+ */
+export async function enviarMensagem(contactId, { texto, tipo = "WhatsApp" } = {}) {
+  if (!contactId) throw new GhlError(400, "missing_contact");
+  const message = String(texto || "").trim();
+  if (!message) throw new GhlError(400, "mensagem_vazia");
+  return ghlFetch("/conversations/messages", {
+    method: "POST", body: { type: tipo, contactId, message },
+  });
+}
+
 /**
  * Diagnóstico de escopos: sonda cada recurso e diz o que o token alcança.
  * É o que transforma "401" numa instrução acionável.

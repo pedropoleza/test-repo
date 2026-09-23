@@ -32,6 +32,19 @@ export type LeadReplyInput = {
   flow?: string | null;
 };
 
+// Optional allowlist: when set, the webhook only creates tasks for these
+// locations (a leaked URL can't spam tasks into arbitrary subaccounts). Empty
+// = allow any location.
+const ALLOWED_LOCATIONS = new Set(
+  (process.env.LEAD_REPLY_LOCATION_IDS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+export function locationAllowed(locationId: string): boolean {
+  return ALLOWED_LOCATIONS.size === 0 || ALLOWED_LOCATIONS.has(locationId);
+}
+
 async function scoped<T>(locationId: string, fn: (tx: typeof db) => Promise<T>) {
   return db.transaction(async (tx) => {
     await tx.execute(
@@ -74,6 +87,9 @@ export async function createLeadReplyTask(
   input: LeadReplyInput,
 ): Promise<LeadReplyResult> {
   if (!input.locationId) return { created: false, reason: "missing_location" };
+  if (!locationAllowed(input.locationId)) {
+    return { created: false, reason: "location_not_allowed" };
+  }
   const leadName = (input.name ?? "").trim() || "lead";
   const flowLabel = input.flow?.trim();
 

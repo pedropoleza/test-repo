@@ -222,14 +222,25 @@ export async function getLocationToken(locationId: string): Promise<string> {
     return cached.token;
   }
 
-  // 1) Direct subaccount install.
+  // 1) Direct subaccount install. If its token is dead and can't be refreshed,
+  //    fall through to minting via the agency rather than failing outright.
   const locInstall = await findLocationInstall(locationId);
   if (locInstall) {
-    const { token, expMs } = await validAccessTokenWithExpiry(locInstall);
-    // Cache so a burst of GHL calls (a board full of cards) doesn't re-read and
-    // decrypt the install row every time.
-    if (expMs > Date.now()) locationTokenCache.set(locationId, { token, expMs });
-    return token;
+    try {
+      const { token, expMs } = await validAccessTokenWithExpiry(locInstall);
+      // Cache so a burst of GHL calls (a board full of cards) doesn't re-read
+      // and decrypt the install row every time.
+      if (expMs > Date.now()) {
+        locationTokenCache.set(locationId, { token, expMs });
+      }
+      return token;
+    } catch (err) {
+      console.warn(
+        `[oauth] direct install token failed for ${locationId}, trying agency mint: ${
+          err instanceof Error ? err.message : "unknown"
+        }`,
+      );
+    }
   }
 
   // 2) Agency install → mint a per-location token. With multiple agencies, try

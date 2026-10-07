@@ -26,6 +26,7 @@ import {
   type Stage,
 } from "~/server/db/schema";
 import { completeGhlTask, updateGhlTask } from "./api";
+import { routedBoard } from "./routing";
 import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
 
 export type GhlTaskEvent = {
@@ -159,7 +160,9 @@ export async function ingestTaskEvent(evt: GhlTaskEvent): Promise<void> {
       return;
     }
 
-    const board = await defaultBoard(tx, evt.locationId);
+    const board =
+      (await routedBoard(tx, evt.locationId, evt.assignedTo)) ??
+      (await defaultBoard(tx, evt.locationId));
     const stages = board.stages;
 
     if (!existing) {

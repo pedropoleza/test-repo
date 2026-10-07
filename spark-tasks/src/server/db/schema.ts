@@ -209,10 +209,32 @@ export const notifications = sparkTasks.table(
 export const locationSettings = sparkTasks.table("location_settings", {
   locationId: text("location_id").primaryKey(),
   ghlSyncEnabled: boolean("ghl_sync_enabled").notNull().default(true),
+  /** Show tasks as to-dos on the GHL calendar (per location, default off). */
+  calendarSyncEnabled: boolean("calendar_sync_enabled").notNull().default(false),
+  /** Dedicated GHL calendar id used for task to-dos (resolved/created lazily). */
+  taskCalendarId: text("task_calendar_id"),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * Per-user default pipeline (board) routing. When a task is auto-created for a
+ * mapped user (lead-reply webhook, GHL task sync), it lands in that user's
+ * board instead of the location's default board.
+ */
+export const userBoardRouting = sparkTasks.table(
+  "user_board_routing",
+  {
+    locationId: text("location_id").notNull(),
+    userId: text("user_id").notNull(),
+    boardId: uuid("board_id").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.locationId, t.userId] })],
+);
 
 /** Web Push subscriptions — one row per user+browser (endpoint unique). */
 export const pushSubscriptions = sparkTasks.table(

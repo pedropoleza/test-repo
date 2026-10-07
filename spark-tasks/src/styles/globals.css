@@ -1251,8 +1251,10 @@ a:focus-visible,
   position: fixed;
   top: 56px;
   right: 14px;
-  width: 300px;
+  width: 340px;
   max-width: calc(100vw - 28px);
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -1260,6 +1262,95 @@ a:focus-visible,
   z-index: 90;
   padding: 14px;
   animation: slide-up 0.14s ease-out;
+}
+.settings-row + .settings-row {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.settings-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.route-list {
+  margin: 10px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.route-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.route-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  background: var(--bg, #f7f7f8);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 8px;
+}
+.route-user {
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+.route-arrow {
+  color: var(--text-muted);
+}
+.route-board {
+  color: var(--text-secondary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.route-x {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+}
+.route-x:hover {
+  background: var(--hover, #eee);
+  color: #e5484d;
+}
+.route-add {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.route-add .select {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  padding: 6px 8px;
+}
+.route-add-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-strong, #d0d5dd);
+  background: var(--primary, #155eef);
+  color: #fff;
+  border-radius: 7px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.route-add-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .settings-title {
   font-size: 13.5px;

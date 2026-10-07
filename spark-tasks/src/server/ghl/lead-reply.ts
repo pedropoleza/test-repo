@@ -23,6 +23,7 @@ import {
   type Stage,
 } from "~/server/db/schema";
 import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
+import { routedBoard } from "./routing";
 
 export type LeadReplyInput = {
   locationId: string;
@@ -94,7 +95,10 @@ export async function createLeadReplyTask(
   const flowLabel = input.flow?.trim();
 
   const result = await scoped(input.locationId, async (tx) => {
-    const board = await defaultBoard(tx, input.locationId);
+    // Route to the assignee's configured pipeline when set, else default board.
+    const board =
+      (await routedBoard(tx, input.locationId, input.assignedTo)) ??
+      (await defaultBoard(tx, input.locationId));
     const stages = board.stages;
     const status = openStageId(stages);
     const doneSet = doneStageIds(stages);

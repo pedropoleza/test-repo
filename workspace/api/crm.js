@@ -160,6 +160,16 @@ export default async function handler(req, res) {
       return res.end(Buffer.from(bytes));
     }
 
+    // Os campos personalizados da conta, no formato de coluna. Serve
+    // para a database importar a DEFINIÇÃO deles para a ficha. Só
+    // leitura. Fica depois da trava do CRM de propósito: numa conta sem
+    // CRM ligado, devolver lista vazia diria "esta conta não tem campo
+    // personalizado", que é diferente de "não consegui perguntar".
+    if (action === "fields") {
+      const customFields = await listCustomFields().catch(() => []);
+      return res.status(200).json({ columns: customFieldsToColumns(customFields) });
+    }
+
     if (action === "catalog") {
       const [pipelines, customFields] = await Promise.all([
         listPipelines().catch(() => []),

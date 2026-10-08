@@ -14,6 +14,8 @@ import { renderViewToolbar } from "./view-toolbar.js";
 import { fieldSpec, groupRecords } from "../shared/fields.js";
 import { loadWidths, applyTemplate, attachResizer } from "./columns.js";
 import { attachDragScroll } from "./drag-scroll.js";
+import { renderBoardBody } from "./board-body.js";
+import { importarCamposDoCrm } from "./crm-import-ui.js";
 
 /**
  * Monta a tabela dentro de `host`.
@@ -105,6 +107,30 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
     }));
 
     const view = currentView();
+
+    // Quadro é a MESMA database lida em colunas: reusa cabeçalho, barra
+    // e carregamento, e troca só o corpo. Trocar o tipo da vista na barra
+    // passa a trocar o desenho, que era o que faltava — o tipo "board"
+    // existia no banco e caía na grade mesmo assim.
+    if (view?.type === "board") {
+      host.appendChild(renderBoardBody({
+        bundle,
+        view,
+        databaseId,
+        reload: load,
+        onChangeView: async (patch) => {
+          try {
+            await api.databases.updateView(activeViewId, patch);
+            await load();
+          } catch {
+            toast("Não foi possível salvar a configuração da vista.", { tone: "danger" });
+          }
+        },
+        onOpenRecord,
+      }));
+      return;
+    }
+
     const groupField = view?.group_by
       ? bundle.fields.find((f) => f.key === view.group_by)
       : null;
@@ -154,13 +180,16 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
         items: [
           { id: "new-field", label: "Nova coluna", icon: "+" },
           { id: "new-record", label: "Nova linha", icon: "≡" },
+          { id: "import-crm", label: "Importar campos do CRM", icon: "⇣" },
           { separator: true },
           { id: "delete", label: "Excluir tabela", icon: "🗑", danger: true },
         ],
         onSelect: async (id) => {
           if (id === "new-field") openNewFieldMenu(menu, databaseId, load);
           else if (id === "new-record") addRecord();
-          else if (id === "delete") deleteDatabase();
+          else if (id === "import-crm") {
+            if (await importarCamposDoCrm({ databaseId, fields: bundle.fields })) load();
+          } else if (id === "delete") deleteDatabase();
         },
       });
     });

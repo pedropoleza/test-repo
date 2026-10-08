@@ -1706,6 +1706,200 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 }
 .ws-board__card-value { font-weight: 600; color: var(--gray-700); }
 
+/* ------------------------------------------------------------------ */
+/* Quadro de database (funil em colunas)                              */
+/* ------------------------------------------------------------------ */
+/*
+ * Vizinho do .ws-board (quadro das oportunidades do CRM) e deliberadamente
+ * parecido com ele — é o mesmo gesto. O que muda é que aqui a coluna é
+ * editável: nasce, renomeia e morre dentro da tela.
+ */
+.ws-board2__wrap { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 14px; }
+.ws-board2__por { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); }
+.ws-select--sm { padding: 3px 8px; font-size: var(--fs-sm); max-width: 220px; }
+
+.ws-board2 {
+  display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 8px;
+  align-items: flex-start;
+}
+.ws-board2__col {
+  flex: 0 0 272px; display: flex; flex-direction: column; gap: 8px;
+  background: var(--gray-50); border: 1px solid var(--gray-200);
+  border-radius: var(--r-md); padding: 8px; min-height: 90px;
+}
+.ws-board2__col--nova {
+  background: none; border-style: dashed; justify-content: flex-start;
+  flex: 0 0 180px;
+}
+.ws-board2__nova-col {
+  border: 0; background: none; font: inherit; font-size: var(--fs-sm);
+  font-weight: 500; color: var(--gray-500); cursor: pointer;
+  padding: 8px; border-radius: var(--r-sm); text-align: left; width: 100%;
+  transition: background var(--d-fast) var(--bezier), color var(--d-fast) var(--bezier);
+}
+.ws-board2__nova-col:hover { background: var(--white); color: var(--ghl-700); }
+
+.ws-board2__col-head { display: flex; align-items: center; gap: 6px; padding: 0 2px; }
+.ws-board2__col-nome {
+  font-size: var(--fs-sm); font-weight: 600;
+  max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ws-board2__col-conta {
+  min-width: 20px; padding: 0 6px; border-radius: var(--r-pill);
+  background: var(--gray-200); color: var(--gray-600);
+  font-size: var(--fs-xs); font-weight: 600; text-align: center;
+}
+.ws-board2__col-menu, .ws-board2__col-add {
+  margin-left: auto; width: 22px; height: 22px; font-size: var(--fs-sm);
+  opacity: 0; transition: opacity var(--d-fast) var(--bezier);
+}
+.ws-board2__col-add { margin-left: 0; }
+.ws-board2__col:hover .ws-board2__col-menu,
+.ws-board2__col:hover .ws-board2__col-add,
+.ws-board2__col-menu:focus-visible, .ws-board2__col-add:focus-visible { opacity: 1; }
+
+.ws-board2__cards {
+  display: flex; flex-direction: column; gap: 6px; min-height: 36px;
+  border-radius: var(--r-sm);
+  transition: background var(--d-fast) var(--bezier), box-shadow var(--d-fast) var(--bezier);
+}
+/* O alvo de soltura é a PILHA, não a coluna: com a coluna inteira
+   acesa, soltar sobre o cabeçalho ou sobre o "+ Nova ficha" parecia
+   válido e não era. */
+.ws-board2__cards.is-over {
+  background: var(--ghl-50); box-shadow: inset 0 0 0 2px var(--ghl-300);
+}
+
+.ws-board2__card {
+  background: var(--white); border: 1px solid var(--gray-200);
+  border-radius: var(--r-sm); padding: 9px 10px; cursor: grab;
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--d-fast) var(--bezier),
+              box-shadow var(--d-fast) var(--bezier),
+              transform var(--d-fast) var(--bezier);
+}
+.ws-board2__card:hover {
+  border-color: var(--gray-300); box-shadow: var(--shadow-sm); transform: translateY(-1px);
+}
+.ws-board2__card:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: 2px; }
+.ws-board2__card.is-dragging { opacity: .45; cursor: grabbing; }
+.ws-board2__card-titulo {
+  margin: 0; font-size: var(--fs-base); font-weight: 600; color: var(--gray-900);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ws-board2__card-campos {
+  margin: 6px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px;
+  font-size: var(--fs-sm);
+}
+.ws-board2__card-campos dt { color: var(--gray-500); white-space: nowrap; }
+.ws-board2__card-campos dd {
+  margin: 0; color: var(--gray-800); overflow: hidden; text-overflow: ellipsis;
+}
+.ws-board2__card-campos .ws-cell__value { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.ws-board2__novo {
+  border: 0; background: none; font: inherit; font-size: var(--fs-sm);
+  color: var(--gray-500); cursor: pointer; padding: 6px 8px;
+  border-radius: var(--r-sm); text-align: left;
+  transition: background var(--d-fast) var(--bezier), color var(--d-fast) var(--bezier);
+}
+.ws-board2__novo:hover { background: var(--white); color: var(--ghl-700); }
+.ws-board2__sem-campo { margin: 12px; }
+
+/* Nota na frente do card: no máximo três linhas, senão uma anotação
+   longa empurraria os outros cards da coluna para fora da tela. */
+.ws-cell__nota {
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; white-space: pre-wrap; line-height: 1.45;
+}
+.ws-cell__area {
+  min-height: 88px; resize: vertical; padding: 6px 8px; line-height: 1.5;
+  font: inherit; width: 100%;
+}
+.ws-ficha__valor:has(.ws-cell__nota) { align-items: flex-start; }
+.ws-ficha__campo:has(.ws-cell__area), .ws-ficha__campo:has(.ws-cell__nota) {
+  align-items: start;
+}
+
+/* ------------------------------------------------------------------ */
+/* Ficha do registro (o card aberto)                                  */
+/* ------------------------------------------------------------------ */
+.ws-ficha { display: flex; flex-direction: column; gap: 14px; }
+.ws-ficha__titulo {
+  width: 100%; border: 0; border-bottom: 1px solid transparent;
+  background: none; font: inherit; font-size: var(--fs-xl); font-weight: 700;
+  color: var(--gray-900); padding: 2px 0;
+}
+.ws-ficha__titulo:focus { outline: none; border-bottom-color: var(--ghl-400); }
+.ws-ficha__titulo::placeholder { color: var(--gray-300); }
+
+.ws-ficha__campos { display: flex; flex-direction: column; gap: 2px; }
+.ws-ficha__campo {
+  display: grid; grid-template-columns: 170px 1fr auto; align-items: center;
+  gap: 8px; padding: 3px 4px; border-radius: var(--r-sm);
+}
+.ws-ficha__campo:hover { background: var(--gray-50); }
+.ws-ficha__rotulo {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--fs-sm); color: var(--gray-500);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ws-ficha__icone { width: 14px; text-align: center; color: var(--gray-400); }
+.ws-ficha__valor {
+  min-height: 28px; display: flex; align-items: center; gap: 6px;
+  padding: 3px 6px; border-radius: var(--r-sm); cursor: text;
+  font-size: var(--fs-base); color: var(--gray-900);
+}
+.ws-ficha__valor:hover { background: var(--white); box-shadow: inset 0 0 0 1px var(--gray-200); }
+.ws-ficha__valor:focus-visible { outline: 2px solid var(--ghl-600); outline-offset: 0; }
+.ws-ficha__valor.is-editing { background: var(--white); box-shadow: inset 0 0 0 1px var(--ghl-400); }
+.ws-ficha__vazio { color: var(--gray-300); font-size: var(--fs-sm); }
+
+.ws-ficha__limpar {
+  border: 0; background: none; font: inherit; font-size: var(--fs-xs);
+  color: var(--gray-400); cursor: pointer; padding: 2px 6px; border-radius: var(--r-sm);
+  opacity: 0; transition: opacity var(--d-fast) var(--bezier);
+}
+.ws-ficha__campo:hover .ws-ficha__limpar, .ws-ficha__limpar:focus-visible { opacity: 1; }
+.ws-ficha__limpar:hover { color: var(--danger); background: var(--danger-bg); }
+
+.ws-import__lista {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 340px; overflow-y: auto;
+  border: 1px solid var(--gray-200); border-radius: var(--r-sm); padding: 6px;
+}
+.ws-import__item {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+  gap: 10px; padding: 6px 8px; border-radius: var(--r-sm); cursor: pointer;
+}
+.ws-import__item:hover { background: var(--gray-50); }
+.ws-import__nome {
+  font-size: var(--fs-base); color: var(--gray-900);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ws-import__tipo { font-size: var(--fs-xs); color: var(--gray-500); white-space: nowrap; }
+
+.ws-ficha__pe {
+  display: flex; align-items: center; gap: 8px;
+  padding-top: 10px; border-top: 1px solid var(--gray-150);
+}
+.ws-ficha__excluir { margin-left: auto; color: var(--danger); }
+.ws-ficha__excluir:hover { background: var(--danger-bg); }
+
+@media (max-width: 640px) {
+  .ws-ficha__campo { grid-template-columns: 1fr auto; grid-template-areas: "rot lim" "val val"; }
+  .ws-ficha__rotulo { grid-area: rot; }
+  .ws-ficha__valor  { grid-area: val; }
+  .ws-ficha__limpar { grid-area: lim; opacity: 1; }
+  .ws-board2__col { flex: 0 0 85vw; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-board2__card, .ws-board2__cards, .ws-board2__novo,
+  .ws-board2__nova-col, .ws-ficha__limpar { transition: none; }
+  .ws-board2__card:hover { transform: none; }
+}
+
 .ws-db__foot {
   display: flex;
   align-items: center;

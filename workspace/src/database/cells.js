@@ -71,10 +71,47 @@ export function renderCellValue(field, record) {
       wrap.textContent = formatDate(value);
       return wrap;
     }
+    case "long_text": {
+      wrap.classList.add("ws-cell__nota");
+      wrap.textContent = String(value);
+      return wrap;
+    }
     default:
       wrap.textContent = valueToText(field, value);
       return wrap;
   }
+}
+
+/**
+ * Nota: área de várias linhas. Enter quebra linha (é o ponto de uma
+ * nota); quem salva é o blur, e Ctrl/Cmd+Enter para quem prefere o
+ * teclado. Escape descarta.
+ */
+function editLongText(cellEl, field, value, { commit, done }) {
+  const area = document.createElement("textarea");
+  area.className = "ws-cell__input ws-cell__area";
+  area.rows = 4;
+  area.value = value ?? "";
+  area.setAttribute("aria-label", field.name);
+  cellEl.replaceChildren(area);
+  area.focus();
+
+  let finished = false;
+  const onBlur = () => finish(true);
+  const finish = (save) => {
+    if (finished) return;
+    finished = true;
+    area.removeEventListener("blur", onBlur);
+    if (save && area.isConnected) commit(normalizeValue(field, area.value));
+    done();
+  };
+  area.addEventListener("blur", onBlur);
+  area.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { event.preventDefault(); finish(false); }
+    else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault(); finish(true);
+    }
+  });
 }
 
 function chip(text, color) {
@@ -121,6 +158,10 @@ export function editCell(cellEl, field, record, { commit, done }) {
 
   if (["select", "status", "multi_select"].includes(field.type)) {
     return editOptions(cellEl, field, value, { commit, done });
+  }
+
+  if (field.type === "long_text") {
+    return editLongText(cellEl, field, value, { commit, done });
   }
 
   const input = document.createElement("input");

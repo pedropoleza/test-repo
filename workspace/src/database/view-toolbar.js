@@ -52,9 +52,19 @@ export function renderViewToolbar({
   actions.append(
     pill(filterLabel(view), () => openFilterModal(view)),
     pill(sortLabel(view), (e) => openSortMenu(e.currentTarget, view)),
-    pill(groupLabel(view), (e) => openGroupMenu(e.currentTarget, view)),
-    pill("Colunas", (e) => openFieldsMenu(e.currentTarget, view)),
   );
+  // No quadro, o agrupamento JÁ é a coluna, e o próprio quadro mostra
+  // "Colunas por" em cima. Manter a pílula aqui deixava dois controles
+  // para a mesma coisa, com nomes diferentes.
+  if (view?.type !== "board") {
+    actions.appendChild(pill(groupLabel(view), (e) => openGroupMenu(e.currentTarget, view)));
+  }
+  // No quadro não existe coluna de tabela: este mesmo menu é o que
+  // decide o que aparece na FRENTE do card, e o nome tem que dizer isso.
+  actions.appendChild(pill(
+    view?.type === "board" ? "Campos do card" : "Colunas",
+    (e) => openFieldsMenu(e.currentTarget, view),
+  ));
   bar.appendChild(actions);
   return bar;
 

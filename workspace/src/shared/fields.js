@@ -13,6 +13,11 @@
 
 export const FIELD_TYPES = {
   text:             { label: "Texto",            icon: "T",  sortable: true },
+  // Notas: o mesmo texto, mas longo. Separado de `text` porque o editor
+  // é outro (área de várias linhas) e porque na frente do card ele
+  // precisa ser cortado — uma anotação de dez linhas empurraria os
+  // outros cards da coluna para fora da tela.
+  long_text:        { label: "Notas",            icon: "¶",  sortable: false, multiline: true },
   number:           { label: "Número",           icon: "#",  sortable: true, numeric: true },
   select:           { label: "Seleção",          icon: "◦",  sortable: true, options: true },
   multi_select:     { label: "Multi-seleção",    icon: "◇",  sortable: false, options: true, multi: true },
@@ -115,6 +120,9 @@ export function normalizeValue(field, raw) {
     case "person":
     case "text":
       return raw == null ? "" : String(raw).slice(0, 4000);
+    // Nota é para caber uma conversa inteira, não um campo de formulário.
+    case "long_text":
+      return raw == null ? "" : String(raw).slice(0, 20000);
     case "created_time":
     case "last_edited_time":
       return null; // derivado da página, nunca gravado

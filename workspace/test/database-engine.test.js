@@ -365,3 +365,21 @@ test("definição em branco não vira campo vazio, e a longa é cortada", async 
   assert.equal("description" in campo.config.options[0], false);
   assert.equal(campo.config.options[1].description.length, 400);
 });
+
+test("registro espelhado guarda a origem e não duplica", async () => {
+  // A segunda importação precisa saber o que já veio. Sem a marca de
+  // origem, reimportar criaria o funil inteiro de novo.
+  const { ctx, database } = await setup();
+  const r = await createRecord(ctx, database.id, {
+    title: "Kleber", source: "ghl_opportunity", sourceExternalId: "opp_123",
+  });
+  assert.equal(r.source, "ghl_opportunity");
+  assert.equal(r.source_external_id, "opp_123");
+
+  const limpo = await createRecord(ctx, database.id, { title: "Digitado à mão" });
+  assert.equal(limpo.source_external_id, null,
+    "registro criado na tela não ganha marca de origem");
+
+  const todos = await listRecords(ctx, database.id);
+  assert.equal(todos.filter((x) => x.source_external_id === "opp_123").length, 1);
+});

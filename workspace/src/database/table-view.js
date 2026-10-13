@@ -16,6 +16,7 @@ import { loadWidths, applyTemplate, attachResizer } from "./columns.js";
 import { attachDragScroll } from "./drag-scroll.js";
 import { renderBoardBody } from "./board-body.js";
 import { importarCamposDoCrm } from "./crm-import-ui.js";
+import { importarOportunidades } from "./crm-mirror-ui.js";
 
 /**
  * Monta a tabela dentro de `host`.
@@ -225,6 +226,7 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
           { id: "new-field", label: "Nova coluna", icon: "+" },
           { id: "new-record", label: "Nova linha", icon: "≡" },
           { id: "import-crm", label: "Importar campos do CRM", icon: "⇣" },
+          { id: "import-opps", label: "Importar oportunidades do CRM", icon: "⇊" },
           { separator: true },
           { id: "delete", label: "Excluir tabela", icon: "🗑", danger: true },
         ],
@@ -233,6 +235,10 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
           else if (id === "new-record") addRecord();
           else if (id === "import-crm") {
             if (await importarCamposDoCrm({ databaseId, fields: bundle.fields })) load();
+          } else if (id === "import-opps") {
+            if (await importarOportunidades({
+              databaseId, bundle, view: currentView(),
+            })) load();
           } else if (id === "delete") deleteDatabase();
         },
       });

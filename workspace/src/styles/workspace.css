@@ -1912,6 +1912,16 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .ws-import__tipo { font-size: var(--fs-xs); color: var(--gray-500); white-space: nowrap; }
+/* Linha de leitura (contagem por pipeline): não é escolha, não é clicável. */
+.ws-import__item--leitura { grid-template-columns: 1fr auto; cursor: default; }
+.ws-import__item--leitura:hover { background: none; }
+.ws-import__avisos {
+  margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px;
+  font-size: var(--fs-sm); color: var(--gray-600);
+}
+.ws-import__avisos li::marker { color: var(--gray-300); }
+/* O primeiro aviso é o que muda a expectativa: isto é cópia. */
+.ws-import__avisos li:first-child { color: var(--warn); font-weight: 500; }
 
 .ws-ficha__pe {
   display: flex; align-items: center; gap: 8px;

@@ -24,6 +24,7 @@ const VIEW_FIELDS =
   "layout,position,created_at,updated_at";
 const RECORD_FIELDS =
   "id,database_id,parent_page_id,title,icon_type,icon_value,properties," +
+  "source,source_external_id," +
   "position,created_by,updated_by,created_at,updated_at";
 
 /** Teto de registros lidos por vez. Ver nota de escala no runbook. */
@@ -467,6 +468,16 @@ export async function createRecord(ctx, databaseId, input = {}) {
       parent_page_id: database.page_id,
       title: (split.title ?? String(input.title || "")).slice(0, 500),
       properties: split.properties,
+      // Marca de origem: um registro espelhado de fora guarda de onde
+      // veio. É o que faz a segunda importação trazer só o que é novo —
+      // o índice único (workspace, source, source_external_id) recusa a
+      // repetição no banco, não só na nossa conta.
+      ...(input.sourceExternalId
+        ? {
+          source: String(input.source || "ghl_opportunity").slice(0, 60),
+          source_external_id: String(input.sourceExternalId).slice(0, 120),
+        }
+        : {}),
       position: keyBetween(last ? last.position : null, null),
       created_by: ctx.userKey,
       updated_by: ctx.userKey,

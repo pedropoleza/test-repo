@@ -123,6 +123,44 @@ test("excluir e renomear coluna mexem só na opção certa", () => {
   assert.equal(alterado[0].name, "Reunião com a Dani");
 });
 
+/* ---------------- a definição da etapa ---------------- */
+
+test("a coluna carrega a definição da etapa", () => {
+  // "Em decisão" não diz nada sozinho; "cliente disse vou pensar" diz.
+  const campo = { key: "e", name: "Etapa", type: "select", config: { options: [
+    { id: "d", name: "Em decisão", color: "yellow",
+      description: "Cliente disse “vou pensar” ou precisa falar com o cônjuge." },
+    { id: "x", name: "Sem nota", color: "gray" },
+  ] } };
+  const [decisao, sem] = colunasDoQuadro([], campo);
+  assert.match(decisao.descricao, /vou pensar/);
+  assert.equal(sem.descricao, null);
+});
+
+test("renomear e recolorir não apagam a definição", () => {
+  const campo = { key: "e", name: "Etapa", type: "select", config: { options: [
+    { id: "d", name: "Em decisão", color: "yellow", description: "Vai pensar." },
+  ] } };
+  const [o] = colunaAlterada(campo, "d", { name: "Em análise", color: "orange" });
+  assert.equal(o.description, "Vai pensar.");
+  assert.equal(o.name, "Em análise");
+});
+
+test("definição em branco apaga a nota, em vez de guardar vazio", () => {
+  const campo = { key: "e", name: "Etapa", type: "select", config: { options: [
+    { id: "d", name: "Em decisão", color: "yellow", description: "Vai pensar." },
+  ] } };
+  const [o] = colunaAlterada(campo, "d", { description: "   " });
+  assert.equal("description" in o, false);
+});
+
+test("coluna nova pode já nascer com a definição", () => {
+  const campo = { key: "e", name: "Etapa", type: "select", config: { options: [] } };
+  const { option } = novaColuna(campo, "Underwriting", "A seguradora está analisando.");
+  assert.equal(option.description, "A seguradora está analisando.");
+  assert.equal(novaColuna(campo, "Sem nota").option.description, undefined);
+});
+
 /* ---------------- a frente do card ---------------- */
 
 test("o card não repete o título nem a coluna, e tem teto", () => {

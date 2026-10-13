@@ -96,6 +96,12 @@ export function renderBoardBody({
     chip.className = "ws-chip ws-board2__col-nome";
     chip.dataset.color = coluna.cor;
     chip.textContent = coluna.nome;
+    if (coluna.descricao) {
+      // O nome da etapa cabe na coluna; a definição dela, não. Fica no
+      // title — e o cabeçalho ganha um ponto para avisar que há o quê ler.
+      chip.title = coluna.descricao;
+      chip.classList.add("tem-nota");
+    }
 
     const conta = document.createElement("span");
     conta.className = "ws-board2__col-conta";
@@ -146,6 +152,7 @@ export function renderBoardBody({
       width: 220,
       items: [
         { id: "renomear", label: "Renomear coluna", icon: "✎" },
+        { id: "descricao", label: coluna.descricao ? "Editar a definição" : "Definir o que é esta etapa", icon: "ⓘ" },
         { id: "cor", label: "Mudar a cor", icon: "◉" },
         { separator: true },
         { id: "excluir", label: "Excluir coluna", icon: "🗑", danger: true },
@@ -158,6 +165,18 @@ export function renderBoardBody({
           if (nome === null) return;
           await gravarOpcoes(colunaAlterada(campo, coluna.id, { name: nome }),
             "Não foi possível renomear a coluna.");
+        } else if (id === "descricao") {
+          const texto = await openPrompt({
+            title: `O que é "${coluna.nome}"`,
+            label: "Quando um card entra nesta etapa",
+            placeholder: "Ex.: cliente disse “vou pensar” ou precisa falar com o cônjuge.",
+            value: coluna.descricao || "",
+            confirmLabel: "Salvar",
+            allowEmpty: true,
+          });
+          if (texto === null) return;
+          await gravarOpcoes(colunaAlterada(campo, coluna.id, { description: texto }),
+            "Não foi possível salvar a definição.");
         } else if (id === "cor") {
           openMenu({
             anchor,

@@ -79,6 +79,10 @@ export function colunasDoQuadro(records = [], campo = null) {
     id: o.id,
     nome: o.name,
     cor: o.color || "gray",
+    // O que a etapa QUER DIZER. "Em decisão" não é óbvio; "cliente disse
+    // vou pensar ou precisa falar com o cônjuge" é. Mora na opção, do
+    // lado do nome, para não virar um documento que ninguém abre.
+    descricao: String(o.description || "").trim() || null,
     opcao: true,
     records: porOpcao.get(o.id),
   }));
@@ -117,7 +121,7 @@ function idDeOpcao(nome, tomados = []) {
  * vazio vira "Nova coluna"; nome repetido ganha id próprio, porque duas
  * colunas com o mesmo nome ainda são duas colunas.
  */
-export function novaColuna(campo, nome) {
+export function novaColuna(campo, nome, descricao = "") {
   const options = (campo?.config?.options || []).map((o) => ({ ...o }));
   const limpo = String(nome || "").trim() || "Nova coluna";
   const option = {
@@ -125,6 +129,7 @@ export function novaColuna(campo, nome) {
     name: limpo,
     color: OPTION_COLORS[options.length % OPTION_COLORS.length],
   };
+  if (descricao) option.description = String(descricao).trim();
   options.push(option);
   return { options, option };
 }
@@ -136,12 +141,20 @@ export function semColuna(campo, id) {
 
 /** As opções com `id` renomeada ou recolorida. */
 export function colunaAlterada(campo, id, patch = {}) {
-  return (campo?.config?.options || []).map((o) => (
-    o.id === id
-      ? { ...o, ...(patch.name ? { name: String(patch.name).trim() || o.name } : {}),
-          ...(patch.color ? { color: patch.color } : {}) }
-      : { ...o }
-  ));
+  return (campo?.config?.options || []).map((o) => {
+    if (o.id !== id) return { ...o };
+    const next = { ...o };
+    if (patch.name) next.name = String(patch.name).trim() || o.name;
+    if (patch.color) next.color = patch.color;
+    // Descrição aceita string vazia como "apagar" — por isso o teste é
+    // por `undefined`, não por verdade.
+    if (patch.description !== undefined) {
+      const d = String(patch.description).trim();
+      if (d) next.description = d;
+      else delete next.description;
+    }
+    return next;
+  });
 }
 
 /**

@@ -1744,6 +1744,13 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   font-size: var(--fs-sm); font-weight: 600;
   max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* Ponto depois do nome: há uma definição desta etapa no title. */
+.ws-board2__col-nome.tem-nota::after {
+  content: ""; display: inline-block; width: 4px; height: 4px; margin-left: 5px;
+  vertical-align: middle; border-radius: 50%; background: currentColor; opacity: .5;
+}
+.ws-board2__col-nome.tem-nota { cursor: help; }
+
 .ws-board2__col-conta {
   min-width: 20px; padding: 0 6px; border-radius: var(--r-pill);
   background: var(--gray-200); color: var(--gray-600);

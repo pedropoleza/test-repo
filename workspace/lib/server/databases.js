@@ -339,11 +339,18 @@ function normalizeFieldConfig(type, config) {
         const id = String(o?.id || `opt_${i}`).slice(0, 60);
         if (seen.has(id)) return null;
         seen.add(id);
-        return {
+        const opcao = {
           id,
           name: String(o?.name || "Opção").slice(0, 120),
           color: OPTION_COLORS.includes(o?.color) ? o.color : "gray",
         };
+        // A definição da opção ("o que significa estar nesta etapa") é
+        // conteúdo, igual ao nome. Fora desta lista ela seria apagada no
+        // primeiro rename de coluna — o normalizador RECONSTRÓI a opção,
+        // não faz merge, então o que não está aqui não existe.
+        const descricao = String(o?.description ?? "").trim().slice(0, 400);
+        if (descricao) opcao.description = descricao;
+        return opcao;
       })
       .filter(Boolean);
   }

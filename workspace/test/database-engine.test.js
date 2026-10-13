@@ -319,3 +319,49 @@ test("ordenar pela coluna principal usa o título", async () => {
   const bundle = await getDatabaseBundle(ctx, database.id);
   assert.deepEqual(bundle.records.map((r) => r.title), ["Alfa", "Meio", "Zebra"]);
 });
+
+/* ---------------- a definição de uma opção é conteúdo ---------------- */
+
+test("a definição da etapa sobrevive ao rename da coluna", async () => {
+  // Regressão: normalizeFieldConfig RECONSTRÓI cada opção, não faz
+  // merge. Com `description` fora da lista, renomear uma coluna do
+  // quadro apagava em silêncio o que a etapa significa — e ninguém
+  // reescreve onze definições por engano duas vezes.
+  const { ctx, database } = await setup();
+  const etapa = await createField(ctx, database.id, {
+    name: "Etapas Closer", type: "select",
+    config: { options: [
+      { id: "em_decisao", name: "Em decisão", color: "yellow",
+        description: "Cliente disse “vou pensar” ou precisa falar com o cônjuge." },
+      { id: "fechou", name: "Fechou", color: "green" },
+    ] },
+  });
+  assert.match(etapa.config.options[0].description, /vou pensar/);
+  assert.equal("description" in etapa.config.options[1], false,
+    "opção sem definição não ganha campo vazio");
+
+  // Renomear a primeira opção (o que o menu da coluna faz) reenviando
+  // todas as opções: a definição tem que continuar lá.
+  const depois = await updateField(ctx, etapa.id, {
+    config: { options: [
+      { id: "em_decisao", name: "Em análise", color: "orange",
+        description: etapa.config.options[0].description },
+      { id: "fechou", name: "Fechou", color: "green" },
+    ] },
+  });
+  assert.equal(depois.config.options[0].name, "Em análise");
+  assert.match(depois.config.options[0].description, /vou pensar/);
+});
+
+test("definição em branco não vira campo vazio, e a longa é cortada", async () => {
+  const { ctx, database } = await setup();
+  const campo = await createField(ctx, database.id, {
+    name: "Etapa", type: "select",
+    config: { options: [
+      { id: "a", name: "A", color: "gray", description: "   " },
+      { id: "b", name: "B", color: "gray", description: "x".repeat(900) },
+    ] },
+  });
+  assert.equal("description" in campo.config.options[0], false);
+  assert.equal(campo.config.options[1].description.length, 400);
+});

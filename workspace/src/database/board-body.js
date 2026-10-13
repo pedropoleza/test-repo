@@ -25,6 +25,7 @@ import { OPTION_COLORS, isEmptyValue, readValue } from "../shared/fields.js";
 import {
   colunasDoQuadro, campoDeColunas, camposPossiveis, camposDoCartao,
   novaColuna, semColuna, colunaAlterada, SEM_COLUNA,
+  TAMANHOS_DO_CARD, tamanhoDoCard,
 } from "../shared/board-db.js";
 
 /**
@@ -51,10 +52,13 @@ export function renderBoardBody({
 
   // O campo que rege as colunas fica à vista e é trocável: num quadro, a
   // pergunta "colunas por quê?" é a primeira que se faz.
+  const tamanho = tamanhoDoCard(view?.layout);
+
+  const barra = document.createElement("div");
+  barra.className = "ws-board2__por";
+
   const candidatos = camposPossiveis(bundle.fields);
   if (candidatos.length > 1 || view?.group_by !== campo.key) {
-    const barra = document.createElement("div");
-    barra.className = "ws-board2__por";
     const rotulo = document.createElement("span");
     rotulo.className = "ws-muted";
     rotulo.textContent = "Colunas por";
@@ -69,8 +73,27 @@ export function renderBoardBody({
     }
     sel.addEventListener("change", () => onChangeView?.({ groupBy: sel.value }));
     barra.append(rotulo, sel);
-    wrap.appendChild(barra);
   }
+
+  // Tamanho do card: o padrão mostra tudo que foi escrito; quem precisa
+  // varrer onze colunas aperta para Compacto.
+  const rotTam = document.createElement("span");
+  rotTam.className = "ws-muted";
+  rotTam.textContent = "Card";
+  const selTam = document.createElement("select");
+  selTam.className = "ws-select ws-select--sm";
+  selTam.setAttribute("aria-label", "Tamanho do card");
+  for (const t of Object.values(TAMANHOS_DO_CARD)) {
+    const opt = document.createElement("option");
+    opt.value = t.id; opt.textContent = t.nome;
+    opt.selected = t.id === tamanho.id;
+    selTam.appendChild(opt);
+  }
+  selTam.addEventListener("change", () => onChangeView?.({
+    layout: { ...(view?.layout || {}), cardSize: selTam.value },
+  }));
+  barra.append(rotTam, selTam);
+  wrap.appendChild(barra);
 
   const board = document.createElement("div");
   board.className = "ws-board2";
@@ -247,11 +270,18 @@ export function renderBoardBody({
     titulo.textContent = record.title || "Sem nome";
     card.appendChild(titulo);
 
-    const mostrar = camposDoCartao(bundle.fields, {
+    // Primeiro filtra o que ESTÁ PREENCHIDO, depois corta pelo tamanho:
+    // cortar antes gastaria as três linhas do Médio com campos vazios e
+    // esconderia justamente o que foi escrito.
+    const candidatosCard = camposDoCartao(bundle.fields, {
       campoDeColuna: campo,
       visiveis: view?.visible_fields || null,
     });
-    const preenchidos = mostrar.filter((f) => !isEmptyValue(readValue(f, record)));
+    const escritos = candidatosCard.filter((f) => !isEmptyValue(readValue(f, record)));
+    const preenchidos = tamanho.max === Infinity
+      ? escritos
+      : escritos.slice(0, tamanho.max);
+    const ocultos = escritos.length - preenchidos.length;
     if (preenchidos.length) {
       const lista = document.createElement("dl");
       lista.className = "ws-board2__card-campos";
@@ -263,6 +293,13 @@ export function renderBoardBody({
         lista.append(dt, dd);
       }
       card.appendChild(lista);
+    }
+    if (ocultos > 0) {
+      // Não sumir em silêncio: o card diz que há mais, e quantos.
+      const mais = document.createElement("p");
+      mais.className = "ws-board2__card-mais";
+      mais.textContent = `+${ocultos} campo${ocultos === 1 ? "" : "s"}`;
+      card.appendChild(mais);
     }
 
     const abrir = () => ficha(record);

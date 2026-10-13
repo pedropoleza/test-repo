@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import {
   colunasDoQuadro, campoDeColunas, camposPossiveis, podeRegerQuadro,
   novaColuna, semColuna, colunaAlterada, camposDoCartao, SEM_COLUNA,
+  tamanhoDoCard, TAMANHOS_DO_CARD,
 } from "../src/shared/board-db.js";
 
 const etapas = {
@@ -162,6 +163,36 @@ test("coluna nova pode já nascer com a definição", () => {
 });
 
 /* ---------------- a frente do card ---------------- */
+
+test("por padrão o card mostra TODOS os campos, não os quatro primeiros", () => {
+  // O que foi escrito na ficha tem que aparecer no card. Um teto fixo
+  // escondia o estado e a objeção e obrigava a abrir ficha por ficha
+  // para lembrar quem era cada lead — o quadro deixava de servir.
+  const campos = [
+    { key: "nome", type: "text", is_primary: true },
+    etapas,
+    ...["tel", "estado", "valor", "interesse", "perfil", "objecoes"]
+      .map((key) => ({ key, type: "text" })),
+  ];
+  assert.deepEqual(
+    camposDoCartao(campos, { campoDeColuna: etapas }).map((c) => c.key),
+    ["tel", "estado", "valor", "interesse", "perfil", "objecoes"]);
+});
+
+test("os três tamanhos de card", () => {
+  assert.equal(tamanhoDoCard(null).id, "completo", "o padrão mostra tudo");
+  assert.equal(tamanhoDoCard({ cardSize: "compacto" }).max, 0);
+  assert.equal(tamanhoDoCard({ cardSize: "medio" }).max, 3);
+  assert.equal(tamanhoDoCard({ cardSize: "completo" }).max, Infinity);
+  // Valor desconhecido (vista antiga, dedo errado) não quebra a tela.
+  assert.equal(tamanhoDoCard({ cardSize: "gigante" }).id, "completo");
+  assert.equal(Object.keys(TAMANHOS_DO_CARD).length, 3);
+});
+
+test("tamanho compacto deixa o card só com o nome", () => {
+  const campos = [{ key: "nome", type: "text", is_primary: true }, { key: "tel", type: "phone" }];
+  assert.deepEqual(camposDoCartao(campos, { max: 0 }), []);
+});
 
 test("o card não repete o título nem a coluna, e tem teto", () => {
   const campos = [

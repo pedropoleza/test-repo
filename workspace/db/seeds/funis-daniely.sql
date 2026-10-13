@@ -97,9 +97,13 @@ begin
   -- para quando ela quiser ver tudo de uma vez, filtrar e ordenar.
   -- Na frente do card só três campos: telefone (ligar), data da reunião
   -- (desde quando) e próxima ação (o que fazer). O resto está na ficha.
-  insert into workspace_database_views (workspace_id, database_id, name, type, group_by, visible_fields, position)
+  -- Sem visible_fields: o que foi escrito na ficha aparece no card. Quem
+  -- quiser varrer o funil de onze colunas aperta o card para Médio ou
+  -- Compacto na própria tela — recortar campos aqui escondia justamente
+  -- o que a pessoa acabou de escrever.
+  insert into workspace_database_views (workspace_id, database_id, name, type, group_by, layout, position)
   values (ws, db, 'Etapas Closer', 'board', 'etapas_closer',
-          '["telefone","data_reuniao","proxima_acao"]'::jsonb, 'a')
+          '{"cardSize":"completo"}'::jsonb, 'a')
   returning id into vboard;
 
   insert into workspace_database_views (workspace_id, database_id, name, type, position)
@@ -192,9 +196,9 @@ begin
     (ws, db, 'qualificacao', 'Qualificação', 'long_text', '{}'::jsonb, false, 'l'),
     (ws, db, 'notas', 'Notas', 'long_text', '{}'::jsonb, false, 'm');
 
-  insert into workspace_database_views (workspace_id, database_id, name, type, group_by, visible_fields, position)
+  insert into workspace_database_views (workspace_id, database_id, name, type, group_by, layout, position)
   values (ws, db, 'Etapas SDR', 'board', 'etapas_sdr',
-          '["telefone","data_reuniao","proxima_acao"]'::jsonb, 'a')
+          '{"cardSize":"completo"}'::jsonb, 'a')
   returning id into vboard;
 
   insert into workspace_database_views (workspace_id, database_id, name, type, position)

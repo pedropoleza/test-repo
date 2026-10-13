@@ -67,7 +67,47 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
     return bundle.views.find((v) => v.id === activeViewId) || bundle.views[0] || null;
   }
 
+  /**
+   * Onde a tela estava antes de repintar.
+   *
+   * Repintar troca TODOS os nós, e o quadro novo nasce no começo. Quem
+   * rolou até a nona coluna, abriu uma ficha e escreveu o telefone era
+   * jogada de volta para a primeira coluna a cada campo gravado — o
+   * trabalho continuava salvo, mas o lugar se perdia, e reencontrar a
+   * coluna onze vezes é o bastante para desistir do quadro.
+   *
+   * Guarda o scroll horizontal do quadro e o vertical da página; devolve
+   * os dois depois que o novo DOM existe.
+   */
+  function guardarRolagem() {
+    const quadro = host.querySelector(".ws-board2");
+    const vertical = scrollerDaPagina();
+    return {
+      x: quadro ? quadro.scrollLeft : 0,
+      y: vertical ? vertical.scrollTop : 0,
+    };
+  }
+
+  function devolverRolagem(onde) {
+    if (!onde) return;
+    const quadro = host.querySelector(".ws-board2");
+    // Depois do frame: o quadro só tem largura rolável quando as colunas
+    // já foram medidas; antes disso scrollLeft é silenciosamente zerado.
+    if (quadro && onde.x) {
+      quadro.scrollLeft = onde.x;
+      requestAnimationFrame(() => { quadro.scrollLeft = onde.x; });
+    }
+    const vertical = scrollerDaPagina();
+    if (vertical && onde.y) requestAnimationFrame(() => { vertical.scrollTop = onde.y; });
+  }
+
+  /** O container que rola a página; nem sempre é o documento. */
+  function scrollerDaPagina() {
+    return host.closest(".ws-main, .ws-page, main") || document.scrollingElement;
+  }
+
   function render() {
+    const rolagem = guardarRolagem();
     host.replaceChildren();
     host.className = "ws-db";
 
@@ -118,6 +158,8 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
         view,
         databaseId,
         reload: load,
+        // Rolar até a coluna certa e perder o lugar a cada gravação é o
+        // que fazia o quadro de onze colunas não servir.
         onChangeView: async (patch) => {
           try {
             await api.databases.updateView(activeViewId, patch);
@@ -128,6 +170,7 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
         },
         onOpenRecord,
       }));
+      devolverRolagem(rolagem);
       return;
     }
 
@@ -149,6 +192,7 @@ export function createTableView(host, { databaseId, viewId, onOpenRecord }) {
     }
     host.appendChild(scroller);
     host.appendChild(renderFooter());
+    devolverRolagem(rolagem);
   }
 
   function renderHeader() {

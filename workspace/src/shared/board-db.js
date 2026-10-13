@@ -158,19 +158,44 @@ export function colunaAlterada(campo, id, patch = {}) {
 }
 
 /**
+ * Quanto do lead cabe na frente do card.
+ *
+ * O padrão é COMPLETO: o que foi escrito na ficha aparece no card. Quem
+ * preencheu o telefone, o estado e a objeção quer ver isso sem abrir
+ * nada — era o contrário disso que tornava o quadro inútil, obrigando a
+ * abrir ficha por ficha para lembrar quem é cada um.
+ *
+ * Os outros dois tamanhos existem porque um funil de onze colunas com
+ * cards de dez linhas também não se lê. Quem precisa varrer o funil
+ * aperta para Compacto; quem está trabalhando uma coluna volta para
+ * Completo. É a mesma base, lida de perto ou de longe.
+ */
+export const TAMANHOS_DO_CARD = {
+  compacto: { id: "compacto", nome: "Compacto", max: 0 },
+  medio:    { id: "medio",    nome: "Médio",    max: 3 },
+  completo: { id: "completo", nome: "Completo", max: Infinity },
+};
+
+export const TAMANHO_PADRAO = "completo";
+
+export function tamanhoDoCard(layout) {
+  return TAMANHOS_DO_CARD[layout?.cardSize] || TAMANHOS_DO_CARD[TAMANHO_PADRAO];
+}
+
+/**
  * Os campos que aparecem na frente do card.
  *
- * O card não é a ficha: é a lombada dela. Mostra o que identifica e o que
- * decide — nunca o campo de colunas (a coluna já diz), nunca o principal
- * (é o título do card), e no máximo `max`, porque um card com dez linhas
- * deixa de caber na coluna e o quadro perde a leitura de funil. O resto
- * está a um clique, na ficha.
+ * Nunca o campo de colunas (a coluna já diz) nem o principal (é o título
+ * do card). `visiveis` é o recorte de "Campos do card", quando a pessoa
+ * escolheu um; sem ele, todos valem. `max` é o tamanho escolhido.
  */
-export function camposDoCartao(campos = [], { campoDeColuna = null, visiveis = null, max = 4 } = {}) {
+export function camposDoCartao(
+  campos = [], { campoDeColuna = null, visiveis = null, max = Infinity } = {},
+) {
   const permitidos = visiveis ? new Set(visiveis) : null;
-  return campos
+  const lista = campos
     .filter((c) => !c.is_primary)
     .filter((c) => c.key !== campoDeColuna?.key)
-    .filter((c) => (permitidos ? permitidos.has(c.key) : true))
-    .slice(0, max);
+    .filter((c) => (permitidos ? permitidos.has(c.key) : true));
+  return max === Infinity ? lista : lista.slice(0, Math.max(0, max));
 }

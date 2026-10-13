@@ -1715,7 +1715,10 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
  * editável: nasce, renomeia e morre dentro da tela.
  */
 .ws-board2__wrap { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 14px; }
-.ws-board2__por { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); }
+.ws-board2__por {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-sm);
+}
+.ws-board2__por .ws-muted + .ws-select { margin-right: 6px; }
 .ws-select--sm { padding: 3px 8px; font-size: var(--fs-sm); max-width: 220px; }
 
 .ws-board2 {
@@ -1803,6 +1806,11 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   margin: 0; color: var(--gray-800); overflow: hidden; text-overflow: ellipsis;
 }
 .ws-board2__card-campos .ws-cell__value { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* "+N campos": há mais escrito na ficha do que o tamanho do card mostra. */
+.ws-board2__card-mais {
+  margin: 5px 0 0; font-size: var(--fs-xs); color: var(--gray-400);
+}
 
 .ws-board2__novo {
   border: 0; background: none; font: inherit; font-size: var(--fs-sm);

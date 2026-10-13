@@ -18,10 +18,10 @@ import { api } from "../api.js";
 import { openMenu } from "../ui/menu.js";
 import { openPrompt } from "../ui/prompt.js";
 import { toast } from "../ui/toast.js";
-import { renderCellValue } from "./cells.js";
+import { renderCellValue, editCell } from "./cells.js";
 import { abrirFicha } from "./record-panel.js";
 import { attachDragScroll } from "./drag-scroll.js";
-import { OPTION_COLORS, isEmptyValue, readValue } from "../shared/fields.js";
+import { OPTION_COLORS, isEmptyValue, readValue, fieldSpec } from "../shared/fields.js";
 import {
   colunasDoQuadro, campoDeColunas, camposPossiveis, camposDoCartao,
   novaColuna, semColuna, colunaAlterada, SEM_COLUNA,
@@ -288,9 +288,7 @@ export function renderBoardBody({
       for (const field of preenchidos) {
         const dt = document.createElement("dt");
         dt.textContent = field.name;
-        const dd = document.createElement("dd");
-        dd.appendChild(renderCellValue(field, record));
-        lista.append(dt, dd);
+        lista.append(dt, valorEditavel(field, record, card));
       }
       card.appendChild(lista);
     }
@@ -303,7 +301,13 @@ export function renderBoardBody({
     }
 
     const abrir = () => ficha(record);
-    card.addEventListener("click", abrir);
+    card.addEventListener("click", (e) => {
+      // O valor de um campo é editável no lugar; só o resto do card abre
+      // a ficha. Sem esta guarda, corrigir um telefone no card abriria a
+      // modal por cima do campo que se acabou de clicar.
+      if (e.target.closest(".ws-board2__card-valor")) return;
+      abrir();
+    });
     card.addEventListener("keydown", (e) => {
       if (e.target !== card) return;
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); }
@@ -322,6 +326,89 @@ export function renderBoardBody({
       for (const p of board.querySelectorAll(".ws-board2__cards")) p.classList.remove("is-over");
     });
     return card;
+  }
+
+  /**
+   * O valor de um campo na frente do card, editável no lugar.
+   *
+   * Corrigir um telefone não deveria custar abrir a ficha, ler a lista
+   * inteira, achar o campo e fechar de novo. Clicar no valor edita; o
+   * resto do card continua abrindo a ficha.
+   *
+   * Duas armadilhas que o card tem e a ficha não:
+   *
+   *  - o card é `draggable`, e um input dentro de um elemento arrastável
+   *    não deixa selecionar texto: arrastar vence o cursor. Por isso o
+   *    arrasto é desligado enquanto se edita e religado no fim.
+   *  - o clique borbulha até o card, que abre a ficha. Daí o
+   *    stopPropagation e a guarda no listener do card.
+   */
+  function valorEditavel(field, record, card) {
+    const dd = document.createElement("dd");
+    dd.className = "ws-board2__card-valor";
+    const editavel = !fieldSpec(field.type).readOnly;
+    if (editavel) {
+      dd.tabIndex = 0;
+      dd.setAttribute("role", "button");
+      dd.setAttribute("aria-label", `Editar ${field.name}`);
+    }
+
+    const pintar = () => dd.replaceChildren(renderCellValue(field, record));
+    pintar();
+
+    if (!editavel) return dd;
+
+    const editar = () => {
+      dd.classList.add("is-editing");
+      card.draggable = false;
+      editCell(dd, field, record, {
+        commit: (valor) => salvarNoCard(record, field, valor, card),
+        done: () => {
+          dd.classList.remove("is-editing");
+          card.draggable = true;
+          if (dd.isConnected) pintar();
+        },
+      });
+    };
+
+    // Já no mousedown: o dragstart dispara antes do click, e sem isto o
+    // primeiro gesto dentro do campo vira um arrasto do card.
+    dd.addEventListener("mousedown", () => { card.draggable = false; });
+    dd.addEventListener("click", (e) => { e.stopPropagation(); editar(); });
+    dd.addEventListener("keydown", (e) => {
+      if (e.target !== dd) return;
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); editar(); }
+    });
+    return dd;
+  }
+
+  /**
+   * Grava o campo editado no card.
+   *
+   * Sem recarregar o quadro: recarregar aqui tiraria o foco do campo
+   * seguinte e devolveria a rolagem com um pisca a cada letra corrigida.
+   * O card se repinta sozinho — e só ele — quando o valor muda o que
+   * cabe na frente (um campo esvaziado sai da lista).
+   */
+  async function salvarNoCard(record, field, valor, card) {
+    const antes = { ...(record.properties || {}) };
+    record.properties = { ...antes, [field.key]: valor };
+    try {
+      const { record: salvo } = await api.databases.updateRecord(record.id, {
+        properties: { [field.key]: valor },
+      });
+      record.properties = salvo.properties;
+      record.title = salvo.title;
+      // Esvaziar um campo tira a linha do card; só então vale refazer o
+      // cartão inteiro, e ainda assim só ele.
+      if (isEmptyValue(readValue(field, record)) && card.isConnected) {
+        const coluna = { id: card.closest(".ws-board2__cards")?.dataset.colunaId };
+        card.replaceWith(renderCard(record, coluna));
+      }
+    } catch {
+      record.properties = antes;
+      toast("Não foi possível salvar o campo.", { tone: "danger" });
+    }
   }
 
   async function ficha(record) {

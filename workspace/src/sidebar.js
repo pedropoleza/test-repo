@@ -161,6 +161,14 @@ export function createSidebar(root, handlers) {
     novaLista.addEventListener("click", () => handlers.onCreateCrmList());
     crm.appendChild(novaLista);
 
+    const novoFunil = document.createElement("button");
+    novoFunil.type = "button";
+    novoFunil.className = "ws-tree__new-list";
+    novoFunil.textContent = "+ Novo funil";
+    novoFunil.title = "Um quadro de colunas: cada coluna é uma etapa, cada card é um lead";
+    novoFunil.addEventListener("click", () => handlers.onCreateFunnel?.());
+    crm.appendChild(novoFunil);
+
     const crmHead = document.createElement("div");
     crmHead.className = "ws-tree__section-head";
     const crmLabel = document.createElement("span");

@@ -31,6 +31,7 @@ import { createDocsView } from "./crm/docs-view.js";
 import { criarBotaoInfo } from "./ui/info.js";
 import { DETALHES_MODULO } from "./modulos-info.js";
 import { openListDialog } from "./crm/list-dialog.js";
+import { abrirNovoFunil } from "./crm/funil-dialog.js";
 import { openCopyLink } from "./ui/prompt.js";
 
 const els = {
@@ -463,6 +464,7 @@ const sidebarHandlers = {
   onOpenCrm: (kind) => openCrm(kind),
   onOpenCrmList: (listId) => openCrmList(listId),
   onCreateCrmList: () => createCrmList(),
+  onCreateFunnel: () => criarFunil(),
   onCrmListAction: (action, list) => crmListAction(action, list),
 };
 
@@ -676,6 +678,20 @@ async function createCrmList() {
   } catch {
     toast("Não foi possível criar a lista.", { tone: "danger" });
   }
+}
+
+/**
+ * Cria um funil e abre nele.
+ *
+ * Abrir é parte do gesto: quem acabou de criar quer ver as colunas e
+ * pôr o primeiro lead, não procurar o funil na barra.
+ */
+async function criarFunil() {
+  const criado = await abrirNovoFunil();
+  if (!criado?.page?.id) return;
+  upsertPageInTree(criado.page);
+  sidebar.render();
+  await openPage(criado.page.id);
 }
 
 async function crmListAction(action, lista) {

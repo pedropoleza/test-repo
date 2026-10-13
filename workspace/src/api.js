@@ -222,6 +222,8 @@ export const api = {
   databases: {
     get: (id, viewId) => request("GET", "/api/databases", { query: { id, viewId } }),
     create: (input) => request("POST", "/api/databases", { body: input }),
+    createFunnel: (input) =>
+      request("POST", "/api/databases", { query: { action: "funnel" }, body: input }),
     update: (id, patch) => request("PATCH", "/api/databases", { query: { id }, body: patch }),
     remove: (id) => request("DELETE", "/api/databases", { query: { id } }),
 

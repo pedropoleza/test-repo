@@ -23,6 +23,7 @@
 import {
   resolveContext, requireRole, sendError, WorkspaceError,
 } from "../lib/server/context.js";
+import { criarFunil } from "../lib/server/funnel.js";
 import {
   getDatabaseBundle, createDatabase, updateDatabase, deleteDatabase,
   createField, updateField, moveField, deleteField,
@@ -53,6 +54,10 @@ export default async function handler(req, res) {
       case "POST": {
         requireRole(ctx, "editor");
         switch (action) {
+          // Um funil inteiro de uma vez: oito inserts que, feitos um a
+          // um pela tela, deixariam meio funil de pé se um falhasse.
+          case "funnel":
+            return res.status(201).json(await criarFunil(ctx, body));
           case "field":
             return res.status(201).json({ field: await createField(ctx, need(id), body) });
           case "field_move":

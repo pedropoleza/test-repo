@@ -21,6 +21,7 @@ import { toast } from "../ui/toast.js";
 import { renderCellValue, editCell } from "./cells.js";
 import { abrirFicha } from "./record-panel.js";
 import { attachDragScroll } from "./drag-scroll.js";
+import { criarBotaoInfo } from "../ui/info.js";
 import { OPTION_COLORS, isEmptyValue, readValue, fieldSpec } from "../shared/fields.js";
 import {
   colunasDoQuadro, campoDeColunas, camposPossiveis, camposDoCartao,
@@ -56,6 +57,29 @@ export function renderBoardBody({
 
   const barra = document.createElement("div");
   barra.className = "ws-board2__por";
+
+  // O que esta tela é e como se mexe nela. Quem abre um quadro pela
+  // primeira vez não adivinha que o valor do card é clicável nem que a
+  // coluna sai de um campo de seleção — e desistir é mais barato que
+  // perguntar.
+  barra.appendChild(criarBotaoInfo({
+    titulo: "Quadro do funil",
+    paragrafos: [
+      `Cada COLUNA é uma etapa de "${campo.name}" e cada CARD é uma ficha. `
+        + "Arraste o card de uma coluna para a outra para mudar a etapa — é o "
+        + "mesmo que preencher o campo, só que com a mão.",
+      "No card: clique em um VALOR para corrigi-lo ali mesmo; clique em "
+        + "qualquer outra parte para abrir a ficha inteira, onde estão todos "
+        + "os campos. O seletor “Card” controla quanto aparece na frente.",
+      "As colunas são suas: “+ Nova coluna” cria uma etapa, e o ⋯ de cada "
+        + "coluna renomeia, troca a cor, escreve o que aquela etapa significa "
+        + "(aparece ao passar o mouse) ou a exclui. Excluir uma coluna NÃO "
+        + "exclui os cards: eles vão para “Sem etapa”, para você realocar.",
+      "Isto não é a pipeline do CRM: é um quadro seu, dentro do engine. "
+        + "Por isso dá para criar etapa aqui — e por isso mover um card aqui "
+        + "não muda nada lá.",
+    ],
+  }));
 
   const candidatos = camposPossiveis(bundle.fields);
   if (candidatos.length > 1 || view?.group_by !== campo.key) {
@@ -157,6 +181,14 @@ export function renderBoardBody({
     pilha.className = "ws-board2__cards";
     pilha.dataset.colunaId = coluna.id;
     for (const record of coluna.records) pilha.appendChild(renderCard(record, coluna));
+    if (!coluna.records.length) {
+      // Uma coluna vazia é um retângulo mudo. Esta linha diz que ela é
+      // um lugar onde se solta coisa — e some assim que tem card.
+      const vazia = document.createElement("p");
+      vazia.className = "ws-board2__col-vazia";
+      vazia.textContent = "Solte um card aqui";
+      pilha.appendChild(vazia);
+    }
     ligarSoltura(pilha, coluna);
     col.appendChild(pilha);
 

@@ -1719,6 +1719,7 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-sm);
 }
 .ws-board2__por .ws-muted + .ws-select { margin-right: 6px; }
+.ws-board2__por .ws-info-btn { margin-right: 2px; }
 .ws-select--sm { padding: 3px 8px; font-size: var(--fs-sm); max-width: 220px; }
 
 .ws-board2 {
@@ -1776,6 +1777,13 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 /* O alvo de soltura é a PILHA, não a coluna: com a coluna inteira
    acesa, soltar sobre o cabeçalho ou sobre o "+ Nova ficha" parecia
    válido e não era. */
+.ws-board2__col-vazia {
+  margin: 0; padding: 12px 8px; text-align: center;
+  font-size: var(--fs-xs); color: var(--gray-400);
+  border: 1px dashed var(--gray-200); border-radius: var(--r-sm);
+}
+.ws-board2__cards.is-over .ws-board2__col-vazia { border-color: var(--ghl-300); color: var(--ghl-600); }
+
 .ws-board2__cards.is-over {
   background: var(--ghl-50); box-shadow: inset 0 0 0 2px var(--ghl-300);
 }
@@ -1896,6 +1904,15 @@ body.is-resizing-col { cursor: col-resize; user-select: none; }
 }
 .ws-ficha__campo:hover .ws-ficha__limpar, .ws-ficha__limpar:focus-visible { opacity: 1; }
 .ws-ficha__limpar:hover { color: var(--danger); background: var(--danger-bg); }
+
+/* Diálogo do novo funil */
+.ws-funil__etapas { font-family: inherit; line-height: 1.6; resize: vertical; }
+.ws-funil__previa {
+  padding: 10px 12px; border: 1px dashed var(--gray-300); border-radius: var(--r-md);
+  background: var(--gray-50);
+}
+.ws-funil__legenda { margin: 0 0 7px; font-size: var(--fs-sm); }
+.ws-funil__colunas { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .ws-import__lista {
   display: flex; flex-direction: column; gap: 2px;

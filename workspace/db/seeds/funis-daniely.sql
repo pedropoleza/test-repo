@@ -210,3 +210,61 @@ begin
 
   raise notice 'funil SDR criado: page=% db=%', pg, db;
 end $$;
+
+-- =====================================================================
+-- CRM — Funis [seguros]: os dois quadros numa página só
+--
+-- Cada funil continua tendo a própria página (é onde se trabalha um
+-- deles a fundo). Esta aqui é a visão de quem acompanha os dois: o SDR
+-- em cima, o Closer embaixo.
+--
+-- São os MESMOS quadros, não cópias. O bloco aponta para a database que
+-- já existe, então mover um card aqui move lá — é o mesmo card. Apagar
+-- esta página remove só os blocos: a database pertence à página do
+-- próprio funil, não a esta.
+-- =====================================================================
+do $$
+declare
+  ws uuid := '605ce0a6-f580-44ea-988e-bd39563d8674';
+  who text := 'fixed:mqO0er6vDQahqWGS1FYJ';
+  pg uuid;
+  db_sdr uuid; v_sdr uuid; db_cl uuid; v_cl uuid;
+begin
+  if exists (select 1 from workspace_pages
+             where workspace_id = ws and title = 'CRM — Funis [seguros]' and is_archived = false) then
+    raise notice 'pagina dos dois funis ja existe, nada a fazer';
+    return;
+  end if;
+
+  select d.id, v.id into db_sdr, v_sdr
+  from workspace_databases d join workspace_database_views v on v.database_id = d.id and v.type = 'board'
+  where d.workspace_id = ws and d.title = 'CRM → SDR [seguros]';
+
+  select d.id, v.id into db_cl, v_cl
+  from workspace_databases d join workspace_database_views v on v.database_id = d.id and v.type = 'board'
+  where d.workspace_id = ws and d.title = 'CRM → CLOSER [seguros]';
+
+  if db_sdr is null or db_cl is null then
+    raise exception 'rode os seeds dos dois funis antes deste';
+  end if;
+
+  -- 'Y' ordena antes de 'Z' (SDR) e de 'a' (CLOSER): a visão dos dois
+  -- abre primeiro na barra.
+  insert into workspace_pages (workspace_id, title, icon_type, icon_value,
+                               layout_width, visibility, position, created_by, updated_by)
+  values (ws, 'CRM — Funis [seguros]', 'emoji', '🗂', 'full', 'shared', 'Y', who, who)
+  returning id into pg;
+
+  insert into workspace_blocks (workspace_id, page_id, type, content, plain_text, position, created_by, updated_by)
+  values
+    (ws, pg, 'heading2', jsonb_build_object('rich', jsonb_build_array(
+        jsonb_build_object('s','SDR — da chegada até sentar com a Dani'))),
+     'SDR — da chegada até sentar com a Dani', 'a', who, who),
+    (ws, pg, 'database', jsonb_build_object('databaseId', db_sdr::text, 'viewId', v_sdr::text), '', 'b', who, who),
+    (ws, pg, 'heading2', jsonb_build_object('rich', jsonb_build_array(
+        jsonb_build_object('s','Closer — da 1ª reunião até a apólice emitida'))),
+     'Closer — da 1ª reunião até a apólice emitida', 'c', who, who),
+    (ws, pg, 'database', jsonb_build_object('databaseId', db_cl::text, 'viewId', v_cl::text), '', 'd', who, who);
+
+  raise notice 'pagina dos dois funis criada: %', pg;
+end $$;

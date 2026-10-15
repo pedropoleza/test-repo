@@ -18,7 +18,7 @@
  */
 import { db } from "../server/db.js";
 import { decrypt } from "../server/crypto.js";
-import { getAppToken } from "./oauth-store.js";
+import { getAppToken, getLocationToken } from "./oauth-store.js";
 
 const GHL_BASE = process.env.GHL_API_BASE || "https://services.leadconnectorhq.com";
 const GHL_VERSION = process.env.GHL_API_VERSION || "2021-04-15";
@@ -91,20 +91,23 @@ export function ghostToken(inst) {
 }
 
 /**
- * Token do Marketplace App — obrigatório pra atualizar status de mensagem no
- * provider da Main (§12). O provider "pertence" ao app, então status APIs
- * exigem o token do app, não o da location.
+ * Token do Marketplace App no nível LOCATION da Main — exigido pelas APIs do
+ * provider (inbound inject §5, status §12): elas pedem authClass=Location, então
+ * um token de agência (Company) é recusado com "authClass not allowed".
  *
- * Ordem: GHL_APP_ACCESS_TOKEN (env) → token capturado no OAuth install
- * (wa_oauth_installs, preferindo a Main location / company desta instalação).
- * É async porque pode consultar o store.
+ * getLocationToken resolve isso: usa o install da própria location se existir,
+ * senão cunha um token de location a partir do token de agência via
+ * /oauth/locationToken. GHL_APP_ACCESS_TOKEN (env) tem prioridade se setado.
  */
 export async function providerAppToken(inst) {
   if (process.env.GHL_APP_ACCESS_TOKEN) return process.env.GHL_APP_ACCESS_TOKEN;
-  const stored = await getAppToken({
-    locationId: inst?.main_location_id,
-    companyId: inst?.agency_id,
+  if (!inst?.main_location_id) {
+    const stored = await getAppToken({});
+    if (stored) return stored;
+    throw new Error("no_app_token_available");
+  }
+  return await getLocationToken({
+    companyId: inst.agency_id,
+    locationId: inst.main_location_id,
   });
-  if (stored) return stored;
-  throw new Error("no_app_token_available");
 }

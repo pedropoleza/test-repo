@@ -116,3 +116,57 @@ export async function getAppToken({ locationId, companyId } = {}) {
   }
   return decrypt(row.access_token);
 }
+
+const GHL_LOCATION_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/locationToken";
+// cache em memória por container quente: locationId -> { token, exp }
+const _locCache = new Map();
+
+/**
+ * Token de nível LOCATION pra operar no Conversations/provider da Main.
+ *
+ * As APIs que envolvem o conversationProviderId (inbound inject §5, status §12)
+ * exigem authClass = Location. Se o install do app foi feito na própria location,
+ * usamos direto. Se foi a nível de agência (Company), cunhamos um token de
+ * location via /oauth/locationToken (companyId + locationId).
+ */
+export async function getLocationToken({ companyId, locationId }) {
+  if (!locationId) throw new Error("locationId required");
+
+  // 1) install direto da location?
+  const locRow = await fetchRow({ locationId });
+  if (locRow && (locRow.user_type || "").toLowerCase() === "location") {
+    return await getAppToken({ locationId });
+  }
+
+  // 2) cache quente
+  const cached = _locCache.get(locationId);
+  if (cached && cached.exp - Date.now() > REFRESH_MARGIN_MS) return cached.token;
+
+  // 3) cunha a partir do token de agência (Company)
+  let cid = companyId;
+  if (!cid) {
+    const anyCompany = await fetchRow({});
+    cid = anyCompany?.company_id;
+  }
+  const companyTok = await getAppToken(cid ? { companyId: cid } : {});
+  if (!companyTok) throw new Error("no_company_app_token");
+
+  const body = new URLSearchParams({ companyId: cid || "", locationId });
+  const r = await fetch(GHL_LOCATION_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${companyTok}`,
+      Version: "2021-07-28",
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body,
+  });
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`location_token_${r.status}: ${txt.slice(0, 160)}`);
+  const t = JSON.parse(txt);
+  const exp = Date.now() + (Number(t.expires_in) || 86400) * 1000;
+  _locCache.set(locationId, { token: t.access_token, exp });
+  log.info("wa.oauth.location_token_minted", { locationId });
+  return t.access_token;
+}

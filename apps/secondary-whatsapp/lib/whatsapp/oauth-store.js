@@ -1,14 +1,23 @@
 /**
- * Persistência dos tokens do Marketplace App capturados no OAuth install.
+ * Persistência + refresh dos tokens do Marketplace App (OAuth install).
  *
- * O token do app é o exigido pela API de status do provider (§12) — os PITs
- * por-location não fazem status update no provider (o provider pertence ao app).
- * Guardamos aqui, criptografado, e servimos como fallback pro providerAppToken().
+ * O token do app é o exigido pelas APIs que envolvem o conversationProviderId:
+ *   - injeção de inbound no Conversations da Main (§5)
+ *   - status update do provider (§12)
+ * Um PIT de location NÃO tem acesso ao provider (401 PROVIDER_NO_ACCESS).
+ *
+ * Tokens OAuth do GHL expiram em ~24h. Guardamos access+refresh criptografados
+ * e fazemos refresh automático quando estão vencidos/perto de vencer, usando o
+ * client_id/secret deste app (grant_type=refresh_token).
  */
 import { db } from "../server/db.js";
 import { encrypt, decrypt } from "../server/crypto.js";
+import { log } from "../server/log.js";
 
-/** Upsert do token de um install (location) — criptografa em repouso. */
+const GHL_TOKEN_URL = "https://services.leadconnectorhq.com/oauth/token";
+const REFRESH_MARGIN_MS = 5 * 60 * 1000; // renova se faltar < 5 min
+
+/** Upsert do token de um install — criptografa em repouso. */
 export async function saveOauthInstall({
   locationId,
   companyId,
@@ -35,37 +44,75 @@ export async function saveOauthInstall({
   if (error) throw error;
 }
 
-/**
- * Token do app pra usar em status update. Preferimos o install da própria
- * location; senão o mais recente do mesmo company; senão o mais recente global.
- * Retorna o token DECRIPTADO ou null.
- */
-export async function getAppToken({ locationId, companyId } = {}) {
-  const pick = (row) => (row?.access_token ? decrypt(row.access_token) : null);
+const ROW_COLS = "location_id, company_id, user_type, access_token, refresh_token, expires_at";
 
+async function fetchRow({ locationId, companyId }) {
   if (locationId) {
     const { data } = await db()
-      .from("wa_oauth_installs")
-      .select("access_token")
-      .eq("location_id", locationId)
-      .maybeSingle();
-    if (data) return pick(data);
+      .from("wa_oauth_installs").select(ROW_COLS)
+      .eq("location_id", locationId).maybeSingle();
+    if (data) return data;
   }
   if (companyId) {
     const { data } = await db()
-      .from("wa_oauth_installs")
-      .select("access_token")
+      .from("wa_oauth_installs").select(ROW_COLS)
       .eq("company_id", companyId)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) return pick(data);
+      .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+    if (data) return data;
   }
   const { data } = await db()
-    .from("wa_oauth_installs")
-    .select("access_token")
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return pick(data);
+    .from("wa_oauth_installs").select(ROW_COLS)
+    .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+  return data || null;
+}
+
+/** Faz o refresh_token grant, persiste os novos tokens e devolve o access novo. */
+async function refreshRow(row) {
+  if (!row.refresh_token) throw new Error("no_refresh_token");
+  const body = new URLSearchParams({
+    client_id: process.env.GHL_CLIENT_ID || "",
+    client_secret: process.env.GHL_CLIENT_SECRET || "",
+    grant_type: "refresh_token",
+    refresh_token: decrypt(row.refresh_token),
+    user_type: row.user_type || "Company",
+  });
+  const r = await fetch(GHL_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    body,
+  });
+  const txt = await r.text();
+  if (!r.ok) throw new Error(`oauth_refresh_${r.status}: ${txt.slice(0, 160)}`);
+  const t = JSON.parse(txt);
+  const expiresAt = new Date(Date.now() + (Number(t.expires_in) || 86400) * 1000).toISOString();
+  const patch = {
+    access_token: encrypt(t.access_token),
+    expires_at: expiresAt,
+  };
+  if (t.refresh_token) patch.refresh_token = encrypt(t.refresh_token);
+  const { error } = await db()
+    .from("wa_oauth_installs").update(patch).eq("location_id", row.location_id);
+  if (error) log.warn("wa.oauth.persist_refresh_failed", { error: error.message });
+  log.info("wa.oauth.refreshed", { location_id: row.location_id, expires_at: expiresAt });
+  return t.access_token;
+}
+
+/**
+ * Token do app válido (com refresh automático). Preferência: install da própria
+ * location → company → mais recente. Retorna o access_token DECRIPTADO ou null.
+ */
+export async function getAppToken({ locationId, companyId } = {}) {
+  const row = await fetchRow({ locationId, companyId });
+  if (!row || !row.access_token) return null;
+  const expMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
+  if (!expMs || expMs - Date.now() < REFRESH_MARGIN_MS) {
+    try {
+      return await refreshRow(row);
+    } catch (err) {
+      log.error("wa.oauth.refresh_failed", { error: err.message });
+      // devolve o atual como último recurso (pode estar vencido)
+      return decrypt(row.access_token);
+    }
+  }
+  return decrypt(row.access_token);
 }

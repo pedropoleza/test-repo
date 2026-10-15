@@ -10,7 +10,7 @@
  * "Spark WhatsApp / WhatsApp 2" — NUNCA como WhatsApp principal.
  */
 import { normalizePhone } from "./phone.js";
-import { getInstallationByGhost, mainToken } from "./provider.js";
+import { getInstallationByGhost, mainToken, providerAppToken } from "./provider.js";
 import { resolveContact, injectInboundToMain } from "./ghl-conversations.js";
 import {
   claimSourceMessage,
@@ -86,7 +86,12 @@ export async function processGhostInbound(evt) {
     }
 
     // Injeta no Conversations da Main via nosso provider (§5).
-    const injected = await injectInboundToMain(mainToken(inst), {
+    // IMPORTANTE: o inject com conversationProviderId exige o token do
+    // Marketplace App (o provider "pertence" ao app) — o PIT da location dá
+    // 401 CONVERSATIONS_MSG_PROVIDER_NO_ACCESS. providerAppToken resolve o
+    // token do install OAuth, com refresh automático.
+    const appTok = await providerAppToken(inst);
+    const injected = await injectInboundToMain(appTok, {
       contactId: mainContactId,
       conversationProviderId: providerId,
       message,

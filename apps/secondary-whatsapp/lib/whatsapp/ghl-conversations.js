@@ -97,9 +97,12 @@ export async function injectInboundToMain(token, {
   message,
   attachments = [],
   conversationId,
+  type,
 }) {
   const body = {
-    type: "SMS", // Custom SMS Provider (§2) — representa nosso WhatsApp 2
+    // tipo do provider; default SMS (custom SMS provider §2). Configurável porque
+    // o GHL valida o par conversationProviderId/type (CONVERSATION_PROVIDER_MISMATCH).
+    type: type || process.env.WA_INBOUND_TYPE || "SMS",
     contactId,
     conversationProviderId,
     message: message || "",

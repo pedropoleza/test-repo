@@ -97,6 +97,7 @@ export async function processGhostInbound(evt) {
       message,
       attachments,
       conversationId: mapping?.main_conversation_id,
+      type: evt.injectType, // override opcional (probe/admin)
     });
 
     // Persiste mapping (§4) — chave de roteamento pras próximas mensagens.

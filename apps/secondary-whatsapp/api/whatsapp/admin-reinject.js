@@ -34,6 +34,7 @@ export default async function handler(req, res) {
     message: body.message || "",
     attachments: body.attachments || [],
     direction: body.direction || "inbound",
+    injectType: body.type, // override opcional do type do provider (probe)
   };
   try {
     const result = await processGhostInbound(evt);

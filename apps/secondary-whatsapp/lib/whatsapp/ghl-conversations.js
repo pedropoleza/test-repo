@@ -103,8 +103,10 @@ export async function injectInboundToMain(token, {
     contactId,
     conversationProviderId,
     message: message || "",
-    attachments: attachments || [],
   };
+  // GHL rejeita attachments:[] vazio (CONVERSATIONS_VALIDATION_ERROR) —
+  // só inclui quando há pelo menos 1.
+  if (Array.isArray(attachments) && attachments.length) body.attachments = attachments;
   if (conversationId) body.conversationId = conversationId;
 
   const out = await ghlRequest(token, "POST", "/conversations/messages/inbound", { body });

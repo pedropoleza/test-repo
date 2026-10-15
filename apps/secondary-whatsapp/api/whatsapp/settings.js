@@ -73,19 +73,19 @@ export default async function handler(req, res) {
     const missing = required.filter((k) => !body[k]);
     if (missing.length) return res.status(400).json({ error: "missing_fields", fields: missing });
 
+    // Upsert PARCIAL: só inclui colunas presentes no body (chaves de conflito
+    // sempre), pra um PUT parcial não zerar campos já gravados (nome, alias...).
     const row = {
       tenant_id: body.tenant_id,
-      agency_id: body.agency_id || null,
       main_location_id: body.main_location_id,
-      main_location_name: body.main_location_name || null,
       ghost_location_id: body.ghost_location_id,
-      ghost_location_name: body.ghost_location_name || null,
-      ghost_whatsapp_number: body.ghost_whatsapp_number || null,
       conversation_provider_id: body.conversation_provider_id,
-      provider_alias: body.provider_alias || "Spark WhatsApp",
-      provider_logo_url: body.provider_logo_url || null,
-      status: body.status || "active",
     };
+    const optional = [
+      "agency_id", "main_location_name", "ghost_location_name", "ghost_whatsapp_number",
+      "provider_alias", "provider_logo_url", "status", "assign_owner_user_id", "lead_tag",
+    ];
+    for (const k of optional) if (body[k] !== undefined) row[k] = body[k];
     // Tokens só são gravados quando fornecidos — criptografados em repouso.
     if (body.main_access_token) row.main_access_token = encrypt(String(body.main_access_token));
     if (body.ghost_access_token) row.ghost_access_token = encrypt(String(body.ghost_access_token));

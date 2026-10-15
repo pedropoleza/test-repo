@@ -33,7 +33,8 @@ export function ghlVersion() {
 const SELECT_COLS =
   "id, tenant_id, agency_id, main_location_id, main_location_name, main_access_token, " +
   "ghost_location_id, ghost_location_name, ghost_access_token, ghost_whatsapp_number, " +
-  "conversation_provider_id, provider_alias, provider_logo_url, status, last_error, last_checked_at";
+  "conversation_provider_id, provider_alias, provider_logo_url, status, last_error, last_checked_at, " +
+  "assign_owner_user_id, lead_tag";
 
 /** Instalação pela Main location. */
 export async function getInstallationByMain(mainLocationId) {

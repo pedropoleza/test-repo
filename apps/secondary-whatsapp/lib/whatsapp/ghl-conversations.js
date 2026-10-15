@@ -162,4 +162,28 @@ export async function updateProviderMessageStatus(appToken, messageId, status, e
   return ghlRequest(appToken, "PUT", `/conversations/messages/${messageId}/status`, { body });
 }
 
+/**
+ * Atribui owner e adiciona tag num contato da Main (roteamento por owner).
+ * - assignedTo via PUT /contacts/{id}
+ * - tags via POST /contacts/{id}/tags (merge — não apaga tags existentes)
+ * Nunca lança: roteamento não pode quebrar o fluxo da mensagem.
+ */
+export async function assignOwnerAndTag(token, { contactId, assignedTo, tags }) {
+  if (!contactId) return;
+  if (assignedTo) {
+    try {
+      await ghlRequest(token, "PUT", `/contacts/${contactId}`, { body: { assignedTo } });
+    } catch (err) {
+      log.warn("wa.assignOwner.failed", { contactId, error: err.message });
+    }
+  }
+  if (Array.isArray(tags) && tags.length) {
+    try {
+      await ghlRequest(token, "POST", `/contacts/${contactId}/tags`, { body: { tags } });
+    } catch (err) {
+      log.warn("wa.addTag.failed", { contactId, error: err.message });
+    }
+  }
+}
+
 export { ghlRequest };

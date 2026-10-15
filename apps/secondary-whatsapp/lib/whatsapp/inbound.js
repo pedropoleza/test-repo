@@ -11,7 +11,7 @@
  */
 import { normalizePhone } from "./phone.js";
 import { getInstallationByGhost, mainToken, providerAppToken } from "./provider.js";
-import { resolveContact, injectInboundToMain } from "./ghl-conversations.js";
+import { resolveContact, injectInboundToMain, assignOwnerAndTag } from "./ghl-conversations.js";
 import {
   claimSourceMessage,
   isBridgeOriginatedGhostMessage,
@@ -113,6 +113,16 @@ export async function processGhostInbound(evt) {
       provider_id: providerId,
       phone_normalized: phone,
     });
+
+    // Roteamento por owner (§canal segue o owner): leads da conta 2 viram
+    // owner do responsável configurado + tag, pra notificação/segmentação.
+    if (inst.assign_owner_user_id || inst.lead_tag) {
+      await assignOwnerAndTag(mainToken(inst), {
+        contactId: mainContactId,
+        assignedTo: inst.assign_owner_user_id || undefined,
+        tags: inst.lead_tag ? [inst.lead_tag] : undefined,
+      });
+    }
 
     await updateBridge(bridgeId, {
       main_message_id: injected.messageId,

@@ -138,6 +138,19 @@ async function validAccessToken(row: Install): Promise<string> {
   return (await validAccessTokenWithExpiry(row)).token;
 }
 
+// Single-flight the refresh per install row. GHL refresh tokens are SINGLE-USE
+// and rotating: two concurrent refreshes with the same refresh token race, one
+// wins and the other gets a dead token — which manifests in the UI as "app not
+// connected" even though the install is fine. A board load fires many GHL calls
+// at once (tRPC batches concurrent queries into one lambda running procedures
+// in parallel), so without this guard the refresh is the single point that
+// breaks under concurrency. Keyed by row.id; the in-flight promise is shared by
+// all concurrent callers and cleared when it settles.
+const refreshInFlight = new Map<
+  string,
+  Promise<{ token: string; expMs: number }>
+>();
+
 /** Like validAccessToken but also returns the token's expiry (for caching). */
 async function validAccessTokenWithExpiry(
   row: Install,
@@ -150,28 +163,39 @@ async function validAccessTokenWithExpiry(
     // No refresh token but token still present — try it; API will 401 if dead.
     return { token: decryptToken(row.accessTokenEnc), expMs };
   }
-  const tok = await postForm(TOKEN_URL, {
-    client_id: env.GHL_APP_CLIENT_ID,
-    client_secret: env.GHL_APP_CLIENT_SECRET,
-    grant_type: "refresh_token",
-    refresh_token: decryptToken(row.refreshTokenEnc),
-    user_type: row.userType === "Location" ? "Location" : "Company",
-  });
-  await db
-    .update(ghlInstallations)
-    .set({
-      accessTokenEnc: encryptToken(tok.access_token),
-      refreshTokenEnc: encryptToken(
-        tok.refresh_token ?? decryptToken(row.refreshTokenEnc),
-      ),
-      expiresAt: expiryFrom(tok.expires_in),
-      updatedAt: sql`now()`,
-    })
-    .where(eq(ghlInstallations.id, row.id));
-  return {
-    token: tok.access_token,
-    expMs: expiryFrom(tok.expires_in).getTime(),
-  };
+
+  // Coalesce concurrent refreshes for this install into one.
+  const pending = refreshInFlight.get(row.id);
+  if (pending) return pending;
+
+  const p = (async () => {
+    const tok = await postForm(TOKEN_URL, {
+      client_id: env.GHL_APP_CLIENT_ID,
+      client_secret: env.GHL_APP_CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: decryptToken(row.refreshTokenEnc!),
+      user_type: row.userType === "Location" ? "Location" : "Company",
+    });
+    const newExpiry = expiryFrom(tok.expires_in);
+    await db
+      .update(ghlInstallations)
+      .set({
+        accessTokenEnc: encryptToken(tok.access_token),
+        refreshTokenEnc: encryptToken(
+          tok.refresh_token ?? decryptToken(row.refreshTokenEnc!),
+        ),
+        expiresAt: newExpiry,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(ghlInstallations.id, row.id));
+    return { token: tok.access_token, expMs: newExpiry.getTime() };
+  })();
+  refreshInFlight.set(row.id, p);
+  try {
+    return await p;
+  } finally {
+    refreshInFlight.delete(row.id);
+  }
 }
 
 async function findLocationInstall(locationId: string): Promise<Install | null> {
@@ -207,6 +231,12 @@ async function findCompanyInstalls(): Promise<Install[]> {
 // instances are ephemeral, so this is a best-effort cache; misses just refetch.
 const locationTokenCache = new Map<string, { token: string; expMs: number }>();
 
+// Single-flight the whole resolution per location. A board load triggers a
+// burst of concurrent getLocationToken calls for the SAME location; without
+// this, each starts its own refresh/mint, stampeding the single-use refresh
+// token and the mint endpoint. Concurrent callers share one in-flight promise.
+const locationTokenInFlight = new Map<string, Promise<string>>();
+
 /**
  * Access token usable for a given location's APIs. Resolution order:
  *  1. A direct **Location install** for THIS location → use its token as-is
@@ -217,6 +247,26 @@ const locationTokenCache = new Map<string, { token: string; expMs: number }>();
  *     as "ghl_not_connected"). Tokens are never logged or exposed.
  */
 export async function getLocationToken(locationId: string): Promise<string> {
+  const cached = locationTokenCache.get(locationId);
+  if (cached && cached.expMs - Date.now() > REFRESH_MARGIN_MS) {
+    return cached.token;
+  }
+
+  const pending = locationTokenInFlight.get(locationId);
+  if (pending) return pending;
+
+  const p = resolveLocationToken(locationId);
+  locationTokenInFlight.set(locationId, p);
+  try {
+    return await p;
+  } finally {
+    locationTokenInFlight.delete(locationId);
+  }
+}
+
+async function resolveLocationToken(locationId: string): Promise<string> {
+  // Re-check the cache: a concurrent call may have populated it between the
+  // cache miss above and this promise being scheduled.
   const cached = locationTokenCache.get(locationId);
   if (cached && cached.expMs - Date.now() > REFRESH_MARGIN_MS) {
     return cached.token;

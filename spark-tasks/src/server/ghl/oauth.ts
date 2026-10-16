@@ -164,38 +164,115 @@ async function validAccessTokenWithExpiry(
     return { token: decryptToken(row.accessTokenEnc), expMs };
   }
 
-  // Coalesce concurrent refreshes for this install into one.
+  // Coalesce concurrent refreshes for this install WITHIN this instance.
   const pending = refreshInFlight.get(row.id);
   if (pending) return pending;
 
-  const p = (async () => {
-    const tok = await postForm(TOKEN_URL, {
-      client_id: env.GHL_APP_CLIENT_ID,
-      client_secret: env.GHL_APP_CLIENT_SECRET,
-      grant_type: "refresh_token",
-      refresh_token: decryptToken(row.refreshTokenEnc!),
-      user_type: row.userType === "Location" ? "Location" : "Company",
-    });
-    const newExpiry = expiryFrom(tok.expires_in);
-    await db
-      .update(ghlInstallations)
-      .set({
-        accessTokenEnc: encryptToken(tok.access_token),
-        refreshTokenEnc: encryptToken(
-          tok.refresh_token ?? decryptToken(row.refreshTokenEnc!),
-        ),
-        expiresAt: newExpiry,
-        updatedAt: sql`now()`,
-      })
-      .where(eq(ghlInstallations.id, row.id));
-    return { token: tok.access_token, expMs: newExpiry.getTime() };
-  })();
+  const p = refreshWithLock(row);
   refreshInFlight.set(row.id, p);
   try {
     return await p;
   } finally {
     refreshInFlight.delete(row.id);
   }
+}
+
+/**
+ * Refresh an install's token, serialized ACROSS all serverless instances via a
+ * Postgres transaction advisory lock keyed on the install id. A board load can
+ * fan out across several concurrent Vercel lambdas, each with its own in-process
+ * map, so the in-memory single-flight alone can't stop them from racing on GHL's
+ * single-use rotating refresh token. The DB lock closes that gap:
+ *   1. take pg_advisory_xact_lock(hashtext(id)) — peers for this install queue;
+ *   2. re-read the row — a peer that held the lock first may have just minted a
+ *      fresh token, in which case we return it and DON'T spend the (now rotated,
+ *      dead) refresh token again;
+ *   3. otherwise perform the refresh and persist, then release on commit.
+ * pg_advisory_xact_lock (not the session-level variant) is required under the
+ * transaction-mode pooler: it auto-releases when the transaction ends.
+ */
+async function refreshWithLock(
+  row: Install,
+): Promise<{ token: string; expMs: number }> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${row.id}))`);
+
+    // Re-read under the lock: a peer may have refreshed while we waited.
+    const [fresh] = await tx
+      .select()
+      .from(ghlInstallations)
+      .where(eq(ghlInstallations.id, row.id))
+      .limit(1);
+    const current = fresh ?? row;
+    const curExpMs = current.expiresAt ? current.expiresAt.getTime() : 0;
+    if (curExpMs - Date.now() > REFRESH_MARGIN_MS) {
+      return { token: decryptToken(current.accessTokenEnc), expMs: curExpMs };
+    }
+    if (!current.refreshTokenEnc) {
+      return { token: decryptToken(current.accessTokenEnc), expMs: curExpMs };
+    }
+
+    const tok = await postForm(TOKEN_URL, {
+      client_id: env.GHL_APP_CLIENT_ID,
+      client_secret: env.GHL_APP_CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: decryptToken(current.refreshTokenEnc),
+      user_type: current.userType === "Location" ? "Location" : "Company",
+    });
+    const newExpiry = expiryFrom(tok.expires_in);
+    await tx
+      .update(ghlInstallations)
+      .set({
+        accessTokenEnc: encryptToken(tok.access_token),
+        refreshTokenEnc: encryptToken(
+          tok.refresh_token ?? decryptToken(current.refreshTokenEnc),
+        ),
+        expiresAt: newExpiry,
+        updatedAt: sql`now()`,
+      })
+      .where(eq(ghlInstallations.id, current.id));
+    return { token: tok.access_token, expMs: newExpiry.getTime() };
+  });
+}
+
+/**
+ * Proactively refresh every install whose token is within `windowMs` of expiry.
+ * Run on a schedule so tokens never reach the near-expiry window during a live
+ * board load — the situation that triggers the cross-instance refresh race in
+ * the first place. Returns a per-install summary (no tokens). Safe to call
+ * concurrently: each refresh takes the same advisory lock as the live path.
+ */
+export async function refreshExpiringInstalls(
+  windowMs = 10 * 60_000,
+): Promise<{ total: number; refreshed: number; failed: number; skipped: number }> {
+  const rows = await db.select().from(ghlInstallations);
+  const cutoff = Date.now() + windowMs;
+  let refreshed = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (const row of rows) {
+    const expMs = row.expiresAt ? row.expiresAt.getTime() : 0;
+    if (expMs > cutoff) {
+      skipped++;
+      continue;
+    }
+    if (!row.refreshTokenEnc) {
+      skipped++;
+      continue;
+    }
+    try {
+      await refreshWithLock(row);
+      refreshed++;
+    } catch (err) {
+      failed++;
+      console.warn(
+        `[oauth] proactive refresh failed for install ${row.id}: ${
+          err instanceof Error ? err.message : "unknown"
+        }`,
+      );
+    }
+  }
+  return { total: rows.length, refreshed, failed, skipped };
 }
 
 async function findLocationInstall(locationId: string): Promise<Install | null> {

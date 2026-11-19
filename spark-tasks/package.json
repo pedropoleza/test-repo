@@ -25,6 +25,7 @@
     "@trpc/react-query": "^11.0.0-rc.593",
     "@trpc/server": "^11.0.0-rc.593",
     "drizzle-orm": "^0.36.0",
+    "jspdf": "^4.2.1",
     "next": "^15.0.0",
     "postgres": "^3.4.4",
     "react": "^19.0.0",

@@ -33,6 +33,7 @@ import {
 import type { Task } from "./TaskCard";
 import { openResolvedTab } from "./open-tab";
 import { ghlContactUrl } from "~/lib/ghl-app";
+import { exportTaskPdf } from "~/lib/task-pdf";
 
 type GhlUser = { id: string; name: string; email?: string };
 
@@ -225,6 +226,30 @@ export function TaskModal({
       setError("Could not save. Try again.");
       setSaving(false);
     }
+  }
+
+  function exportPdf() {
+    const stageName = selectedStages.find((s) => s.id === status)?.name ?? status;
+    const assigneeNames = [...assignees]
+      .map((id) => users.find((u) => u.id === id)?.name ?? id)
+      .filter(Boolean);
+    const contactName =
+      contact && contact.name !== "…"
+        ? contact.name
+        : (linkedContact.data?.name ?? null);
+    void exportTaskPdf({
+      title: title.trim() || "Tarefa",
+      typeLabel,
+      stageName,
+      priorityLabel: priority !== "none" ? PRIORITY_META[priority].label : null,
+      dueDate: due ? formatDatePt(due) : null,
+      labels,
+      assignees: assigneeNames,
+      contactName,
+      customFields,
+      note,
+      checklist,
+    });
   }
 
   async function runAction(action: "duplicate" | "archive" | "restore" | "delete") {
@@ -820,6 +845,15 @@ export function TaskModal({
         )}
 
         <div className="modal-footer" style={{ paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+          <button
+            className="btn btn-secondary"
+            style={{ marginRight: "auto" }}
+            onClick={exportPdf}
+            disabled={!title.trim()}
+            title="Gerar um PDF com o que está preenchido na tarefa"
+          >
+            ⬇ Exportar PDF
+          </button>
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
             Cancel
           </button>
@@ -842,6 +876,13 @@ function toDateInput(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+/** "YYYY-MM-DD" (date input) -> "DD/MM/YYYY" for display in the PDF. */
+function formatDatePt(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
 function useDebounced(value: string, ms: number): string {

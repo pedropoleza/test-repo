@@ -16,7 +16,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function authorized(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env.MIGRATE_SECRET;
   if (!secret) return false;
   const bearer = req.headers.get("authorization") === `Bearer ${secret}`;
   const key = req.nextUrl.searchParams.get("key") === secret;

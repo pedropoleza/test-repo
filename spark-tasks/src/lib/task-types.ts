@@ -21,6 +21,16 @@ export function taskTypeLabel(taskType?: string | null): string | null {
   return null;
 }
 
+/**
+ * Pre-filled title for a task type, ending in ": " so the user just types the
+ * contact's name after it (e.g. "Cotação: João Silva").
+ */
+export function seedTitleForType(taskType?: string | null): string {
+  if (taskType === QUOTE_TASK_TYPE) return "Cotação: ";
+  if (taskType === PROPOSAL_TASK_TYPE) return "Proposta de cotação: ";
+  return "";
+}
+
 // ---------------------------------------------------------------------------
 // Note templates
 // ---------------------------------------------------------------------------

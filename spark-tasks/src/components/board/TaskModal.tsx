@@ -18,6 +18,7 @@ import type {
 import {
   PROPOSAL_TASK_TYPE,
   seedNoteForType,
+  seedTitleForType,
   taskTypeLabel,
 } from "~/lib/task-types";
 import {
@@ -67,7 +68,10 @@ export function TaskModal({
   const stageColor = stages.find((s) => s.id === initialStatus)?.color ?? "gray";
 
   const [title, setTitle] = useState(
-    editing?.title ?? (state.mode === "create" ? state.title ?? "" : ""),
+    editing?.title ??
+      (state.mode === "create"
+        ? (state.title ?? seedTitleForType(state.taskType))
+        : ""),
   );
   const [note, setNote] = useState(
     editing?.note ??
@@ -314,7 +318,7 @@ export function TaskModal({
               <textarea
                 className="textarea"
                 style={{
-                  minHeight: taskType === PROPOSAL_TASK_TYPE ? 440 : 150,
+                  minHeight: taskType === PROPOSAL_TASK_TYPE ? 440 : 260,
                   fontFamily:
                     taskType === PROPOSAL_TASK_TYPE
                       ? "ui-monospace, SFMono-Regular, Menlo, monospace"
@@ -448,6 +452,111 @@ export function TaskModal({
 
           {/* ---------- Properties sidebar ---------- */}
           <div className="modal-side">
+            <div className="side-field">
+              <label>Link Contact</label>
+              {contact ? (
+                <div className="linked-contact-compact">
+                  {linkedContact.data?.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      className="contact-photo"
+                      src={linkedContact.data.photoUrl}
+                      alt=""
+                    />
+                  ) : (
+                    <span
+                      className="contact-photo initials"
+                      style={{ background: avatarColor(contact.id) }}
+                    >
+                      {initials(
+                        contact.name === "…"
+                          ? (linkedContact.data?.name ?? "C")
+                          : contact.name,
+                      )}
+                    </span>
+                  )}
+                  <span className="lc-name">
+                    {contact.name === "…"
+                      ? (linkedContact.data?.name ?? "Contact")
+                      : contact.name}
+                  </span>
+                  <button
+                    type="button"
+                    className="lc-icon lc-chat"
+                    title="Open conversation"
+                    aria-label="Open conversation"
+                    onClick={() =>
+                      void openResolvedTab(async () => {
+                        const { url } = await utils.ghl.conversationUrl.fetch({
+                          contactId: contact.id,
+                        });
+                        return url;
+                      })
+                    }
+                  >
+                    💬
+                  </button>
+                  {locationId && (
+                    <a
+                      className="lc-icon"
+                      title="Open contact"
+                      href={ghlContactUrl(locationId, contact.id)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      ↗
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    className="lc-icon"
+                    title="Unlink contact"
+                    aria-label="Unlink contact"
+                    onClick={() => setContact(null)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    className="input"
+                    placeholder="Search contact…"
+                    value={contactQuery}
+                    onChange={(e) => setContactQuery(e.target.value)}
+                  />
+                  {search.isError && (
+                    <div className="hint" style={{ marginTop: 6 }}>
+                      Search unavailable.
+                    </div>
+                  )}
+                  {search.data && search.data.length > 0 && (
+                    <div className="contact-results">
+                      {search.data.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="contact-row"
+                          onClick={() => {
+                            setContact({ id: c.id, name: c.name });
+                            setContactQuery("");
+                          }}
+                        >
+                          <div style={{ fontSize: 13 }}>{c.name}</div>
+                          {(c.email || c.phone) && <div className="sub">{c.email ?? c.phone}</div>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {search.data && search.data.length === 0 && (
+                    <div className="hint" style={{ marginTop: 6 }}>
+                      No contacts found.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
             {(boardsQ.data?.length ?? 0) > 1 && (
               <div className="side-field">
                 <label>Pipeline</label>
@@ -616,111 +725,6 @@ export function TaskModal({
                   maxLength={30}
                 />
               </form>
-            </div>
-
-            <div className="side-field">
-              <label>Link Contact</label>
-              {contact ? (
-                <div className="linked-contact-compact">
-                  {linkedContact.data?.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      className="contact-photo"
-                      src={linkedContact.data.photoUrl}
-                      alt=""
-                    />
-                  ) : (
-                    <span
-                      className="contact-photo initials"
-                      style={{ background: avatarColor(contact.id) }}
-                    >
-                      {initials(
-                        contact.name === "…"
-                          ? (linkedContact.data?.name ?? "C")
-                          : contact.name,
-                      )}
-                    </span>
-                  )}
-                  <span className="lc-name">
-                    {contact.name === "…"
-                      ? (linkedContact.data?.name ?? "Contact")
-                      : contact.name}
-                  </span>
-                  <button
-                    type="button"
-                    className="lc-icon lc-chat"
-                    title="Open conversation"
-                    aria-label="Open conversation"
-                    onClick={() =>
-                      void openResolvedTab(async () => {
-                        const { url } = await utils.ghl.conversationUrl.fetch({
-                          contactId: contact.id,
-                        });
-                        return url;
-                      })
-                    }
-                  >
-                    💬
-                  </button>
-                  {locationId && (
-                    <a
-                      className="lc-icon"
-                      title="Open contact"
-                      href={ghlContactUrl(locationId, contact.id)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      ↗
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    className="lc-icon"
-                    title="Unlink contact"
-                    aria-label="Unlink contact"
-                    onClick={() => setContact(null)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <input
-                    className="input"
-                    placeholder="Search contact…"
-                    value={contactQuery}
-                    onChange={(e) => setContactQuery(e.target.value)}
-                  />
-                  {search.isError && (
-                    <div className="hint" style={{ marginTop: 6 }}>
-                      Search unavailable.
-                    </div>
-                  )}
-                  {search.data && search.data.length > 0 && (
-                    <div className="contact-results">
-                      {search.data.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          className="contact-row"
-                          onClick={() => {
-                            setContact({ id: c.id, name: c.name });
-                            setContactQuery("");
-                          }}
-                        >
-                          <div style={{ fontSize: 13 }}>{c.name}</div>
-                          {(c.email || c.phone) && <div className="sub">{c.email ?? c.phone}</div>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {search.data && search.data.length === 0 && (
-                    <div className="hint" style={{ marginTop: 6 }}>
-                      No contacts found.
-                    </div>
-                  )}
-                </>
-              )}
             </div>
 
             {editing && (

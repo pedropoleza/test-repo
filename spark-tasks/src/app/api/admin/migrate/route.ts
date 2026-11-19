@@ -23,37 +23,38 @@ function authorized(req: NextRequest): boolean {
   return bearer || key;
 }
 
-const STATEMENTS: { label: string; run: () => Promise<unknown> }[] = [
-  {
-    label: "tasks.task_type",
-    run: () =>
-      db.execute(
-        sql`alter table spark_tasks.tasks add column if not exists task_type text`,
-      ),
-  },
-  {
-    label: "tasks.custom_fields",
-    run: () =>
-      db.execute(
-        sql`alter table spark_tasks.tasks add column if not exists custom_fields jsonb not null default '[]'::jsonb`,
-      ),
-  },
+const DDL = [
+  sql`alter table spark_tasks.tasks add column if not exists task_type text`,
+  sql`alter table spark_tasks.tasks add column if not exists custom_fields jsonb not null default '[]'::jsonb`,
 ];
+
+/** Run the DDL under a given role (empty = current login role). */
+async function runUnderRole(role: string | null): Promise<string> {
+  await db.transaction(async (tx) => {
+    if (role) await tx.execute(sql.raw(`set local role ${role}`));
+    for (const stmt of DDL) await tx.execute(stmt);
+  });
+  return "ok";
+}
 
 export async function POST(req: NextRequest) {
   if (!authorized(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const results: Record<string, string> = {};
-  let ok = true;
-  for (const s of STATEMENTS) {
+  // Try as the app role first (it likely owns the tables); fall back to the
+  // plain login role. Report which strategy worked, or every error.
+  const attempts: { role: string | null; label: string }[] = [
+    { role: "spark_tasks_app", label: "spark_tasks_app" },
+    { role: null, label: "login_role" },
+  ];
+  const errors: Record<string, string> = {};
+  for (const a of attempts) {
     try {
-      await s.run();
-      results[s.label] = "ok";
+      await runUnderRole(a.role);
+      return NextResponse.json({ ok: true, appliedAs: a.label, errors });
     } catch (e) {
-      ok = false;
-      results[s.label] = e instanceof Error ? e.message.slice(0, 300) : "unknown";
+      errors[a.label] = e instanceof Error ? e.message.slice(0, 300) : "unknown";
     }
   }
-  return NextResponse.json({ ok, results }, { status: ok ? 200 : 500 });
+  return NextResponse.json({ ok: false, errors }, { status: 500 });
 }

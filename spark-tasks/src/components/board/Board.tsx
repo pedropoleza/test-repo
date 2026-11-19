@@ -28,7 +28,7 @@ import {
 } from "./FilterDrawer";
 import { IconSliders } from "./Icons";
 import type { Task } from "./TaskCard";
-import { QUOTE_TASK_TYPE, PROPOSAL_TASK_TYPE } from "~/lib/task-types";
+import { PROPOSAL_TASK_TYPE } from "~/lib/task-types";
 
 type ViewMode = "kanban" | "list";
 
@@ -498,24 +498,6 @@ export function Board() {
               >
                 <span className="newtask-item-title">Tarefa</span>
                 <span className="newtask-item-sub">Tarefa em branco</span>
-              </button>
-              <button
-                type="button"
-                className="newtask-item"
-                role="menuitem"
-                onClick={() => {
-                  setNewTaskMenu(false);
-                  setModal({
-                    mode: "create",
-                    status: stages[0]?.id ?? "todo",
-                    taskType: QUOTE_TASK_TYPE,
-                  });
-                }}
-              >
-                <span className="newtask-item-title">Cotação</span>
-                <span className="newtask-item-sub">
-                  Formulário com os dados da cotação
-                </span>
               </button>
               <button
                 type="button"

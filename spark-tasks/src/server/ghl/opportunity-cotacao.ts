@@ -3,12 +3,12 @@
  *
  * In Sabrina's account, when an opportunity lands in pipeline "1- Prospects" at
  * the stage "Informações de Cotações - Soraya para Julia", a GHL workflow POSTs
- * to /api/webhooks/opportunity-cotacao. We create a ready-to-fill "Cotação"
- * task for that contact (title "Cotação: {nome}", note = the cotação template)
- * so the rep just fills the data and exports the PDF.
+ * to /api/webhooks/opportunity-cotacao. We create a ready-to-fill "Proposta de
+ * cotação" task for that contact (title "Proposta de cotação: {nome}", note =
+ * the proposal template) so the rep just fills it in and exports the PDF.
  *
  * Scoped to an allowlist (defaults to Sabrina's location). Idempotent: one open
- * cotação task per opportunity (falls back to per-contact) — repeated stage
+ * proposal task per opportunity (falls back to per-contact) — repeated stage
  * webhooks won't pile up duplicates. RLS-scoped like the rest of the app.
  */
 import { after } from "next/server";
@@ -24,7 +24,7 @@ import {
   type Stage,
 } from "~/server/db/schema";
 import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
-import { seedNoteForType, QUOTE_TASK_TYPE } from "~/lib/task-types";
+import { seedNoteForType, seedTitleForType, PROPOSAL_TASK_TYPE } from "~/lib/task-types";
 import { routedBoard } from "./routing";
 
 export type OppCotacaoInput = {
@@ -156,7 +156,8 @@ export async function createCotacaoTaskFromOpp(
       { count: number },
     ];
 
-    const title = leadName ? `Cotação: ${leadName}` : "Cotação: ";
+    const base = seedTitleForType(PROPOSAL_TASK_TYPE); // "Proposta de cotação: "
+    const title = leadName ? `${base}${leadName}` : base;
 
     const [created] = await tx
       .insert(tasks)
@@ -164,7 +165,7 @@ export async function createCotacaoTaskFromOpp(
         locationId: input.locationId,
         boardId: board.id,
         title,
-        note: seedNoteForType(QUOTE_TASK_TYPE),
+        note: seedNoteForType(PROPOSAL_TASK_TYPE),
         status,
         color: "blue",
         priority: "high",

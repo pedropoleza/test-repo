@@ -3,30 +3,26 @@
  * just fills in the blanks. Picking one from the New-task menu opens the task
  * with its layout ready in the note.
  *
- * Both current types seed a note template:
- *  - "Cotação": the short intake (data we need to run a quote).
+ * Current type:
  *  - "Proposta de cotação": the full insurance-quote proposal (client data,
  *    term-plan tables, accumulation options, observations).
  *
  * Adding a type is an entry here plus a menu option in Board.tsx.
  */
 
-export const QUOTE_TASK_TYPE = "cotacao";
 export const PROPOSAL_TASK_TYPE = "proposta";
 
 /** Human label for a task type (used for the modal heading on create). */
 export function taskTypeLabel(taskType?: string | null): string | null {
-  if (taskType === QUOTE_TASK_TYPE) return "Cotação";
   if (taskType === PROPOSAL_TASK_TYPE) return "Proposta";
   return null;
 }
 
 /**
  * Pre-filled title for a task type, ending in ": " so the user just types the
- * contact's name after it (e.g. "Cotação: João Silva").
+ * contact's name after it (e.g. "Proposta de cotação: João Silva").
  */
 export function seedTitleForType(taskType?: string | null): string {
-  if (taskType === QUOTE_TASK_TYPE) return "Cotação: ";
   if (taskType === PROPOSAL_TASK_TYPE) return "Proposta de cotação: ";
   return "";
 }
@@ -34,17 +30,6 @@ export function seedTitleForType(taskType?: string | null): string {
 // ---------------------------------------------------------------------------
 // Note templates
 // ---------------------------------------------------------------------------
-
-const QUOTE_NOTE = `COTAÇÃO
-
-Nome:
-Sobrenome:
-Data de nascimento:
-Estado:
-É fumante?:
-Toma algum remédio prescrito?:
-É casado(a)?:
-`;
 
 /** Accumulation plan: 19 options from US$100 to US$1000/mo in US$50 steps. */
 function accumulationBlock(): string {
@@ -101,7 +86,6 @@ Responsável pela cotação:
 
 /** Pre-filled note template for a task type (empty if the type has none). */
 export function seedNoteForType(taskType?: string | null): string {
-  if (taskType === QUOTE_TASK_TYPE) return QUOTE_NOTE;
   if (taskType === PROPOSAL_TASK_TYPE) return PROPOSAL_NOTE;
   return "";
 }

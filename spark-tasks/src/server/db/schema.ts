@@ -70,6 +70,21 @@ export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 /** Lightweight embedded checklist — low-contention, saved wholesale. */
 export type ChecklistItem = { id: string; text: string; done: boolean };
 
+/**
+ * Structured, typed fields embedded on a task (e.g. the "Cotação" task type
+ * seeds a fixed set of labeled fields the user fills in). Saved wholesale as
+ * JSON alongside the task — labels are fixed at creation, only `value` changes.
+ */
+export const CUSTOM_FIELD_TYPES = ["text", "date", "boolean"] as const;
+export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number];
+export type CustomField = {
+  id: string;
+  label: string;
+  type: CustomFieldType;
+  /** text: free text · date: "YYYY-MM-DD" · boolean: "sim" | "nao" | "" */
+  value: string;
+};
+
 /** Card rendering style: color strip only, or soft-filled background. */
 export const CARD_STYLES = ["strip", "filled"] as const;
 export type CardStyle = (typeof CARD_STYLES)[number];
@@ -118,6 +133,13 @@ export const tasks = sparkTasks.table(
       .notNull()
       .default(sql`'[]'::jsonb`)
       .$type<ChecklistItem[]>(),
+    /** Optional task-type marker (e.g. "cotacao") that seeds custom fields. */
+    taskType: text("task_type"),
+    /** Structured, labeled fields the user fills in (see CustomField). */
+    customFields: jsonb("custom_fields")
+      .notNull()
+      .default(sql`'[]'::jsonb`)
+      .$type<CustomField[]>(),
     /** Soft delete: archived tasks are hidden from the board by default. */
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     /** Set once the D7 contact write-back succeeded — the idempotency flag. */

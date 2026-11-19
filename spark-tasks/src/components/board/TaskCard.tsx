@@ -35,6 +35,7 @@ import {
 } from "./Icons";
 import { openResolvedTab } from "./open-tab";
 import { useContactsCtx } from "./ContactsContext";
+import { taskTypeLabel } from "~/lib/task-types";
 
 export type Task = RouterOutputs["task"]["list"][number];
 
@@ -78,8 +79,13 @@ export function TaskCard({
   const archived = !!task.archivedAt;
   const mineAlready = !!currentUserId && task.assigneeIds.includes(currentUserId);
   const prio = PRIORITY_META[task.priority];
+  const typeLabel = taskTypeLabel(task.taskType);
   const hasTags =
-    task.priority !== "none" || task.recurring || task.source === "ghl" || archived;
+    !!typeLabel ||
+    task.priority !== "none" ||
+    task.recurring ||
+    task.source === "ghl" ||
+    archived;
   const hasMeta =
     !!task.dueDate || checkTotal > 0 || !!task.contactId || task.assigneeIds.length > 0;
 
@@ -164,6 +170,15 @@ export function TaskCard({
       {/* 1. Tags */}
       {hasTags && (
         <div className="card-tags">
+          {typeLabel && (
+            <span
+              className="tag"
+              style={{ color: "#0E9384", background: "#0E93841a" }}
+              title={typeLabel}
+            >
+              {typeLabel}
+            </span>
+          )}
           {task.priority !== "none" && (
             <span
               className="tag"

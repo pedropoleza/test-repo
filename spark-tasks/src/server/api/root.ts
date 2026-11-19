@@ -8,7 +8,7 @@ import { ghlRouter } from "./routers/ghl";
 import { notificationsRouter } from "./routers/notifications";
 import { pushRouter } from "./routers/push";
 import { settingsRouter } from "./routers/settings";
-import { locationRequiresOwner } from "~/server/config";
+import { locationRequiresOwner, locationHasQuoteTask } from "~/server/config";
 
 export const appRouter = createTRPCRouter({
   board: boardRouter,
@@ -24,6 +24,7 @@ export const appRouter = createTRPCRouter({
       locationId: ctx.locationId,
       userId: ctx.userId,
       requiresOwner: locationRequiresOwner(ctx.locationId),
+      hasQuoteTask: locationHasQuoteTask(ctx.locationId),
     })),
   }),
 });

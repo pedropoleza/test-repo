@@ -1352,6 +1352,91 @@ a:focus-visible,
   opacity: 0.5;
   cursor: default;
 }
+
+/* ---- New-task type menu ---- */
+.newtask-wrap {
+  position: relative;
+  display: inline-block;
+}
+.newtask-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 240px;
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e4e7ec);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.16);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.newtask-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 11px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.newtask-item:hover {
+  background: var(--surface-hover, #f2f4f7);
+}
+.newtask-item-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text, #101828);
+}
+.newtask-item-sub {
+  font-size: 12px;
+  color: var(--text-muted, #667085);
+}
+
+/* ---- Structured task fields (e.g. Cotação) ---- */
+.cfield-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cfield {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.cfield-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary, #475467);
+}
+.cfield-input {
+  width: 100%;
+}
+.cfield-seg {
+  display: inline-flex;
+  gap: 6px;
+}
+.cfield-seg-btn {
+  padding: 7px 18px;
+  border: 1px solid var(--border-strong, #d0d5dd);
+  background: var(--surface, #fff);
+  color: var(--text-secondary, #475467);
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cfield-seg-btn.on {
+  background: var(--primary, #155eef);
+  border-color: var(--primary, #155eef);
+  color: #fff;
+}
 .settings-title {
   font-size: 13.5px;
   font-weight: 700;

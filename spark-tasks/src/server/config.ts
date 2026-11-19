@@ -18,3 +18,21 @@ const OWNER_REQUIRED = new Set(
 export function locationRequiresOwner(locationId: string): boolean {
   return OWNER_REQUIRED.has(locationId);
 }
+
+/**
+ * `QUOTE_TASK_LOCATION_IDS` — comma-separated location ids that get the
+ * "Cotação" task type in the New-task menu. The quote fields (smoker, prescribed
+ * meds, etc.) are specific to accounts that do insurance quoting, so this is
+ * gated per subaccount. When the env is UNSET/empty the type is hidden
+ * everywhere (opt-in); list a location to turn it on there.
+ */
+const QUOTE_TASK_LOCATIONS = new Set(
+  (process.env.QUOTE_TASK_LOCATION_IDS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
+export function locationHasQuoteTask(locationId: string): boolean {
+  return QUOTE_TASK_LOCATIONS.has(locationId);
+}

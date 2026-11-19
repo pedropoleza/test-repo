@@ -28,6 +28,7 @@ import {
 } from "./FilterDrawer";
 import { IconSliders } from "./Icons";
 import type { Task } from "./TaskCard";
+import { QUOTE_TASK_TYPE, PROPOSAL_TASK_TYPE } from "~/lib/task-types";
 
 type ViewMode = "kanban" | "list";
 
@@ -79,6 +80,8 @@ export function Board() {
   const [sort, setSort] = useState<SortMode>("manual");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [modal, setModal] = useState<ModalState | null>(null);
+  const [newTaskMenu, setNewTaskMenu] = useState(false);
+  const newTaskRef = useRef<HTMLDivElement>(null);
   const [newPipeline, setNewPipeline] = useState(false);
   const [addingStage, setAddingStage] = useState(false);
   const [newStageName, setNewStageName] = useState("");
@@ -92,6 +95,7 @@ export function Board() {
   const openStageId = stages[0]?.id ?? "todo";
   const doneStageId =
     (stages.find((s) => s.isDone) ?? stages[stages.length - 1])?.id ?? "done";
+  const hasQuoteTask = whoami.data?.hasQuoteTask ?? false;
 
   const usersById = useMemo(
     () => new Map((users.data ?? []).map((u) => [u.id, u.name])),
@@ -120,6 +124,17 @@ export function Board() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [modal, newPipeline, stages]);
+
+  // Close the New-task type menu on outside click.
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (newTaskRef.current && !newTaskRef.current.contains(e.target as Node)) {
+        setNewTaskMenu(false);
+      }
+    }
+    if (newTaskMenu) document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [newTaskMenu]);
 
   const move = api.task.move.useMutation({
     onMutate: async (vars) => {
@@ -455,13 +470,74 @@ export function Board() {
           {filterCount > 0 && <span className="toolbar-badge">{filterCount}</span>}
         </button>
 
-        <button
-          className="btn btn-primary"
-          onClick={() => setModal({ mode: "create", status: stages[0]?.id ?? "todo" })}
-          title="Shortcut: N"
-        >
-          + New task
-        </button>
+        <div className="newtask-wrap" ref={newTaskRef}>
+          <button
+            className="btn btn-primary"
+            onClick={() =>
+              hasQuoteTask
+                ? setNewTaskMenu((v) => !v)
+                : setModal({ mode: "create", status: stages[0]?.id ?? "todo" })
+            }
+            title="Shortcut: N"
+            aria-haspopup={hasQuoteTask || undefined}
+            aria-expanded={hasQuoteTask ? newTaskMenu : undefined}
+          >
+            + New task{hasQuoteTask ? " ▾" : ""}
+          </button>
+
+          {hasQuoteTask && newTaskMenu && (
+            <div className="newtask-menu" role="menu">
+              <button
+                type="button"
+                className="newtask-item"
+                role="menuitem"
+                onClick={() => {
+                  setNewTaskMenu(false);
+                  setModal({ mode: "create", status: stages[0]?.id ?? "todo" });
+                }}
+              >
+                <span className="newtask-item-title">Tarefa</span>
+                <span className="newtask-item-sub">Tarefa em branco</span>
+              </button>
+              <button
+                type="button"
+                className="newtask-item"
+                role="menuitem"
+                onClick={() => {
+                  setNewTaskMenu(false);
+                  setModal({
+                    mode: "create",
+                    status: stages[0]?.id ?? "todo",
+                    taskType: QUOTE_TASK_TYPE,
+                  });
+                }}
+              >
+                <span className="newtask-item-title">Cotação</span>
+                <span className="newtask-item-sub">
+                  Formulário com os dados da cotação
+                </span>
+              </button>
+              <button
+                type="button"
+                className="newtask-item"
+                role="menuitem"
+                onClick={() => {
+                  setNewTaskMenu(false);
+                  setModal({
+                    mode: "create",
+                    status: stages[0]?.id ?? "todo",
+                    taskType: PROPOSAL_TASK_TYPE,
+                  });
+                }}
+              >
+                <span className="newtask-item-title">Proposta de cotação</span>
+                <span className="newtask-item-sub">
+                  Modelo de proposta pronto para preencher
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {users.isError && (

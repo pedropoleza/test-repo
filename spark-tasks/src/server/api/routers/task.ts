@@ -13,7 +13,6 @@ import {
   TASK_COLORS,
   TASK_PRIORITIES,
   CARD_STYLES,
-  CUSTOM_FIELD_TYPES,
   DEFAULT_STAGES,
   type Stage,
 } from "~/server/db/schema";
@@ -41,17 +40,6 @@ const checklistSchema = z
     }),
   )
   .max(50);
-const taskTypeSchema = z.string().trim().min(1).max(40);
-const customFieldsSchema = z
-  .array(
-    z.object({
-      id: z.string().min(1).max(40),
-      label: z.string().trim().min(1).max(100),
-      type: z.enum(CUSTOM_FIELD_TYPES),
-      value: z.string().max(2000),
-    }),
-  )
-  .max(30);
 
 type Db = Parameters<Parameters<typeof locationProcedure.query>[0]>[0]["ctx"]["db"];
 
@@ -246,8 +234,6 @@ export const taskRouter = createTRPCRouter({
         dueDate: z.date().nullish(),
         contactId: z.string().max(100).nullish(),
         assigneeIds: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
-        taskType: taskTypeSchema.nullish(),
-        customFields: customFieldsSchema.default([]),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -289,8 +275,6 @@ export const taskRouter = createTRPCRouter({
           contactId: input.contactId ?? null,
           position: count,
           createdBy: ctx.userId,
-          taskType: input.taskType ?? null,
-          customFields: input.customFields,
         })
         .returning();
       if (!created) throw new Error("task_create_failed");
@@ -335,7 +319,6 @@ export const taskRouter = createTRPCRouter({
         priority: priorityEnum.optional(),
         labels: labelsSchema.optional(),
         checklist: checklistSchema.optional(),
-        customFields: customFieldsSchema.optional(),
         dueDate: z.date().nullable().optional(),
         contactId: z.string().max(100).nullable().optional(),
       }),
@@ -350,7 +333,6 @@ export const taskRouter = createTRPCRouter({
       if (patch.priority !== undefined) set.priority = patch.priority;
       if (patch.labels !== undefined) set.labels = patch.labels;
       if (patch.checklist !== undefined) set.checklist = patch.checklist;
-      if (patch.customFields !== undefined) set.customFields = patch.customFields;
       if (patch.dueDate !== undefined) set.dueDate = patch.dueDate;
       if (patch.contactId !== undefined) set.contactId = patch.contactId;
 
@@ -705,10 +687,6 @@ export const taskRouter = createTRPCRouter({
           labels: src.labels,
           // Reset done-state of checklist items on the copy.
           checklist: src.checklist.map((c) => ({ ...c, done: false })),
-          // Keep the task type + field layout, but blank the entered values so
-          // the copy is a fresh form to fill in.
-          taskType: src.taskType,
-          customFields: src.customFields.map((f) => ({ ...f, value: "" })),
           dueDate: src.dueDate,
           contactId: src.contactId,
           position: count,

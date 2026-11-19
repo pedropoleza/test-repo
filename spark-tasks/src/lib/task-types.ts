@@ -1,51 +1,20 @@
 /**
- * Task types — predefined "templates" that seed a new task so the user just
- * fills in the blanks. Picking one from the New-task menu opens the task with
- * its layout ready.
+ * Task types — predefined templates that pre-fill a new task's note so the user
+ * just fills in the blanks. Picking one from the New-task menu opens the task
+ * with its layout ready in the note.
  *
- * There are two shapes a type can seed (a type can use either or both):
- *  - Structured fields: a fixed set of labeled, typed inputs (see CustomField).
- *    Best for short intake forms. → "Cotação".
- *  - A note template: a pre-filled multi-section document in the task note.
- *    Best for long documents with tables/many rows. → "Proposta de cotação".
+ * Both current types seed a note template:
+ *  - "Cotação": the short intake (data we need to run a quote).
+ *  - "Proposta de cotação": the full insurance-quote proposal (client data,
+ *    term-plan tables, accumulation options, observations).
  *
- * Adding a type is an entry here plus a menu option in Board.tsx — the modal
- * renders whatever a task carries.
+ * Adding a type is an entry here plus a menu option in Board.tsx.
  */
-import type { CustomField, CustomFieldType } from "~/server/db/schema";
 
-/** Short intake form: the data we need to run a quote. */
 export const QUOTE_TASK_TYPE = "cotacao";
-/** The full insurance-quote proposal document (tables + accumulation options). */
 export const PROPOSAL_TASK_TYPE = "proposta";
 
-export type FieldDef = { id: string; label: string; type: CustomFieldType };
-
-/** The fields a "Cotação" task is seeded with, in display order. */
-export const QUOTE_FIELD_DEFS: FieldDef[] = [
-  { id: "nome", label: "Nome", type: "text" },
-  { id: "sobrenome", label: "Sobrenome", type: "text" },
-  { id: "nascimento", label: "Data de nascimento", type: "date" },
-  { id: "estado", label: "Estado", type: "text" },
-  { id: "fumante", label: "É fumante?", type: "boolean" },
-  { id: "remedio", label: "Toma algum remédio prescrito?", type: "boolean" },
-  { id: "casado", label: "É casado(a)?", type: "boolean" },
-];
-
-/** Build the empty structured field set for a task type (empty if none). */
-export function seedFieldsForType(taskType?: string | null): CustomField[] {
-  if (taskType === QUOTE_TASK_TYPE) {
-    return QUOTE_FIELD_DEFS.map((f) => ({
-      id: f.id,
-      label: f.label,
-      type: f.type,
-      value: "",
-    }));
-  }
-  return [];
-}
-
-/** Human label for a task type (for the modal heading and the card badge). */
+/** Human label for a task type (used for the modal heading on create). */
 export function taskTypeLabel(taskType?: string | null): string | null {
   if (taskType === QUOTE_TASK_TYPE) return "Cotação";
   if (taskType === PROPOSAL_TASK_TYPE) return "Proposta";
@@ -55,6 +24,17 @@ export function taskTypeLabel(taskType?: string | null): string | null {
 // ---------------------------------------------------------------------------
 // Note templates
 // ---------------------------------------------------------------------------
+
+const QUOTE_NOTE = `COTAÇÃO
+
+Nome:
+Sobrenome:
+Data de nascimento:
+Estado:
+É fumante?:
+Toma algum remédio prescrito?:
+É casado(a)?:
+`;
 
 /** Accumulation plan: 19 options from US$100 to US$1000/mo in US$50 steps. */
 function accumulationBlock(): string {
@@ -111,6 +91,7 @@ Responsável pela cotação:
 
 /** Pre-filled note template for a task type (empty if the type has none). */
 export function seedNoteForType(taskType?: string | null): string {
+  if (taskType === QUOTE_TASK_TYPE) return QUOTE_NOTE;
   if (taskType === PROPOSAL_TASK_TYPE) return PROPOSAL_NOTE;
   return "";
 }

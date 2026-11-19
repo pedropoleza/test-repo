@@ -11,14 +11,12 @@ import { api } from "~/trpc/react";
 import type {
   CardStyle,
   ChecklistItem,
-  CustomField,
   Stage,
   TaskColor,
   TaskPriority,
 } from "~/server/db/schema";
 import {
   PROPOSAL_TASK_TYPE,
-  seedFieldsForType,
   seedNoteForType,
   taskTypeLabel,
 } from "~/lib/task-types";
@@ -99,17 +97,9 @@ export function TaskModal({
   const [labelDraft, setLabelDraft] = useState("");
   const [checklist, setChecklist] = useState<ChecklistItem[]>(editing?.checklist ?? []);
   const [checkDraft, setCheckDraft] = useState("");
-  // Task type + its structured fields. On create, a chosen type (e.g. Cotação)
-  // seeds the labeled fields; on edit we carry whatever the task already has.
-  const taskType =
-    editing?.taskType ?? (state.mode === "create" ? state.taskType ?? null : null);
-  const [customFields, setCustomFields] = useState<CustomField[]>(
-    editing?.customFields && editing.customFields.length
-      ? editing.customFields
-      : state.mode === "create"
-        ? seedFieldsForType(state.taskType)
-        : [],
-  );
+  // Task type is only meaningful on create (it seeds the note template + the
+  // modal heading). It isn't persisted on the task.
+  const taskType = state.mode === "create" ? state.taskType ?? null : null;
   const typeLabel = taskTypeLabel(taskType);
   const [assignees, setAssignees] = useState<Set<string>>(new Set(editing?.assigneeIds ?? []));
   const [contact, setContact] = useState<{ id: string; name: string } | null>(
@@ -190,8 +180,6 @@ export function TaskModal({
           // Assignees are created atomically with the task (enforces the
           // required-owner rule server-side).
           assigneeIds: [...assignees],
-          taskType: taskType ?? undefined,
-          customFields,
         });
         if (checklist.length) await update.mutateAsync({ id: created.id, checklist });
       } else {
@@ -205,7 +193,6 @@ export function TaskModal({
           priority,
           labels,
           checklist,
-          customFields,
           dueDate,
           contactId: contact?.id ?? null,
         });
@@ -246,7 +233,6 @@ export function TaskModal({
       labels,
       assignees: assigneeNames,
       contactName,
-      customFields,
       note,
       checklist,
     });
@@ -322,56 +308,6 @@ export function TaskModal({
                 maxLength={500}
               />
             </div>
-
-            {customFields.length > 0 && (
-              <div className="field">
-                <label>{typeLabel ? `Dados da ${typeLabel.toLowerCase()}` : "Campos"}</label>
-                <div className="cfield-list">
-                  {customFields.map((f, i) => (
-                    <div className="cfield" key={f.id}>
-                      <span className="cfield-label">{f.label}</span>
-                      {f.type === "boolean" ? (
-                        <div className="cfield-seg" role="group" aria-label={f.label}>
-                          {(["sim", "nao"] as const).map((opt) => (
-                            <button
-                              key={opt}
-                              type="button"
-                              className={`cfield-seg-btn${f.value === opt ? " on" : ""}`}
-                              onClick={() =>
-                                setCustomFields((prev) =>
-                                  prev.map((x, j) =>
-                                    j === i
-                                      ? { ...x, value: x.value === opt ? "" : opt }
-                                      : x,
-                                  ),
-                                )
-                              }
-                            >
-                              {opt === "sim" ? "Sim" : "Não"}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <input
-                          className="input cfield-input"
-                          type={f.type === "date" ? "date" : "text"}
-                          value={f.value}
-                          placeholder={f.type === "date" ? "" : "Preencher…"}
-                          maxLength={2000}
-                          onChange={(e) =>
-                            setCustomFields((prev) =>
-                              prev.map((x, j) =>
-                                j === i ? { ...x, value: e.target.value } : x,
-                              ),
-                            )
-                          }
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             <div className="field">
               <label>Note</label>

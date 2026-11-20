@@ -24,7 +24,7 @@ import {
   type Stage,
 } from "~/server/db/schema";
 import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
-import { seedNoteForType, seedTitleForType, PROPOSAL_TASK_TYPE } from "~/lib/task-types";
+import { seedTitleForType, PROPOSAL_TASK_TYPE } from "~/lib/task-types";
 import { ensureCotacaoStage } from "~/server/cotacao-stage";
 import { routedBoard } from "./routing";
 
@@ -37,7 +37,56 @@ export type OppCotacaoInput = {
   /** Pipeline + stage as reported by GHL (used for the optional guard). */
   pipeline?: string | null;
   stage?: string | null;
+  // Client data (resolved by GHL merge fields) used to pre-fill the task note.
+  clienteEstado?: string | null;
+  dateOfBirth?: string | null;
+  fumante?: string | null;
+  indicacao?: string | null;
+  estadoCivil?: string | null;
+  conjuge?: string | null;
+  medicamentos?: string | null;
+  cotacaoDate?: string | null;
+  /** If GHL sends a fully composed body, we use it verbatim as the note. */
+  note?: string | null;
 };
+
+/**
+ * Build the pre-filled "DADOS DO CLIENTE" + "OBSERVAÇÕES" note from the contact
+ * data GHL sends. If a fully composed `note` is provided, it's used verbatim.
+ */
+function buildCotacaoNote(i: OppCotacaoInput): string {
+  if (i.note && i.note.trim()) return i.note.trim();
+  const v = (s?: string | null) => (s ?? "").trim();
+  const today = v(i.cotacaoDate) || new Date().toLocaleDateString("pt-BR");
+  return [
+    "## DADOS DO CLIENTE",
+    "",
+    `Nome completo: ${v(i.name)}`,
+    "",
+    `Cliente/Estado: ${v(i.clienteEstado)}`,
+    "",
+    `Data de nascimento: ${v(i.dateOfBirth)}`,
+    "",
+    `Fumante: ${v(i.fumante)}`,
+    "",
+    `Indicação: ${v(i.indicacao)}`,
+    "",
+    `Estado civil: ${v(i.estadoCivil)}`,
+    "",
+    `Informações do cônjuge: ${v(i.conjuge)}`,
+    "",
+    `Uso de medicamentos: ${v(i.medicamentos)}`,
+    "",
+    "## OBSERVAÇÕES",
+    "",
+    `Data da cotação: ${today}`,
+    "",
+    "Responsável pela cotação: Júlia",
+    "",
+    "Informações complementares:",
+    "",
+  ].join("\n");
+}
 
 // Allowlist of locations where this automation runs. Defaults to Sabrina's
 // subaccount; override with COTACAO_OPP_LOCATION_IDS (comma-separated).
@@ -166,7 +215,7 @@ export async function createCotacaoTaskFromOpp(
         locationId: input.locationId,
         boardId: board.id,
         title,
-        note: seedNoteForType(PROPOSAL_TASK_TYPE),
+        note: buildCotacaoNote(input),
         status,
         color: "blue",
         priority: "high",

@@ -103,6 +103,47 @@ export async function POST(req: NextRequest) {
     "stage_id",
   ]);
 
+  // Client data (GHL resolves these merge fields before sending).
+  const clienteEstado = pick(contact, ["clienteEstado", "cliente_estado"]) ||
+    pick(body, ["clienteEstado", "cliente_estado", "clienteestado", "state"]);
+  const dateOfBirth = pick(body, [
+    "dateOfBirth",
+    "date_of_birth",
+    "nascimento",
+    "birthDate",
+  ]) || pick(contact, ["date_of_birth", "dateOfBirth"]);
+  const fumante = pick(body, ["fumante", "smoker"]) || pick(contact, ["fumante"]);
+  const indicacao = pick(body, ["indicacao", "indicao", "indicação", "referral"]) ||
+    pick(contact, ["indicao", "indicacao"]);
+  const estadoCivil =
+    pick(body, ["estadoCivil", "estado_civil", "maritalStatus"]) ||
+    pick(contact, ["estado_civil", "estadoCivil"]);
+  const conjuge =
+    pick(body, [
+      "conjuge",
+      "cnjuge",
+      "conjugeInfo",
+      "informacoesDoConjuge",
+      "informaes_do_cnjuge",
+      "informacoes_do_conjuge",
+      "spouse",
+    ]) || pick(contact, ["informaes_do_cnjuge", "informacoes_do_conjuge"]);
+  const medicamentos =
+    pick(body, [
+      "medicamentos",
+      "usoDeMedicamentos",
+      "uso_de_medicamentos",
+      "medications",
+    ]) || pick(contact, ["uso_de_medicamentos"]);
+  const cotacaoDate = pick(body, [
+    "cotacaoDate",
+    "dataDaCotacao",
+    "data_da_cotacao",
+    "quoteDate",
+    "date",
+  ]);
+  const note = pick(body, ["note", "body", "description", "taskBody"]);
+
   if (!locationId) {
     return NextResponse.json({ error: "missing_location" }, { status: 400 });
   }
@@ -116,6 +157,15 @@ export async function POST(req: NextRequest) {
       assignedTo,
       pipeline,
       stage,
+      clienteEstado,
+      dateOfBirth,
+      fumante,
+      indicacao,
+      estadoCivil,
+      conjuge,
+      medicamentos,
+      cotacaoDate,
+      note,
     });
     return NextResponse.json({ ok: true, ...res });
   } catch (err) {

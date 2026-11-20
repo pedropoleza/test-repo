@@ -11,11 +11,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function authorized(req: NextRequest): boolean {
-  const secret = process.env.DIAG_SECRET;
-  if (!secret) return false;
-  const bearer = req.headers.get("authorization") === `Bearer ${secret}`;
-  const key = req.nextUrl.searchParams.get("key") === secret;
-  return bearer || key;
+  const secrets = [process.env.DIAG_SECRET, process.env.MIGRATE_SECRET].filter(
+    (s): s is string => !!s,
+  );
+  if (!secrets.length) return false;
+  const auth = req.headers.get("authorization");
+  const key = req.nextUrl.searchParams.get("key");
+  return secrets.some((s) => auth === `Bearer ${s}` || key === s);
 }
 
 export async function GET(req: NextRequest) {
@@ -38,6 +40,8 @@ export async function GET(req: NextRequest) {
     const users = await getLocationUsers(loc);
     out.usersOk = true;
     out.userCount = users.length;
+    // id + name so an admin can map a name (e.g. "Júlia") to its GHL user id.
+    out.users = users.map((u) => ({ id: u.id, name: u.name }));
   } catch (e) {
     out.usersOk = false;
     out.usersError = e instanceof Error ? e.message.slice(0, 300) : "unknown";

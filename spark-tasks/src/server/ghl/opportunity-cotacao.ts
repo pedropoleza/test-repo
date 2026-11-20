@@ -143,6 +143,37 @@ async function defaultBoard(tx: typeof db, locationId: string) {
   return created!;
 }
 
+/**
+ * Proactively ensure the "Cotação" stage exists (first, before To Do) on the
+ * board where this automation places proposal tasks — so the column shows up
+ * even before the first cotação task is created. Returns the board it touched.
+ */
+export async function ensureCotacaoStageForLocation(locationId: string): Promise<{
+  boardId: string;
+  boardName: string | null;
+  stageId: string;
+  stages: string[];
+}> {
+  return scoped(locationId, async (tx) => {
+    const assignee = FIXED_ASSIGNEE ?? null;
+    const board =
+      (await routedBoard(tx, locationId, assignee)) ??
+      (await defaultBoard(tx, locationId));
+    const ensured = await ensureCotacaoStage(tx, board);
+    const [b] = await tx
+      .select({ name: boards.name })
+      .from(boards)
+      .where(eq(boards.id, board.id))
+      .limit(1);
+    return {
+      boardId: board.id,
+      boardName: b?.name ?? null,
+      stageId: ensured.stageId,
+      stages: ensured.stages.map((s) => s.name),
+    };
+  });
+}
+
 export type OppCotacaoResult = {
   created: boolean;
   taskId?: string;

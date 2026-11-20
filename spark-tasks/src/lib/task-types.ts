@@ -31,57 +31,23 @@ export function seedTitleForType(taskType?: string | null): string {
 // Note templates
 // ---------------------------------------------------------------------------
 
-/** Accumulation plan: 19 options from US$100 to US$1000/mo in US$50 steps. */
-function accumulationBlock(): string {
-  const lines: string[] = ["## SEGURO COM ACUMULAÇÃO", ""];
-  for (let i = 0; i < 19; i++) {
-    const monthly = 100 + i * 50;
-    const n = String(i + 1).padStart(2, "0");
-    lines.push(
-      `### Opção ${n} — US$ ${monthly}/mês`,
-      "Valor do seguro:",
-      "Acumulação aos 66 anos:",
-      "Renda vitalícia:",
-      "",
-    );
-  }
-  return lines.join("\n");
-}
+// Blank version of the cotação note (same structure the automation fills in).
+const PROPOSAL_NOTE = `## DADOS DO CLIENTE
 
-const PROPOSAL_NOTE = `MODELO DE COTAÇÃO DE SEGURO
-
-## DADOS DO CLIENTE
-Cliente/Estado:
 Nome completo:
+Cliente/Estado:
 Data de nascimento:
 Fumante:
 Indicação:
 Estado civil:
-Situação do cônjuge:
+Informações do cônjuge:
 Uso de medicamentos:
-Observações:
 
-## PLANO TERMO — 20 ANOS
-US$ 1.000.000 — Mensalidade:
-US$ 900.000 — Mensalidade:
-US$ 800.000 — Mensalidade:
-US$ 700.000 — Mensalidade:
-US$ 600.000 — Mensalidade:
+## OBSERVAÇÕES
 
-## PLANO TERMO — 30 ANOS
-US$ 1.000.000 — Mensalidade:
-US$ 900.000 — Mensalidade:
-US$ 800.000 — Mensalidade:
-US$ 700.000 — Mensalidade:
-US$ 600.000 — Mensalidade:
-US$ 500.000 — Mensalidade:
-US$ 400.000 — Mensalidade:
-
-${accumulationBlock()}
-## OBSERVAÇÕES ADICIONAIS
-Informações complementares:
 Data da cotação:
 Responsável pela cotação:
+Informações complementares:
 `;
 
 /** Pre-filled note template for a task type (empty if the type has none). */

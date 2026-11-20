@@ -45,7 +45,9 @@ function safeFilename(title: string): string {
   return `${base || "tarefa"}.pdf`;
 }
 
-export async function exportTaskPdf(data: TaskPdfData): Promise<void> {
+async function buildTaskDoc(
+  data: TaskPdfData,
+): Promise<{ doc: import("jspdf").jsPDF; filename: string }> {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
 
@@ -171,5 +173,19 @@ export async function exportTaskPdf(data: TaskPdfData): Promise<void> {
     doc.text(`${p}/${pages}`, pageW - margin, pageH - 24, { align: "right" });
   }
 
-  doc.save(safeFilename(data.title));
+  return { doc, filename: safeFilename(data.title) };
+}
+
+/** Build and download the task PDF (browser). */
+export async function exportTaskPdf(data: TaskPdfData): Promise<void> {
+  const { doc, filename } = await buildTaskDoc(data);
+  doc.save(filename);
+}
+
+/** Build the task PDF and return it as a base64 data URI + filename. */
+export async function taskPdfDataUri(
+  data: TaskPdfData,
+): Promise<{ dataUri: string; filename: string }> {
+  const { doc, filename } = await buildTaskDoc(data);
+  return { dataUri: doc.output("datauristring", { filename }), filename };
 }

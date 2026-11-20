@@ -20,6 +20,7 @@ import { runContactWriteback } from "~/server/ghl/writeback";
 import { locationRequiresOwner } from "~/server/config";
 import { ensureCotacaoStage } from "~/server/cotacao-stage";
 import { PROPOSAL_TASK_TYPE } from "~/lib/task-types";
+import { waConfiguredFor, sendTaskPdfToConfiguredUser } from "~/server/ghl/pit";
 import { pushTaskCompletion, pushTaskFields } from "~/server/ghl/task-sync";
 import { sendPushToUser } from "~/server/push";
 import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
@@ -317,6 +318,48 @@ export const taskRouter = createTRPCRouter({
         after(() => mirrorTaskToWorkspace(locationId, id));
       }
       return created;
+    }),
+
+  /**
+   * Deliver a task's PDF by WhatsApp to the configured user's own number
+   * (Sabrina). The client generates the PDF and sends it here base64-encoded;
+   * the server uploads it to GHL and sends it via the sub-account PIT. Only
+   * works where WhatsApp delivery is configured for the location.
+   */
+  sendWhatsappPdf: locationProcedure
+    .input(
+      z.object({
+        pdfBase64: z.string().min(1).max(8_000_000),
+        filename: z.string().trim().min(1).max(200).default("cotacao.pdf"),
+        message: z.string().max(2000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!waConfiguredFor(ctx.locationId)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "wa_not_configured" });
+      }
+      const raw = input.pdfBase64.includes(",")
+        ? input.pdfBase64.slice(input.pdfBase64.indexOf(",") + 1)
+        : input.pdfBase64;
+      const bytes = Uint8Array.from(Buffer.from(raw, "base64"));
+      if (bytes.length < 100) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "pdf_too_small" });
+      }
+      const filename = input.filename.toLowerCase().endsWith(".pdf")
+        ? input.filename
+        : `${input.filename}.pdf`;
+      try {
+        const messageId = await sendTaskPdfToConfiguredUser({
+          locationId: ctx.locationId,
+          pdf: bytes,
+          filename,
+          message: input.message?.trim() || "Cotação em PDF",
+        });
+        return { ok: true as const, messageId };
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : "unknown";
+        throw new TRPCError({ code: "BAD_REQUEST", message: reason.slice(0, 200) });
+      }
     }),
 
   update: locationProcedure

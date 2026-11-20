@@ -685,6 +685,7 @@ export function Board() {
           boardId={activeBoardId ?? undefined}
           stages={stages}
           requiresOwner={requiresOwner}
+          canWhatsapp={whoami.data?.canWhatsapp ?? false}
           onClose={() => setModal(null)}
         />
       )}

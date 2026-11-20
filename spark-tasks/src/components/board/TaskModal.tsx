@@ -32,7 +32,7 @@ import {
 import type { Task } from "./TaskCard";
 import { openResolvedTab } from "./open-tab";
 import { ghlContactUrl } from "~/lib/ghl-app";
-import { exportTaskPdf } from "~/lib/task-pdf";
+import { exportTaskPdf, taskPdfDataUri, type TaskPdfData } from "~/lib/task-pdf";
 
 type GhlUser = { id: string; name: string; email?: string };
 
@@ -49,6 +49,7 @@ export function TaskModal({
   boardId,
   stages,
   requiresOwner,
+  canWhatsapp,
   onClose,
 }: {
   state: ModalState;
@@ -60,6 +61,8 @@ export function TaskModal({
   stages: Stage[];
   /** This subaccount requires at least one assignee (owner) on a task. */
   requiresOwner: boolean;
+  /** WhatsApp PDF delivery is configured for this location (Sabrina). */
+  canWhatsapp: boolean;
   onClose: () => void;
 }) {
   const utils = api.useUtils();
@@ -221,7 +224,9 @@ export function TaskModal({
     }
   }
 
-  function exportPdf() {
+  const sendWa = api.task.sendWhatsappPdf.useMutation();
+
+  function buildPdfData(): TaskPdfData {
     const stageName = selectedStages.find((s) => s.id === status)?.name ?? status;
     const assigneeNames = [...assignees]
       .map((id) => users.find((u) => u.id === id)?.name ?? id)
@@ -230,7 +235,7 @@ export function TaskModal({
       contact && contact.name !== "…"
         ? contact.name
         : (linkedContact.data?.name ?? null);
-    void exportTaskPdf({
+    return {
       title: title.trim() || "Tarefa",
       typeLabel,
       stageName,
@@ -241,6 +246,20 @@ export function TaskModal({
       contactName,
       note,
       checklist,
+    };
+  }
+
+  function exportPdf() {
+    void exportTaskPdf(buildPdfData());
+  }
+
+  async function sendWhatsapp() {
+    const data = buildPdfData();
+    const { dataUri, filename } = await taskPdfDataUri(data);
+    sendWa.mutate({
+      pdfBase64: dataUri,
+      filename,
+      message: `${data.title}`,
     });
   }
 
@@ -789,13 +808,33 @@ export function TaskModal({
         <div className="modal-footer" style={{ paddingTop: 14, borderTop: "1px solid var(--border)" }}>
           <button
             className="btn btn-secondary"
-            style={{ marginRight: "auto" }}
+            style={{ marginRight: canWhatsapp ? undefined : "auto" }}
             onClick={exportPdf}
             disabled={!title.trim()}
             title="Gerar um PDF com o que está preenchido na tarefa"
           >
             ⬇ Exportar PDF
           </button>
+          {canWhatsapp && (
+            <button
+              className="btn btn-secondary"
+              style={{ marginRight: "auto" }}
+              onClick={() => void sendWhatsapp()}
+              disabled={!title.trim() || sendWa.isPending}
+              title="Enviar o PDF da cotação no WhatsApp"
+            >
+              {sendWa.isPending
+                ? "Enviando…"
+                : sendWa.isSuccess
+                  ? "✓ Enviado no WhatsApp"
+                  : "📲 Enviar no WhatsApp"}
+            </button>
+          )}
+          {canWhatsapp && sendWa.isError && (
+            <span className="error-text" style={{ marginRight: "auto", alignSelf: "center" }}>
+              Falha ao enviar.
+            </span>
+          )}
           <button className="btn btn-secondary" onClick={onClose} disabled={saving}>
             Cancel
           </button>

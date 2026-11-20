@@ -9,6 +9,7 @@ import { notificationsRouter } from "./routers/notifications";
 import { pushRouter } from "./routers/push";
 import { settingsRouter } from "./routers/settings";
 import { locationRequiresOwner, locationHasQuoteTask } from "~/server/config";
+import { waConfiguredFor } from "~/server/ghl/pit";
 
 export const appRouter = createTRPCRouter({
   board: boardRouter,
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
       userId: ctx.userId,
       requiresOwner: locationRequiresOwner(ctx.locationId),
       hasQuoteTask: locationHasQuoteTask(ctx.locationId),
+      canWhatsapp: waConfiguredFor(ctx.locationId),
     })),
   }),
 });

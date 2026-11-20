@@ -6,6 +6,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getLocationToken } from "~/server/ghl/oauth";
 import { getLocationUsers } from "~/server/ghl/api";
+import { db } from "~/server/db";
+import { ghlInstallations } from "~/server/db/schema";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +47,18 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     out.usersOk = false;
     out.usersError = e instanceof Error ? e.message.slice(0, 300) : "unknown";
+  }
+  try {
+    const rows = await db
+      .select({ scopes: ghlInstallations.scopes })
+      .from(ghlInstallations);
+    const set = new Set<string>();
+    for (const r of rows) {
+      for (const s of (r.scopes ?? "").split(/\s+/).filter(Boolean)) set.add(s);
+    }
+    out.scopes = [...set].sort();
+  } catch {
+    out.scopes = null;
   }
   return NextResponse.json(out);
 }

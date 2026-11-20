@@ -18,6 +18,8 @@ import {
 } from "~/server/db/schema";
 import { runContactWriteback } from "~/server/ghl/writeback";
 import { locationRequiresOwner } from "~/server/config";
+import { ensureCotacaoStage } from "~/server/cotacao-stage";
+import { PROPOSAL_TASK_TYPE } from "~/lib/task-types";
 import { pushTaskCompletion, pushTaskFields } from "~/server/ghl/task-sync";
 import { sendPushToUser } from "~/server/push";
 import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
@@ -234,6 +236,9 @@ export const taskRouter = createTRPCRouter({
         dueDate: z.date().nullish(),
         contactId: z.string().max(100).nullish(),
         assigneeIds: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
+        // Transient hint (not persisted): a proposal task is routed to the
+        // dedicated "Cotação" stage regardless of the requested status.
+        taskType: z.string().trim().max(40).nullish(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -245,12 +250,18 @@ export const taskRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "owner_required" });
       }
       const board = await getBoard(ctx.db, ctx.locationId, input.boardId);
-      // Resolve the stage: use the requested one if it exists on the board,
-      // otherwise the first stage.
-      const status =
-        input.status && board.stages.some((s) => s.id === input.status)
-          ? input.status
-          : board.stages[0]?.id ?? "todo";
+      // Proposal tasks always land in the dedicated "Cotação" stage (created
+      // first on the board if missing). Otherwise use the requested stage, else
+      // the first stage.
+      let status: string;
+      if (input.taskType === PROPOSAL_TASK_TYPE) {
+        status = (await ensureCotacaoStage(ctx.db, board)).stageId;
+      } else {
+        status =
+          input.status && board.stages.some((s) => s.id === input.status)
+            ? input.status
+            : board.stages[0]?.id ?? "todo";
+      }
       // Append to the end of the target column.
       const [{ count }] = (await ctx.db
         .select({ count: sql<number>`count(*)::int` })

@@ -184,6 +184,8 @@ export function TaskModal({
           // Assignees are created atomically with the task (enforces the
           // required-owner rule server-side).
           assigneeIds: [...assignees],
+          // Routes proposal tasks to the dedicated "Cotação" stage server-side.
+          taskType: taskType ?? undefined,
         });
         if (checklist.length) await update.mutateAsync({ id: created.id, checklist });
       } else {

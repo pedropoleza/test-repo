@@ -25,6 +25,7 @@ import {
 } from "~/server/db/schema";
 import { ghlContactUrl, ghlDashboardUrl } from "~/lib/ghl-app";
 import { seedNoteForType, seedTitleForType, PROPOSAL_TASK_TYPE } from "~/lib/task-types";
+import { ensureCotacaoStage } from "~/server/cotacao-stage";
 import { routedBoard } from "./routing";
 
 export type OppCotacaoInput = {
@@ -73,9 +74,6 @@ async function scoped<T>(locationId: string, fn: (tx: typeof db) => Promise<T>) 
   });
 }
 
-function openStageId(stages: Stage[]): string {
-  return stages[0]?.id ?? "todo";
-}
 function doneStageIds(stages: Stage[]): Set<string> {
   const done = stages.filter((s) => s.isDone).map((s) => s.id);
   return new Set(done.length ? done : [stages[stages.length - 1]?.id ?? "done"]);
@@ -126,8 +124,11 @@ export async function createCotacaoTaskFromOpp(
     const board =
       (await routedBoard(tx, input.locationId, assignee)) ??
       (await defaultBoard(tx, input.locationId));
-    const stages = board.stages;
-    const status = openStageId(stages);
+    // Proposal tasks land in the dedicated "Cotação" stage (created first on
+    // the board if missing).
+    const ensured = await ensureCotacaoStage(tx, board);
+    const stages = ensured.stages;
+    const status = ensured.stageId;
     const doneSet = doneStageIds(stages);
 
     // Don't stack duplicates: skip if an OPEN cotação task already exists for

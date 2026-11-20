@@ -98,7 +98,15 @@ export async function uploadMedia(
   return data.url;
 }
 
-/** Send a WhatsApp message (optionally with attachment URLs) to a contact. */
+/**
+ * Send a message (optionally with attachment URLs) to a contact.
+ *
+ * WhatsApp in this account is delivered via SparkZap, which is wired as a custom
+ * SMS provider — so we send on the SMS channel (type "SMS"), NOT GHL's native
+ * WhatsApp API (that subscription isn't active and would fail with
+ * subscriptionNotActiveLocation). SparkZap routes the SMS to WhatsApp and the
+ * PDF attachment rides along. Verified: status "delivered".
+ */
 export async function sendWhatsapp(
   contactId: string,
   message: string,
@@ -107,7 +115,7 @@ export async function sendWhatsapp(
   const res = await fetch(`${GHL}/conversations/messages`, {
     method: "POST",
     headers: { ...authHeaders(), "Content-Type": "application/json" },
-    body: JSON.stringify({ type: "WhatsApp", contactId, message, attachments }),
+    body: JSON.stringify({ type: "SMS", contactId, message, attachments }),
   });
   if (!res.ok) throw new Error(await readError(res));
   const data = (await res.json()) as { messageId?: string };
